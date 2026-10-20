@@ -757,10 +757,28 @@
             if (nearbyMapLibrariesPromise) return nearbyMapLibrariesPromise;
             nearbyMapLibrariesPromise = new Promise((resolve, reject) => {
                 const script = document.createElement("script");
+                let settled = false;
+                const timeoutId = setTimeout(() => {
+                    if (settled) return;
+                    settled = true;
+                    script.remove();
+                    reject(new Error("La mappa interattiva non risponde; continuo senza mappa interattiva."));
+                }, 5000);
                 script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
                 script.crossOrigin = "";
-                script.onload = () => window.L ? resolve(window.L) : reject(new Error("La libreria della mappa non è disponibile."));
-                script.onerror = () => reject(new Error("Non riesco a caricare la mappa. Controlla la connessione."));
+                script.onload = () => {
+                    if (settled) return;
+                    settled = true;
+                    clearTimeout(timeoutId);
+                    window.L ? resolve(window.L) : reject(new Error("La libreria della mappa non è disponibile."));
+                };
+                script.onerror = () => {
+                    if (settled) return;
+                    settled = true;
+                    clearTimeout(timeoutId);
+                    script.remove();
+                    reject(new Error("Non riesco a caricare la mappa interattiva."));
+                };
                 document.head.appendChild(script);
             }).catch(error => { nearbyMapLibrariesPromise = null; throw error; });
             return nearbyMapLibrariesPromise;
