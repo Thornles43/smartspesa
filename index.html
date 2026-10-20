@@ -79,7 +79,7 @@
         <div class="grid grid-cols-2 gap-4 mb-6">
             <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                 <p class="text-xs text-gray-500 uppercase font-semibold">Risparmio potenziale</p>
-                <p class="text-2xl font-bold text-green-600" id="estimatedSaving">—</p>
+                <p class="text-2xl font-bold text-green-600" id="estimatedSaving">€0,00</p>
                 <p class="text-xs text-gray-400 mt-1">Sui prodotti confrontabili</p>
             </div>
             <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
@@ -489,20 +489,32 @@
         };
 
         function updateUIForUser() {
-            document.getElementById('userNameDisplay').textContent = currentUser.displayName || currentUser.email.split('@')[0];
+            const name = currentUser?.displayName || (currentUser?.email ? currentUser.email.split('@')[0] : 'Utente');
+            document.getElementById('userNameDisplay').textContent = name;
             document.getElementById('bottomNav').classList.remove('hidden');
-            showScreen('screen-dashboard');
+            window.showScreen('screen-dashboard');
             loadPrices();
         }
 
         window.showScreen = (screenId) => {
-            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-            document.getElementById(screenId).classList.add('active');
-            
+            const target = document.getElementById(screenId);
+            if (!target) return;
+
+            // Imposta anche il display inline per evitare che login e dashboard
+            // restino visibili insieme a causa di classi CSS o cache del browser.
+            document.querySelectorAll('.screen').forEach(screen => {
+                screen.classList.remove('active');
+                screen.style.setProperty('display', 'none', 'important');
+                screen.setAttribute('aria-hidden', 'true');
+            });
+            target.classList.add('active');
+            target.style.setProperty('display', screenId === 'screen-login' ? 'flex' : 'block', 'important');
+            target.setAttribute('aria-hidden', 'false');
+
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-            if(screenId === 'screen-dashboard') document.getElementById('nav-dashboard').classList.add('active');
-            if(screenId === 'screen-scan') document.getElementById('nav-scan').classList.add('active');
-            if(screenId === 'screen-list') document.getElementById('nav-list').classList.add('active');
+            if (screenId === 'screen-dashboard') document.getElementById('nav-dashboard').classList.add('active');
+            if (screenId === 'screen-scan') document.getElementById('nav-scan').classList.add('active');
+            if (screenId === 'screen-list') document.getElementById('nav-list').classList.add('active');
         };
 
         window.savePrice = async (e) => {
@@ -554,6 +566,9 @@
         };
 
         async function loadPrices() {
+            // Non lasciare statistiche vecchie se il caricamento non è ancora riuscito.
+            document.getElementById('trackedCount').textContent = '0';
+            document.getElementById('estimatedSaving').textContent = '€0,00';
             try {
                 const q = query(collection(db, "prices"), orderBy("timestamp", "desc"));
                 const querySnapshot = await getDocs(q);
@@ -563,7 +578,10 @@
                 document.getElementById('trackedCount').textContent = prices.length;
                 updateEstimatedSaving(prices);
             } catch (e) {
-                console.log("Errore caricamento", e);
+                console.error("Errore caricamento prezzi:", e);
+                renderPriceList([]);
+                document.getElementById('trackedCount').textContent = '0';
+                document.getElementById('estimatedSaving').textContent = '€0,00';
             }
         }
 
@@ -638,15 +656,8 @@
             container.innerHTML = html;
         }
 
-        // Monitora lo stato di autenticazione
+        // Monitora lo stato di autenticazione e mostra una sola schermata alla volta.
         document.documentElement.style.colorScheme = "light";
-        window.addEventListener("pageshow", () => {
-            const activeScreens = document.querySelectorAll(".screen.active");
-            if (activeScreens.length > 1) activeScreens.forEach((screen, index) => {
-                if (index < activeScreens.length - 1) screen.classList.remove("active");
-            });
-        });
-
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 currentUser = user;
@@ -654,7 +665,7 @@
             } else {
                 currentUser = null;
                 document.getElementById('bottomNav').classList.add('hidden');
-                showScreen('screen-login');
+                window.showScreen('screen-login');
             }
         });
     </script>
