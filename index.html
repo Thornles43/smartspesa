@@ -683,8 +683,8 @@
         };
 
         function normalizeProductName(value) {
-            return String(value || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLocaleLowerCase('it-IT')
-                .replace(/[^a-z0-9]+/g, ' ').trim().replace(/\\s+/g, ' ');
+            return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('it-IT')
+                .replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' ');
         }
 
         function productSearchScore(query, productName) {
@@ -712,7 +712,7 @@
             scannedProductMetadata = null;
             showProductMetadata(null);
             document.getElementById('productName').value = String(productName || '').trim();
-            document.getElementById('barcode').value = /^\\d{13}$/.test(String(barcode)) && isValidEan13(String(barcode)) ? String(barcode) : '';
+            document.getElementById('barcode').value = /^\d{13}$/.test(String(barcode)) && isValidEan13(String(barcode)) ? String(barcode) : '';
             document.getElementById('barcodeLookupStatus').classList.add('hidden');
             window.showScreen('screen-scan');
             if (document.getElementById('barcode').value) {
@@ -819,7 +819,7 @@
                 const safePriceSource = JSON.stringify(item.priceSource || 'community').replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
                 const safeSourceUrl = JSON.stringify(item.sourceUrl || '').replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
                 const safeTimestamp = JSON.stringify(item.timestamp || '').replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
-                const canRegisterPrice = item.price === null && /^\\d{13}$/.test(String(item.barcode || '')) && isValidEan13(String(item.barcode));
+                const canRegisterPrice = item.price === null && /^\d{13}$/.test(String(item.barcode || '')) && isValidEan13(String(item.barcode));
                 const registerButton = canRegisterPrice
                     ? '<button type="button" class="shopping-secondary mt-2" onclick=\'openPriceEntryForProduct(' + safeName + ', ' + safeBarcode + ')\'><i class="fa-solid fa-tag mr-1"></i>Registra un prezzo</button>'
                     : '';
