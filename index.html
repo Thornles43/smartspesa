@@ -6,6 +6,7 @@
     <title>SmartSpesa</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: #f3f4f6; -webkit-tap-highlight-color: transparent; }
         .screen { display: none; padding-bottom: 80px; animation: fadeIn 0.3s ease-in-out; }
@@ -19,6 +20,10 @@
         .best-price { border: 2px solid #22c55e; background: #f0fdf4; }
         .nav-item { color: #9ca3af; transition: color 0.2s; }
         .nav-item.active { color: #16a34a; }
+        #reader { width: 100%; overflow: hidden; border-radius: 0.75rem; }
+        #reader video { border-radius: 0.75rem; object-fit: cover; }
+        #reader__dashboard_section_csr button { background: #16a34a; color: white; border-radius: 0.5rem; padding: 0.5rem 0.75rem; margin: 0.25rem; }
+        #reader__dashboard_section_csr select { max-width: 100%; padding: 0.4rem; border: 1px solid #d1d5db; border-radius: 0.5rem; }
     </style>
 </head>
 <body class="text-gray-800">
@@ -95,13 +100,33 @@
                 <label class="block text-sm font-medium text-gray-700 mb-1">Codice Barcode (EAN)</label>
                 <div class="relative">
                     <i class="fa-solid fa-barcode absolute left-3 top-3 text-gray-400"></i>
-                    <input type="text" id="barcode" required class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none" placeholder="Es: 8001234567890">
+                    <input type="text" id="barcode" inputmode="numeric" autocomplete="off" required pattern="[0-9]{13}" maxlength="13" class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none" placeholder="EAN-13: 8001234567890">
+                </div>
+                <button type="button" onclick="startBarcodeScanner()" class="w-full mt-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-camera"></i> Scansiona con la fotocamera
+                </button>
+                <div id="scannerPanel" class="hidden mt-3 p-3 bg-gray-50 border border-gray-200 rounded-xl">
+                    <div class="flex items-center justify-between mb-2">
+                        <p class="font-semibold text-sm">Inquadra il codice a barre</p>
+                        <button type="button" onclick="stopBarcodeScanner()" class="text-sm text-red-600 font-semibold px-2 py-1">Chiudi fotocamera</button>
+                    </div>
+                    <div id="reader"></div>
+                    <p id="scannerStatus" role="status" aria-live="polite" class="text-sm text-gray-600 mt-2">Preparazione della fotocamera…</p>
                 </div>
             </div>
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Nome Prodotto</label>
                 <input type="text" id="productName" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" placeholder="Es: Pasta Barilla 500g">
+            </div>
+
+            <div id="productMetadata" class="hidden rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-gray-700">
+                <p class="font-semibold text-blue-900 mb-1"><i class="fa-solid fa-circle-info mr-1"></i> Dati prodotto trovati</p>
+                <p id="productBrand" class="hidden"><span class="font-medium">Marca:</span> <span></span></p>
+                <p id="productCategory" class="hidden"><span class="font-medium">Categoria:</span> <span></span></p>
+                <p id="productIngredients" class="hidden mt-1"><span class="font-medium">Ingredienti:</span> <span></span></p>
+                <p id="productCountry" class="hidden mt-1"><span class="font-medium">Origine dichiarata:</span> <span></span></p>
+                <p id="productDataSource" class="text-xs text-gray-500 mt-2">Dati forniti da Open Food Facts; possono essere incompleti.</p>
             </div>
 
             <div class="grid grid-cols-2 gap-4">
@@ -193,7 +218,169 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
+
         let currentUser = null;
+        let barcodeScanner = null;
+        let scannedProductMetadata = null;
+
+        const EU_COUNTRIES = new Set([
+            "austria", "belgium", "bulgaria", "croatia", "cyprus", "czech republic", "czechia", "denmark", "estonia", "finland", "france", "germany", "greece", "hungary", "ireland", "italy", "latvia", "lithuania", "luxembourg", "malta", "netherlands", "poland", "portugal", "romania", "slovakia", "slovenia", "spain", "sweden"
+        ]);
+
+        function isValidEan13(value) {
+            if (!/^\\d{13}$/.test(value)) return false;
+            const digits = value.split("").map(Number);
+            const sum = digits.slice(0, 12).reduce((total, digit, index) => total + digit * (index % 2 === 0 ? 1 : 3), 0);
+            return (10 - (sum % 10)) % 10 === digits[12];
+        }
+
+        function cleanTag(value) {
+            return String(value || "").replace(/^[a-z]{2,3}:/i, "").replace(/_/g, " ").trim();
+        }
+
+        function setMetadataLine(id, value) {
+            const line = document.getElementById(id);
+            const span = line.querySelector("span:last-child");
+            if (value) {
+                span.textContent = value;
+                line.classList.remove("hidden");
+            } else {
+                span.textContent = "";
+                line.classList.add("hidden");
+            }
+        }
+
+        function showProductMetadata(metadata) {
+            const panel = document.getElementById("productMetadata");
+            if (!metadata || !Object.values(metadata).some(Boolean)) {
+                panel.classList.add("hidden");
+                return;
+            }
+            setMetadataLine("productBrand", metadata.brand);
+            setMetadataLine("productCategory", metadata.category);
+            setMetadataLine("productIngredients", metadata.ingredients);
+            setMetadataLine("productCountry", metadata.countryOfOrigin);
+            panel.classList.remove("hidden");
+        }
+
+        function mapOrigin(originTags) {
+            const countries = (originTags || []).map(cleanTag).map(v => v.toLowerCase()).filter(Boolean);
+            if (!countries.length) return "unknown";
+            if (countries.length === 1 && countries[0] === "italy") return "it";
+            if (countries.every(country => EU_COUNTRIES.has(country))) return "eu";
+            if (countries.every(country => !EU_COUNTRIES.has(country))) return "extra";
+            return "unknown";
+        }
+
+        window.stopBarcodeScanner = async () => {
+            const panel = document.getElementById("scannerPanel");
+            if (barcodeScanner) {
+                try {
+                    if (barcodeScanner.isScanning) await barcodeScanner.stop();
+                    barcodeScanner.clear();
+                } catch (error) {
+                    console.warn("Chiusura scanner:", error);
+                }
+                barcodeScanner = null;
+            }
+            panel.classList.add("hidden");
+        };
+
+        window.startBarcodeScanner = async () => {
+            const panel = document.getElementById("scannerPanel");
+            const status = document.getElementById("scannerStatus");
+            if (!window.Html5Qrcode) {
+                status.textContent = "Libreria scanner non caricata. Controlla la connessione e ricarica la pagina.";
+                panel.classList.remove("hidden");
+                return;
+            }
+            if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+                alert("La fotocamera richiede HTTPS e un browser compatibile. Apri SmartSpesa tramite GitHub Pages in Chrome.");
+                return;
+            }
+            if (barcodeScanner) await window.stopBarcodeScanner();
+            panel.classList.remove("hidden");
+            status.textContent = "Richiesta accesso alla fotocamera…";
+            try {
+                barcodeScanner = new Html5Qrcode("reader", { verbose: false });
+                await barcodeScanner.start(
+                    { facingMode: "environment" },
+                    { fps: 10, qrbox: { width: 280, height: 130 }, aspectRatio: 1.777 },
+                    async (decodedText) => {
+                        const code = String(decodedText).trim();
+                        if (!isValidEan13(code)) {
+                            status.textContent = "Codice letto ma non valido come EAN-13. Inquadra il codice a barre del prodotto.";
+                            return;
+                        }
+                        document.getElementById("barcode").value = code;
+                        await window.stopBarcodeScanner();
+                        panel.classList.remove("hidden");
+                        status.textContent = "Codice letto. Ricerca del prodotto…";
+                        await lookupOpenFoodFacts(code);
+                    },
+                    () => {}
+                );
+                status.textContent = "Fotocamera attiva. Inquadra il codice EAN-13.";
+            } catch (error) {
+                barcodeScanner = null;
+                status.textContent = "Impossibile avviare la fotocamera. Verifica i permessi del browser e che nessun'altra app la stia usando.";
+                console.error("Avvio scanner:", error);
+            }
+        };
+
+        async function lookupOpenFoodFacts(barcode) {
+            const status = document.getElementById("scannerStatus");
+            const panel = document.getElementById("scannerPanel");
+            panel.classList.remove("hidden");
+            status.textContent = "Ricerca del prodotto su Open Food Facts…";
+            try {
+                const fields = "code,product_name,product_name_it,brands,categories,categories_tags,ingredients_text,ingredients_text_it,origins,origins_tags,countries,countries_tags,manufacturing_places";
+                const response = await fetch("https://world.openfoodfacts.org/api/v2/product/" + encodeURIComponent(barcode) + ".json?fields=" + fields, {
+                    headers: { "Accept": "application/json" }
+                });
+                if (!response.ok) throw new Error("Servizio non disponibile (" + response.status + ")");
+                const data = await response.json();
+                if (data.status !== 1 || !data.product) {
+                    scannedProductMetadata = null;
+                    showProductMetadata(null);
+                    document.getElementById("origin").value = "unknown";
+                    status.textContent = "Prodotto non trovato. Nome e provenienza possono essere inseriti manualmente; il barcode è stato mantenuto.";
+                    document.getElementById("productName").focus();
+                    return;
+                }
+                const p = data.product;
+                const name = p.product_name_it || p.product_name || "";
+                const origins = Array.isArray(p.origins_tags) ? p.origins_tags : [];
+                const countryOfOrigin = p.origins || (origins.length ? origins.map(cleanTag).join(", ") : "");
+                const category = p.categories || (Array.isArray(p.categories_tags) ? p.categories_tags.slice(0, 3).map(cleanTag).join(", ") : "");
+                const ingredients = p.ingredients_text_it || p.ingredients_text || "";
+                scannedProductMetadata = {
+                    brand: p.brands || "",
+                    category: category,
+                    ingredients: ingredients,
+                    countryOfOrigin: countryOfOrigin,
+                    productSource: "Open Food Facts"
+                };
+                if (name) document.getElementById("productName").value = name;
+                document.getElementById("origin").value = mapOrigin(origins);
+                showProductMetadata(scannedProductMetadata);
+                status.textContent = name ? "Prodotto trovato: controlla i dati e completa prezzo e supermercato." : "Prodotto trovato, ma il nome manca: inseriscilo manualmente e completa prezzo e supermercato.";
+                document.getElementById(name ? "price" : "productName").focus();
+            } catch (error) {
+                scannedProductMetadata = null;
+                showProductMetadata(null);
+                status.textContent = "Non riesco a contattare Open Food Facts. Controlla la connessione o inserisci i dati manualmente.";
+                console.error("Ricerca Open Food Facts:", error);
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            document.getElementById("barcode").addEventListener("input", () => {
+                scannedProductMetadata = null;
+                showProductMetadata(null);
+            });
+        });
+
 
         window.loginWithGoogle = async () => {
             const provider = new GoogleAuthProvider();
@@ -240,6 +427,11 @@
                 price: parseFloat(document.getElementById('price').value),
                 supermarket: document.getElementById('supermarket').value,
                 origin: document.getElementById('origin').value,
+                brand: scannedProductMetadata?.brand || "",
+                category: scannedProductMetadata?.category || "",
+                ingredients: scannedProductMetadata?.ingredients || "",
+                countryOfOrigin: scannedProductMetadata?.countryOfOrigin || "",
+                productSource: scannedProductMetadata?.productSource || "",
                 userId: currentUser.email,
                 timestamp: new Date().toISOString()
             };
@@ -248,6 +440,9 @@
                 await addDoc(collection(db, "prices"), priceData);
                 alert("✅ Prezzo salvato con successo! Grazie per il contributo.");
                 document.getElementById('priceForm').reset();
+                scannedProductMetadata = null;
+                showProductMetadata(null);
+                document.getElementById("scannerStatus").textContent = "Scanner pronto.";
                 showScreen('screen-dashboard');
             } catch (error) {
                 alert("Errore nel salvataggio: " + error.message);
@@ -285,9 +480,10 @@
                 items.sort((a, b) => a.price - b.price);
                 const best = items[0];
                 
-                const originBadge = best.origin === 'it' ? '<span class="badge-it text-xs px-2 py-1 rounded-full font-bold">🇮 Italiano</span>' : 
+                const originBadge = best.origin === 'it' ? '<span class="badge-it text-xs px-2 py-1 rounded-full font-bold">🇮🇹 Italiano</span>' : 
                                    best.origin === 'eu' ? '<span class="badge-eu text-xs px-2 py-1 rounded-full font-bold">🇪🇺 UE</span>' : 
-                                   '<span class="badge-extra text-xs px-2 py-1 rounded-full font-bold">🌍 Extra-UE</span>';
+                                   best.origin === 'extra' ? '<span class="badge-extra text-xs px-2 py-1 rounded-full font-bold">🌍 Extra-UE</span>' :
+                                   '<span class="badge-extra text-xs px-2 py-1 rounded-full font-bold">❓ Non specificato</span>';
 
                 html += `<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-4">
                     <div class="bg-gray-50 px-4 py-2 border-b border-gray-100 flex justify-between items-center">
