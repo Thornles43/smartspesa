@@ -251,6 +251,10 @@
                 <p>Nessun prezzo inserito ancora.<br>Inizia a scansionare!</p>
             </div>
         </div>
+        <div class="flex justify-center mt-4">
+            <button id="loadMorePricesButton" type="button" onclick="loadMorePrices()" class="hidden px-5 py-3 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700">Carica altri prezzi</button>
+        </div>
+        <p id="pricePaginationStatus" class="text-center text-xs text-gray-400 mt-2" aria-live="polite"></p>
     </div>
 
     <!-- SCHERMATA 5: LISTA DELLA SPESA -->
@@ -374,7 +378,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, query, orderBy, where, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, query, orderBy, where, doc, updateDoc, deleteDoc, limit, startAfter, getCountFromServer } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         // LA TUA CONFIGURAZIONE FIREBASE
         const firebaseConfig = {
@@ -398,6 +402,11 @@
         let barcodeLookupTimer = null;
         let scannedProductMetadata = null;
         let allKnownPrices = [];
+        const PRICE_PAGE_SIZE = 100;
+        let pricePageCursor = null;
+        let priceHasMore = false;
+        let pricePageLoading = false;
+        let priceLoadGeneration = 0;
         let shoppingItems = [];
         let shoppingListLoading = false;
         let shoppingSearchRequestId = 0;
@@ -1804,27 +1813,80 @@
         };
 
         async function loadPrices() {
-            // Non lasciare statistiche vecchie se il caricamento non è ancora riuscito.
-            document.getElementById('trackedCount').textContent = '0';
-            document.getElementById('estimatedSaving').textContent = '€0,00';
+            // Carica la prima pagina per evitare di scaricare l'intero archivio ad ogni apertura.
+            const generation = ++priceLoadGeneration;
+            pricePageCursor = null;
+            priceHasMore = false;
+            allKnownPrices = [];
+            const status = document.getElementById('pricePaginationStatus');
+            const button = document.getElementById('loadMorePricesButton');
+            if (button) button.classList.add('hidden');
+            if (status) status.textContent = 'Caricamento prezzi…';
+            document.getElementById('trackedCount').textContent = '…';
+            document.getElementById('estimatedSaving').textContent = '—';
             try {
-                const q = query(collection(db, "prices"), orderBy("timestamp", "desc"));
-                const querySnapshot = await getDocs(q);
-                const prices = [];
-                querySnapshot.forEach((doc) => prices.push(doc.data()));
-                allKnownPrices = prices;
-                renderPriceList(prices);
+                const q = query(collection(db, "prices"), orderBy("timestamp", "desc"), limit(PRICE_PAGE_SIZE));
+                const snapshot = await getDocs(q);
+                if (generation !== priceLoadGeneration) return;
+                allKnownPrices = snapshot.docs.map(item => item.data());
+                pricePageCursor = snapshot.docs.length ? snapshot.docs[snapshot.docs.length - 1] : null;
+                priceHasMore = snapshot.docs.length === PRICE_PAGE_SIZE;
+                renderPriceList(allKnownPrices);
                 const searchInput = document.getElementById('shoppingSearch');
                 if (searchInput && searchInput.value.trim()) window.searchShoppingProducts(searchInput.value);
-                document.getElementById('trackedCount').textContent = prices.length;
-                updateEstimatedSaving(prices);
+                try {
+                    const countSnapshot = await getCountFromServer(query(collection(db, "prices")));
+                    if (generation !== priceLoadGeneration) return;
+                    document.getElementById('trackedCount').textContent = countSnapshot.data().count.toLocaleString('it-IT');
+                } catch (countError) {
+                    console.warn('Conteggio prezzi non disponibile:', countError);
+                    document.getElementById('trackedCount').textContent = allKnownPrices.length + (priceHasMore ? '+' : '');
+                }
+                updateEstimatedSaving(allKnownPrices);
+                if (button) button.classList.toggle('hidden', !priceHasMore);
+                if (status) status.textContent = priceHasMore
+                    ? 'Mostrati i primi ' + allKnownPrices.length + ' prezzi più recenti. Carica altri per vedere lo storico.'
+                    : 'Tutti i prezzi sono stati caricati.';
             } catch (e) {
+                if (generation !== priceLoadGeneration) return;
                 console.error("Errore caricamento prezzi:", e);
                 renderPriceList([]);
                 document.getElementById('trackedCount').textContent = '0';
-                document.getElementById('estimatedSaving').textContent = '€0,00';
+                document.getElementById('estimatedSaving').textContent = '—';
+                if (status) status.textContent = 'Non riesco a caricare i prezzi. Controlla la connessione e riprova.';
             }
         }
+
+        window.loadMorePrices = async () => {
+            if (pricePageLoading || !priceHasMore || !pricePageCursor) return;
+            pricePageLoading = true;
+            const button = document.getElementById('loadMorePricesButton');
+            const status = document.getElementById('pricePaginationStatus');
+            if (button) { button.disabled = true; button.textContent = 'Caricamento…'; }
+            if (status) status.textContent = 'Carico altri prezzi…';
+            try {
+                const q = query(collection(db, "prices"), orderBy("timestamp", "desc"), startAfter(pricePageCursor), limit(PRICE_PAGE_SIZE));
+                const snapshot = await getDocs(q);
+                const page = snapshot.docs.map(item => item.data());
+                allKnownPrices = allKnownPrices.concat(page);
+                if (snapshot.docs.length) pricePageCursor = snapshot.docs[snapshot.docs.length - 1];
+                priceHasMore = snapshot.docs.length === PRICE_PAGE_SIZE;
+                renderPriceList(allKnownPrices);
+                const searchInput = document.getElementById('shoppingSearch');
+                if (searchInput && searchInput.value.trim()) window.searchShoppingProducts(searchInput.value);
+                updateEstimatedSaving(allKnownPrices);
+                if (button) button.classList.toggle('hidden', !priceHasMore);
+                if (status) status.textContent = priceHasMore
+                    ? 'Caricati ' + allKnownPrices.length + ' prezzi. Premi ancora per continuare.'
+                    : 'Storico completato: ' + allKnownPrices.length + ' prezzi caricati.';
+            } catch (error) {
+                console.error('Errore caricamento pagina prezzi:', error);
+                if (status) status.textContent = 'Non riesco a caricare altri prezzi. Riprova.';
+            } finally {
+                pricePageLoading = false;
+                if (button) { button.disabled = false; button.textContent = 'Carica altri prezzi'; }
+            }
+        };
 
         function updateEstimatedSaving(prices) {
             // Stima prudente: considera solo prezzi con data valida negli ultimi 30 giorni
