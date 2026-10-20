@@ -947,9 +947,11 @@
                     document.getElementById("nearbyCount").textContent = nearbySupermarketResults.length + (nearbySupermarketResults.length === 1 ? " risultato" : " risultati");
                 } catch (error) {
                     console.error("Ricerca supermercati vicini:", error);
-                    status.textContent = "Non riesco a caricare la mappa o i punti vendita (" + (error.message || "errore di rete") + "). Controlla la connessione e riprova.";
-                    results.innerHTML = '<div class="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">Il servizio cartografico potrebbe essere temporaneamente occupato o bloccato dalla rete. Riprova tra poco.</div>';
-                    document.getElementById("nearbyCount").textContent = "0 risultati";
+                    status.textContent = "La ricerca interna non è raggiungibile in questo momento. Puoi comunque vedere i supermercati sulla mappa esterna.";
+                    const googleMapsSearch = "https://www.google.com/maps/search/" + encodeURIComponent("supermercati") + "/@" + lat + "," + lon + ",14z";
+                    const osmSearch = "https://www.openstreetmap.org/#map=14/" + lat + "/" + lon;
+                    results.innerHTML = '<div class="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950"><p class="font-semibold mb-2">Ricerca interna temporaneamente non disponibile</p><p class="mb-4">La mappa è centrata sulla tua posizione, ma il servizio che fornisce l’elenco dei negozi non risponde. Apri la ricerca esterna per vedere i supermercati vicini.</p><div class="flex flex-wrap gap-3"><a class="inline-flex items-center justify-center rounded-xl bg-emerald-800 px-4 py-3 font-semibold text-white" href="' + googleMapsSearch + '" target="_blank" rel="noopener noreferrer">Cerca supermercati su Google Maps ↗</a><a class="inline-flex items-center justify-center rounded-xl border border-amber-300 px-4 py-3 font-semibold text-amber-950" href="' + osmSearch + '" target="_blank" rel="noopener noreferrer">Apri OpenStreetMap ↗</a></div></div>';
+                    document.getElementById("nearbyCount").textContent = "Ricerca esterna disponibile";
                 }
             }, error => {
                 const messages = {
