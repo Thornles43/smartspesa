@@ -37,7 +37,7 @@ export default {
     const data = url.searchParams.get("data") || "";
     // Accept only the nearby-shop Overpass query shape used by SmartSpesa.
     if (data.length > 2500 || !data.includes("[out:json]") ||
-        !/around:\\d{3,5},-?\\d+(?:\\.\\d+)?,-?\\d+(?:\\.\\d+)?/.test(data) ||
+        !/around:\d{3,5},-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?/.test(data) ||
         !data.includes('["shop"')) {
       return new Response(JSON.stringify({ error: "Invalid Overpass query" }), {
         status: 400, headers: { ...headers, "Content-Type": "application/json; charset=utf-8" }
