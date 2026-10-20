@@ -8,10 +8,28 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: #f3f4f6; -webkit-tap-highlight-color: transparent; }
-        .screen { display: none; padding-bottom: 80px; animation: fadeIn 0.3s ease-in-out; }
-        .screen.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        :root { color-scheme: light; --ss-green: #087f5b; --ss-ink: #17211d; --ss-line: #e4eae6; }
+        html { background: #f5f7f5; }
+        body { font-family: Inter, 'Segoe UI', system-ui, sans-serif; background: #f5f7f5 !important; color: var(--ss-ink); -webkit-tap-highlight-color: transparent; }
+        .screen { display: none !important; padding: 18px 16px 104px; animation: fadeIn 0.22s ease-out; }
+        .screen.active { display: block !important; }
+        #screen-login.active { display: flex !important; }
+        #screen-login { min-height: 100dvh; height: auto !important; background: radial-gradient(circle at 50% 25%, #e2f5e9 0, #f5f7f5 52%) !important; }
+        #screen-login .w-20 { background: var(--ss-green) !important; box-shadow: 0 12px 30px #087f5b22; }
+        #screen-login .fa-cart-shopping { color: white !important; }
+        #screen-login h1 { letter-spacing: -0.04em; }
+        #screen-login .google-btn { background: white; border: 1px solid #dce5df; border-radius: 14px; min-height: 52px; box-shadow: 0 4px 14px #17211d0a; }
+        #screen-dashboard, #screen-scan, #screen-list { max-width: 720px; margin: 0 auto; }
+        #screen-dashboard h2 { letter-spacing: -0.035em; }
+        #screen-dashboard .grid > div { border: 1px solid var(--ss-line) !important; border-radius: 18px !important; box-shadow: 0 5px 18px #17211d08 !important; background: white !important; }
+        #screen-dashboard button[onclick*="screen-scan"] { background: var(--ss-green) !important; border-radius: 18px !important; box-shadow: 0 8px 18px #087f5b20 !important; }
+        #screen-dashboard button[onclick*="screen-list"] { border-radius: 18px !important; border-color: var(--ss-line) !important; }
+        #priceForm { border-radius: 20px !important; border-color: var(--ss-line) !important; box-shadow: 0 8px 28px #17211d08 !important; }
+        #priceForm input, #priceForm select { min-height: 46px; border-color: #d9e2dc; border-radius: 12px; background-color: #fff; color: #17211d; }
+        #priceForm input:focus, #priceForm select:focus { --tw-ring-color: #087f5b; border-color: #087f5b; }
+        #priceForm button[type="submit"] { min-height: 50px; background: var(--ss-green) !important; border-radius: 14px !important; }
+        #bottomNav { padding-bottom: max(12px, env(safe-area-inset-bottom)); background: #ffffffed !important; backdrop-filter: blur(16px); border-color: var(--ss-line) !important; box-shadow: 0 -5px 24px #17211d08; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         .google-btn { background: white; border: 1px solid #dadce0; color: #3c4043; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 10px; transition: background 0.2s; }
         .google-btn:hover { background: #f8f9fa; border-color: #d2e3fc; }
         .badge-it { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
@@ -20,8 +38,10 @@
         .best-price { border: 2px solid #22c55e; background: #f0fdf4; }
         .nav-item { color: #9ca3af; transition: color 0.2s; }
         .nav-item.active { color: #16a34a; }
-        #reader { width: 100%; overflow: hidden; border-radius: 0.75rem; }
-        #reader video { border-radius: 0.75rem; object-fit: cover; }
+        #reader { width: 100%; min-height: 180px; overflow: hidden; border-radius: 14px; background: #101713; }
+        #reader video { width: 100% !important; max-height: 55vh; border-radius: 14px; object-fit: cover; }
+        #scannerPanel { border-radius: 16px; }
+        .source-link { display: inline-flex; align-items: center; gap: 8px; padding: 12px 14px; border: 1px solid var(--ss-line); border-radius: 14px; background: white; color: var(--ss-ink); font-weight: 600; }
         #reader__dashboard_section_csr button { background: #16a34a; color: white; border-radius: 0.5rem; padding: 0.5rem 0.75rem; margin: 0.25rem; }
         #reader__dashboard_section_csr select { max-width: 100%; padding: 0.4rem; border: 1px solid #d1d5db; border-radius: 0.5rem; }
     </style>
@@ -58,9 +78,9 @@
 
         <div class="grid grid-cols-2 gap-4 mb-6">
             <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                <p class="text-xs text-gray-500 uppercase font-semibold">Risparmio Stimato</p>
-                <p class="text-2xl font-bold text-green-600">€12.50</p>
-                <p class="text-xs text-gray-400 mt-1">Questo mese</p>
+                <p class="text-xs text-gray-500 uppercase font-semibold">Risparmio potenziale</p>
+                <p class="text-2xl font-bold text-green-600" id="estimatedSaving">—</p>
+                <p class="text-xs text-gray-400 mt-1">Sui prodotti confrontabili</p>
             </div>
             <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                 <p class="text-xs text-gray-500 uppercase font-semibold">Prodotti Tracciati</p>
@@ -150,6 +170,16 @@
             </div>
 
             <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Fonte del prezzo</label>
+                <select id="priceSource" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none bg-white" onchange="toggleSourceUrl()">
+                    <option value="community">Prezzo inserito dalla community</option>
+                    <option value="official">Prezzo verificato su sito ufficiale</option>
+                </select>
+                <input type="url" id="sourceUrl" class="hidden w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" placeholder="https://... pagina ufficiale del prodotto">
+                <p class="text-xs text-gray-500 mt-1">Per indicare un prezzo ufficiale, inserisci anche il link esatto del prodotto o dell'offerta.</p>
+            </div>
+
+            <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Provenienza</label>
                 <select id="origin" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none bg-white">
                     <option value="it">🇮🇹 100% Italiano</option>
@@ -172,6 +202,17 @@
             <h2 class="text-xl font-bold">Confronto Prezzi</h2>
         </div>
 
+        <section class="mb-5 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+            <h3 class="font-bold text-emerald-950 mb-1"><i class="fa-solid fa-shield-halved mr-2"></i>Fonti ufficiali</h3>
+            <p class="text-sm text-emerald-900 mb-3">Consulta cataloghi e offerte dei supermercati. Prezzi e promozioni possono variare in base al punto vendita.</p>
+            <div class="flex flex-wrap gap-2">
+                <a class="source-link" href="https://spesaonline.esselunga.it/commerce/nav/supermercato" target="_blank" rel="noopener noreferrer">Esselunga <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i></a>
+                <a class="source-link" href="https://spesaonline.conad.it/" target="_blank" rel="noopener noreferrer">Conad <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i></a>
+                <a class="source-link" href="https://www.lidl.it/c/offerte/s10019055" target="_blank" rel="noopener noreferrer">Lidl <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i></a>
+                <a class="source-link" href="https://www.eurospin.it/" target="_blank" rel="noopener noreferrer">Eurospin <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i></a>
+            </div>
+            <p class="text-xs text-emerald-800 mt-3">I collegamenti aprono i siti dei supermercati: non indicano ancora un prezzo importato automaticamente.</p>
+        </section>
         <div id="priceListContainer" class="space-y-4">
             <div class="text-center py-10 text-gray-400">
                 <i class="fa-solid fa-basket-shopping text-4xl mb-3"></i>
@@ -272,6 +313,13 @@
             return "unknown";
         }
 
+        window.toggleSourceUrl = () => {
+            const isOfficial = document.getElementById("priceSource").value === "official";
+            const urlField = document.getElementById("sourceUrl");
+            urlField.classList.toggle("hidden", !isOfficial);
+            urlField.required = isOfficial;
+        };
+
         window.stopBarcodeScanner = async () => {
             const panel = document.getElementById("scannerPanel");
             if (barcodeScanner) {
@@ -290,9 +338,24 @@
             const panel = document.getElementById("scannerPanel");
             const status = document.getElementById("scannerStatus");
             if (!window.Html5Qrcode) {
-                status.textContent = "Libreria scanner non caricata. Controlla la connessione e ricarica la pagina.";
+                status.textContent = "Libreria scanner non caricata. Provo a caricarla da un secondo server…";
                 panel.classList.remove("hidden");
-                return;
+                try {
+                    await new Promise((resolve, reject) => {
+                        const script = document.createElement("script");
+                        script.src = "https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js";
+                        script.onload = resolve;
+                        script.onerror = reject;
+                        document.head.appendChild(script);
+                    });
+                } catch (error) {
+                    status.textContent = "Scanner non disponibile: il browser non riesce a caricare la libreria. Ricarica la pagina o prova un'altra rete.";
+                    return;
+                }
+                if (!window.Html5Qrcode) {
+                    status.textContent = "Libreria scanner non disponibile. Ricarica la pagina e riprova.";
+                    return;
+                }
             }
             if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
                 alert("La fotocamera richiede HTTPS e un browser compatibile. Apri SmartSpesa tramite GitHub Pages in Chrome.");
@@ -302,11 +365,20 @@
             panel.classList.remove("hidden");
             status.textContent = "Richiesta accesso alla fotocamera…";
             try {
-                barcodeScanner = new Html5Qrcode("reader", { verbose: false });
-                await barcodeScanner.start(
-                    { facingMode: "environment" },
-                    { fps: 10, qrbox: { width: 280, height: 130 }, aspectRatio: 1.777 },
-                    async (decodedText) => {
+                const formats = [
+                    Html5QrcodeSupportedFormats.EAN_13,
+                    Html5QrcodeSupportedFormats.EAN_8,
+                    Html5QrcodeSupportedFormats.UPC_A,
+                    Html5QrcodeSupportedFormats.UPC_E,
+                    Html5QrcodeSupportedFormats.CODE_128
+                ];
+                barcodeScanner = new Html5Qrcode("reader", { verbose: false, formatsToSupport: formats });
+                const scanConfig = { fps: 12, qrbox: (viewWidth, viewHeight) => {
+                    const width = Math.min(340, Math.floor(viewWidth * 0.92));
+                    const height = Math.min(150, Math.floor(viewHeight * 0.38));
+                    return { width, height };
+                }, aspectRatio: 1.777 };
+                const onSuccess = async (decodedText) => {
                         const code = String(decodedText).trim();
                         if (!isValidEan13(code)) {
                             status.textContent = "Codice letto ma non valido come EAN-13. Inquadra il codice a barre del prodotto.";
@@ -317,14 +389,28 @@
                         panel.classList.remove("hidden");
                         status.textContent = "Codice letto. Ricerca del prodotto…";
                         await lookupOpenFoodFacts(code);
-                    },
-                    () => {}
-                );
-                status.textContent = "Fotocamera attiva. Inquadra il codice EAN-13.";
+                    };
+                try {
+                    await barcodeScanner.start({ facingMode: "environment" }, scanConfig, onSuccess, () => {});
+                } catch (firstError) {
+                    console.warn("Avvio camera con facingMode fallito, provo gli ID camera:", firstError);
+                    const cameras = await Html5Qrcode.getCameras();
+                    if (!cameras || cameras.length === 0) throw firstError;
+                    const rearCamera = cameras.find(camera => /back|rear|environment|posteriore|trasera/i.test(camera.label));
+                    await barcodeScanner.start((rearCamera || cameras[cameras.length - 1]).id, scanConfig, onSuccess, () => {});
+                }
+                status.textContent = "Fotocamera attiva. Inquadra il codice a barre, tenendo il telefono fermo.";
             } catch (error) {
-                barcodeScanner = null;
-                status.textContent = "Impossibile avviare la fotocamera. Verifica i permessi del browser e che nessun'altra app la stia usando.";
                 console.error("Avvio scanner:", error);
+                barcodeScanner = null;
+                const message = error && (error.name === "NotAllowedError" || error.name === "PermissionDeniedError")
+                    ? "Permesso fotocamera negato. In Chrome apri le autorizzazioni del sito e consenti Fotocamera."
+                    : error && (error.name === "NotFoundError" || error.name === "DevicesNotFoundError")
+                    ? "Non è stata trovata una fotocamera disponibile."
+                    : error && (error.name === "NotReadableError" || error.name === "TrackStartError")
+                    ? "La fotocamera è occupata da un'altra app. Chiudi le altre app che la usano e riprova."
+                    : "Non riesco ad avviare la fotocamera. Verifica i permessi di Chrome, chiudi altre app che usano la camera e ricarica la pagina.";
+                status.textContent = message;
             }
         };
 
@@ -427,6 +513,8 @@
                 price: parseFloat(document.getElementById('price').value),
                 supermarket: document.getElementById('supermarket').value,
                 origin: document.getElementById('origin').value,
+                priceSource: document.getElementById('priceSource').value,
+                sourceUrl: document.getElementById('sourceUrl').value.trim(),
                 brand: scannedProductMetadata?.brand || "",
                 category: scannedProductMetadata?.category || "",
                 ingredients: scannedProductMetadata?.ingredients || "",
@@ -440,6 +528,7 @@
                 await addDoc(collection(db, "prices"), priceData);
                 alert("✅ Prezzo salvato con successo! Grazie per il contributo.");
                 document.getElementById('priceForm').reset();
+                toggleSourceUrl();
                 scannedProductMetadata = null;
                 showProductMetadata(null);
                 document.getElementById("scannerStatus").textContent = "Scanner pronto.";
@@ -457,9 +546,27 @@
                 querySnapshot.forEach((doc) => prices.push(doc.data()));
                 renderPriceList(prices);
                 document.getElementById('trackedCount').textContent = prices.length;
+                updateEstimatedSaving(prices);
             } catch (e) {
                 console.log("Errore caricamento", e);
             }
+        }
+
+        function updateEstimatedSaving(prices) {
+            const byProduct = new Map();
+            prices.forEach(item => {
+                if (!Number.isFinite(Number(item.price))) return;
+                const key = String(item.barcode || item.productName || "").trim();
+                if (!key) return;
+                if (!byProduct.has(key)) byProduct.set(key, []);
+                byProduct.get(key).push(Number(item.price));
+            });
+            let potential = 0;
+            byProduct.forEach(values => {
+                if (values.length > 1) potential += Math.max(...values) - Math.min(...values);
+            });
+            const target = document.getElementById("estimatedSaving");
+            if (target) target.textContent = "€" + potential.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
 
         function renderPriceList(prices) {
@@ -497,7 +604,7 @@
                     html += `<div class="p-4 flex justify-between items-center ${isBest ? 'best-price' : ''}">
                         <div>
                             <p class="font-bold text-gray-900">${item.supermarket}</p>
-                            <p class="text-xs text-gray-500">Segnalato da community</p>
+                            <p class="text-xs text-gray-500">${item.priceSource === 'official' && item.sourceUrl ? '<a class="underline text-emerald-700" href="' + item.sourceUrl.replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '" target="_blank" rel="noopener noreferrer">Fonte ufficiale ↗</a>' : 'Segnalato dalla community'}</p>
                         </div>
                         <div class="text-right">
                             <p class="text-xl font-bold ${isBest ? 'text-green-600' : 'text-gray-700'}">€${item.price.toFixed(2)}</p>
@@ -511,6 +618,14 @@
         }
 
         // Monitora lo stato di autenticazione
+        document.documentElement.style.colorScheme = "light";
+        window.addEventListener("pageshow", () => {
+            const activeScreens = document.querySelectorAll(".screen.active");
+            if (activeScreens.length > 1) activeScreens.forEach((screen, index) => {
+                if (index < activeScreens.length - 1) screen.classList.remove("active");
+            });
+        });
+
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 currentUser = user;
