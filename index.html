@@ -23,6 +23,9 @@
         #shoppingSearch { min-height: 50px; border: 1px solid #d9e2dc; border-radius: 14px; background: #fff; color: #17211d; }
         .shopping-action { min-height: 42px; border-radius: 12px; background: var(--ss-green); color: white; font-weight: 700; padding: 0 14px; }
         .shopping-check { accent-color: var(--ss-green); width: 20px; height: 20px; }
+        .shopping-qty { display: inline-flex; align-items: center; gap: 10px; }
+        .shopping-qty button { width: 32px; height: 32px; border: 1px solid var(--ss-line); border-radius: 10px; background: #f8faf8; color: var(--ss-ink); font-weight: 700; }
+        .shopping-secondary { min-height: 36px; padding: 7px 10px; border: 1px solid var(--ss-line); border-radius: 10px; background: white; color: #475569; font-size: 12px; font-weight: 600; }
         #screen-dashboard h2 { letter-spacing: -0.035em; }
         #screen-dashboard .grid > div { border: 1px solid var(--ss-line) !important; border-radius: 18px !important; box-shadow: 0 5px 18px #17211d08 !important; background: white !important; }
         #screen-dashboard button[onclick*="screen-scan"] { background: var(--ss-green) !important; border-radius: 18px !important; box-shadow: 0 8px 18px #087f5b20 !important; }
@@ -240,7 +243,12 @@
             <p class="text-xs text-gray-500 mt-2">Cerchiamo nel catalogo prodotti e nei prezzi già presenti su SmartSpesa. I prodotti del catalogo esterno non hanno un prezzo associato: puoi aggiungerli comunque alla lista.</p>
         </div>
         <div id="shoppingSearchResults" class="space-y-3 mb-6"><p class="text-sm text-gray-400 text-center py-4">Scrivi il nome di un prodotto per iniziare.</p></div>
-        <div class="flex items-center justify-between mb-3"><h3 class="font-bold text-gray-900">La tua lista</h3><span id="shoppingListCount" class="text-xs font-semibold bg-emerald-50 text-emerald-800 px-3 py-1 rounded-full">0 da comprare</span></div>
+        <div class="bg-white border border-gray-100 rounded-2xl p-4 mb-4">
+            <div class="flex items-center justify-between gap-3 mb-2"><span class="text-sm text-gray-600">Stima dei prodotti da comprare</span><strong id="shoppingKnownTotal" class="text-lg text-emerald-800">€0,00</strong></div>
+            <p id="shoppingPriceCoverage" class="text-xs text-gray-500">I prodotti senza prezzo registrato non sono inclusi nel totale.</p>
+        </div>
+        <div class="flex items-center justify-between gap-3 mb-3"><h3 class="font-bold text-gray-900">La tua lista</h3><span id="shoppingListCount" class="text-xs font-semibold bg-emerald-50 text-emerald-800 px-3 py-1 rounded-full">0 da comprare</span></div>
+        <div class="flex flex-wrap gap-2 mb-4"><button type="button" class="shopping-secondary" onclick="clearPurchasedShoppingItems()">Rimuovi acquistati</button><button type="button" class="shopping-secondary" onclick="clearShoppingList()">Svuota lista</button></div>
         <div id="shoppingListItems" class="space-y-3"><div class="bg-white rounded-2xl border border-gray-100 p-6 text-center text-gray-400"><i class="fa-solid fa-basket-shopping text-3xl mb-2"></i><p>La lista è vuota. Cerca un prodotto e premi Aggiungi.</p></div></div>
     </div>
 
@@ -558,9 +566,17 @@
                 const name = String(item.productName || '').trim();
                 if (!name || !normalizeProductName(name).includes(term)) return;
                 const key = normalizeProductName(name);
-                const price = Number(item.price);
-                if (!matches.has(key) || (Number.isFinite(price) && matches.get(key).price === null || Number.isFinite(price) && price < matches.get(key).price)) {
-                    matches.set(key, { productName: name, barcode: item.barcode || '', price: Number.isFinite(price) ? price : null, supermarket: item.supermarket || '' });
+                const rawPrice = item.price;
+                const price = rawPrice !== null && rawPrice !== undefined && rawPrice !== '' ? Number(rawPrice) : null;
+                const hasPrice = price !== null && Number.isFinite(price) && price >= 0;
+                const current = matches.get(key);
+                const currentHasPrice = current && current.price !== null && Number.isFinite(current.price);
+                if (!current || (hasPrice && (!currentHasPrice || price < current.price))) {
+                    matches.set(key, {
+                        productName: name, barcode: item.barcode || '', price: hasPrice ? price : null,
+                        supermarket: item.supermarket || '', priceSource: item.priceSource || 'community',
+                        sourceUrl: item.sourceUrl || '', timestamp: item.timestamp || ''
+                    });
                 }
             });
 
@@ -590,7 +606,12 @@
                 const safeName = JSON.stringify(item.productName).replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
                 const safeBarcode = JSON.stringify(item.barcode).replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
                 const priceText = item.price !== null ? 'Da €' + item.price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + (item.supermarket ? ' · ' + escapeHtml(item.supermarket) : '') : 'Prezzo non disponibile';
-                html += '<div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center gap-3"><div class="w-10 h-10 shrink-0 rounded-xl bg-emerald-50 flex items-center justify-center"><i class="fa-solid fa-box text-emerald-700"></i></div><div class="min-w-0 flex-1"><p class="font-semibold text-gray-900 break-words">' + escapeHtml(item.productName) + '</p><p class="text-xs text-gray-500">' + priceText + '</p></div><button type="button" class="shopping-action shrink-0" onclick=\'addShoppingItem(' + safeName + ', ' + safeBarcode + ')\'><i class="fa-solid fa-plus mr-1"></i>Aggiungi</button></div>';
+                const safePrice = item.price === null ? 'null' : String(item.price);
+                const safeSupermarket = JSON.stringify(item.supermarket || '').replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
+                const safePriceSource = JSON.stringify(item.priceSource || 'community').replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
+                const safeSourceUrl = JSON.stringify(item.sourceUrl || '').replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
+                const safeTimestamp = JSON.stringify(item.timestamp || '').replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
+                html += '<div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center gap-3"><div class="w-10 h-10 shrink-0 rounded-xl bg-emerald-50 flex items-center justify-center"><i class="fa-solid fa-box text-emerald-700"></i></div><div class="min-w-0 flex-1"><p class="font-semibold text-gray-900 break-words">' + escapeHtml(item.productName) + '</p><p class="text-xs text-gray-500">' + priceText + '</p></div><button type="button" class="shopping-action shrink-0" onclick=\'addShoppingItem(' + safeName + ', ' + safeBarcode + ', ' + safePrice + ', ' + safeSupermarket + ', ' + safePriceSource + ', ' + safeSourceUrl + ', ' + safeTimestamp + ')\'><i class="fa-solid fa-plus mr-1"></i>Aggiungi</button></div>';
             });
             const exactMatch = results.some(item => normalizeProductName(item.productName) === term);
             if (!exactMatch) {
@@ -600,16 +621,27 @@
             container.innerHTML = html || '<p class="text-sm text-gray-500 text-center py-4">Nessun prodotto trovato.</p>';
         };
 
-        window.addShoppingItem = async (productName, barcode = '') => {
+        window.addShoppingItem = async (productName, barcode = '', unitPrice = null, supermarket = '', priceSource = '', sourceUrl = '', priceTimestamp = '') => {
             const name = String(productName || '').trim();
             if (!name || !currentUser) return;
             if (shoppingItems.some(item => normalizeProductName(item.productName) === normalizeProductName(name) && !item.checked)) {
                 alert('Questo prodotto è già presente nella tua lista.');
                 return;
             }
+            const parsedPrice = unitPrice !== null && unitPrice !== undefined && unitPrice !== '' ? Number(unitPrice) : null;
+            const validPrice = parsedPrice !== null && Number.isFinite(parsedPrice) && parsedPrice >= 0 ? parsedPrice : null;
+            const itemData = {
+                userId: currentUser.uid, productName: name, barcode: String(barcode || ''),
+                checked: false, quantity: 1, unitPrice: validPrice,
+                supermarket: validPrice !== null ? String(supermarket || '') : '',
+                priceSource: validPrice !== null ? String(priceSource || 'community') : '',
+                sourceUrl: validPrice !== null ? String(sourceUrl || '') : '',
+                priceTimestamp: validPrice !== null ? String(priceTimestamp || '') : '',
+                createdAt: new Date().toISOString()
+            };
             try {
-                const created = await addDoc(collection(db, 'shoppingItems'), { userId: currentUser.uid, productName: name, barcode: String(barcode || ''), checked: false, createdAt: new Date().toISOString() });
-                shoppingItems.push({ id: created.id, userId: currentUser.uid, productName: name, barcode: String(barcode || ''), checked: false });
+                const created = await addDoc(collection(db, 'shoppingItems'), itemData);
+                shoppingItems.push({ id: created.id, ...itemData });
                 renderShoppingItems();
             } catch (error) {
                 console.error('Errore aggiunta prodotto alla lista:', error);
@@ -636,14 +668,83 @@
             const container = document.getElementById('shoppingListItems');
             const activeItems = shoppingItems.filter(item => !item.checked);
             const checkedItems = shoppingItems.filter(item => item.checked);
+            const knownTotal = activeItems.reduce((total, item) => {
+                const price = item.unitPrice !== null && item.unitPrice !== undefined && item.unitPrice !== '' ? Number(item.unitPrice) : NaN;
+                return Number.isFinite(price) && price >= 0 ? total + price * Math.max(1, Number(item.quantity) || 1) : total;
+            }, 0);
+            const missingPrices = activeItems.filter(item => {
+                const price = item.unitPrice !== null && item.unitPrice !== undefined && item.unitPrice !== '' ? Number(item.unitPrice) : NaN;
+                return !Number.isFinite(price) || price < 0;
+            }).length;
             document.getElementById('shoppingListCount').textContent = activeItems.length + ' da comprare';
+            document.getElementById('shoppingKnownTotal').textContent = '€' + knownTotal.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            document.getElementById('shoppingPriceCoverage').textContent = missingPrices === 0
+                ? 'Tutti i prodotti da comprare hanno un prezzo registrato; verifica comunque data e punto vendita.'
+                : missingPrices + (missingPrices === 1 ? ' prodotto senza prezzo: non incluso nel totale.' : ' prodotti senza prezzo: non inclusi nel totale.');
             if (shoppingItems.length === 0) {
                 container.innerHTML = '<div class="bg-white rounded-2xl border border-gray-100 p-6 text-center text-gray-400"><i class="fa-solid fa-basket-shopping text-3xl mb-2"></i><p>La lista è vuota. Cerca un prodotto e premi Aggiungi.</p></div>';
                 return;
             }
-            const renderItem = (item) => '<div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center gap-3"><input class="shopping-check shrink-0" type="checkbox" ' + (item.checked ? 'checked' : '') + ' aria-label="Segna ' + escapeHtml(item.productName) + ' come acquistato" onchange="toggleShoppingItem(\'' + item.id + '\', this.checked)"><div class="min-w-0 flex-1 ' + (item.checked ? 'line-through opacity-50' : '') + '"><p class="font-semibold text-gray-900 break-words">' + escapeHtml(item.productName) + '</p><p class="text-xs text-gray-500">' + (item.checked ? 'Acquistato' : 'Da comprare') + '</p></div><button type="button" class="w-10 h-10 rounded-xl border border-gray-200 text-gray-500" aria-label="Rimuovi ' + escapeHtml(item.productName) + '" onclick="removeShoppingItem(\'' + item.id + '\')"><i class="fa-solid fa-trash"></i></button></div>';
+            const renderItem = (item) => {
+                const quantity = Math.max(1, Math.floor(Number(item.quantity) || 1));
+                const price = item.unitPrice !== null && item.unitPrice !== undefined && item.unitPrice !== '' ? Number(item.unitPrice) : NaN;
+                const hasPrice = Number.isFinite(price) && price >= 0;
+                const itemPrice = hasPrice ? '<p class="text-xs text-emerald-700 mt-1">€' + (price * quantity).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' · ' + quantity + ' × €' + price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</p><p class="text-xs text-gray-400">' + escapeHtml(item.supermarket || 'Prezzo registrato') + (item.priceSource === 'official' ? ' · fonte ufficiale' : ' · community') + (item.priceTimestamp ? ' · aggiornato ' + escapeHtml(String(item.priceTimestamp).slice(0, 10)) : '') + '</p>' : '<p class="text-xs text-gray-400 mt-1">Prezzo non disponibile</p>';
+                return '<div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm"><div class="flex items-start gap-3"><input class="shopping-check shrink-0 mt-1" type="checkbox" ' + (item.checked ? 'checked' : '') + ' aria-label="Segna ' + escapeHtml(item.productName) + ' come acquistato" onchange="toggleShoppingItem(\'' + item.id + '\', this.checked)"><div class="min-w-0 flex-1 ' + (item.checked ? 'line-through opacity-50' : '') + '"><p class="font-semibold text-gray-900 break-words">' + escapeHtml(item.productName) + '</p><p class="text-xs text-gray-500">' + (item.checked ? 'Acquistato' : 'Da comprare') + '</p>' + itemPrice + '</div><button type="button" class="w-10 h-10 rounded-xl border border-gray-200 text-gray-500 shrink-0" aria-label="Rimuovi ' + escapeHtml(item.productName) + '" onclick="removeShoppingItem(\'' + item.id + '\')"><i class="fa-solid fa-trash"></i></button></div>' + (!item.checked ? '<div class="flex items-center justify-end gap-3 mt-3"><span class="text-xs text-gray-500">Quantità</span><div class="shopping-qty"><button type="button" aria-label="Riduci quantità" onclick="changeShoppingQuantity(\'' + item.id + '\', -1)">−</button><strong>' + quantity + '</strong><button type="button" aria-label="Aumenta quantità" onclick="changeShoppingQuantity(\'' + item.id + '\', 1)">+</button></div></div>' : '') + '</div>';
+            };
             container.innerHTML = activeItems.map(renderItem).join('') + (checkedItems.length ? '<p class="text-xs uppercase tracking-wide text-gray-400 mt-5 mb-2">Già acquistati</p>' + checkedItems.map(renderItem).join('') : '');
         }
+
+        window.changeShoppingQuantity = async (itemId, delta) => {
+            const item = shoppingItems.find(entry => entry.id === itemId);
+            if (!item || item.checked) return;
+            const oldQuantity = Math.max(1, Math.floor(Number(item.quantity) || 1));
+            const nextQuantity = Math.max(1, oldQuantity + Number(delta || 0));
+            if (nextQuantity === oldQuantity) return;
+            try {
+                await updateDoc(doc(db, 'shoppingItems', itemId), { quantity: nextQuantity });
+                item.quantity = nextQuantity;
+                renderShoppingItems();
+            } catch (error) {
+                console.error('Errore aggiornamento quantità:', error);
+                alert('Non riesco a modificare la quantità. Riprova.');
+            }
+        };
+
+        window.clearPurchasedShoppingItems = async () => {
+            const purchased = shoppingItems.filter(item => item.checked);
+            if (!purchased.length) { alert('Non ci sono prodotti acquistati da rimuovere.'); return; }
+            if (!confirm('Rimuovere dalla lista tutti i prodotti già acquistati?')) return;
+            for (const item of purchased) {
+                try {
+                    await deleteDoc(doc(db, 'shoppingItems', item.id));
+                    shoppingItems = shoppingItems.filter(entry => entry.id !== item.id);
+                } catch (error) {
+                    console.error('Errore rimozione prodotto acquistato:', error);
+                    alert('Alcuni prodotti non sono stati rimossi. Riprova.');
+                    renderShoppingItems();
+                    return;
+                }
+            }
+            renderShoppingItems();
+        };
+
+        window.clearShoppingList = async () => {
+            if (!shoppingItems.length) { alert('La lista è già vuota.'); return; }
+            if (!confirm('Vuoi eliminare tutti i prodotti dalla lista? Questa operazione non si può annullare.')) return;
+            for (const item of [...shoppingItems]) {
+                try {
+                    await deleteDoc(doc(db, 'shoppingItems', item.id));
+                    shoppingItems = shoppingItems.filter(entry => entry.id !== item.id);
+                } catch (error) {
+                    console.error('Errore svuotamento lista:', error);
+                    alert('La lista è stata svuotata solo in parte. Riprova.');
+                    renderShoppingItems();
+                    return;
+                }
+            }
+            renderShoppingItems();
+        };
 
         window.toggleShoppingItem = async (itemId, checked) => {
             const item = shoppingItems.find(entry => entry.id === itemId);
