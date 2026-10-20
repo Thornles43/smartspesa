@@ -276,12 +276,50 @@
         <div id="shoppingListItems" class="space-y-3"><div class="bg-white rounded-2xl border border-gray-100 p-6 text-center text-gray-400"><i class="fa-solid fa-basket-shopping text-3xl mb-2"></i><p>La lista è vuota. Cerca un prodotto e premi Aggiungi.</p></div></div>
     </div>
 
+    <!-- SCHERMATA: CATALOGO DA VOLANTINI -->
+    <div id="screen-flyers" class="screen p-4 max-w-3xl mx-auto">
+        <div class="flex items-center gap-3 mb-5">
+            <button onclick="showScreen('screen-dashboard')" class="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100" aria-label="Torna alla home"><i class="fa-solid fa-arrow-left"></i></button>
+            <div><h2 class="text-xl font-bold">Catalogo dai volantini</h2><p class="text-sm text-gray-500">Importa offerte e costruisci lo storico dei prezzi.</p></div>
+        </div>
+        <div class="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 mb-4">
+            <p class="font-semibold text-emerald-900 mb-1"><i class="fa-solid fa-circle-info mr-2"></i>Come funziona</p>
+            <p class="text-sm text-emerald-900">Carica un PDF o un'immagine. Il testo viene estratto sul dispositivo quando possibile; controlla e correggi le righe prima di salvarle. I record confermati diventano prezzi condivisi nel catalogo SmartSpesa e alimentano lo storico.</p>
+            <p class="text-xs text-emerald-800 mt-2">Nota: il file originale viene elaborato nel browser e non viene archiviato; vengono salvati i dati confermati e il nome del volantino.</p>
+        </div>
+        <section class="bg-white border border-gray-200 rounded-2xl p-4 mb-4">
+            <label class="block text-sm font-semibold mb-1" for="flyerFile">PDF o immagini del volantino</label>
+            <input id="flyerFile" type="file" accept=".pdf,image/*" class="w-full text-sm border border-gray-300 rounded-xl p-3" onchange="processFlyerFile(this.files && this.files[0])">
+            <p id="flyerProcessingStatus" class="text-sm text-gray-600 mt-2" role="status" aria-live="polite">Seleziona un file per iniziare.</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+                <div><label for="flyerSupermarket" class="block text-sm font-medium mb-1">Supermercato</label>
+                    <select id="flyerSupermarket" class="w-full border border-gray-300 rounded-xl p-3 bg-white">
+                        <option value="">Seleziona…</option><option>Esselunga</option><option>Coop</option><option>Conad</option><option>Carrefour</option><option>Lidl</option><option>Eurospin</option><option>MD</option><option>Pam</option><option> altro</option>
+                    </select>
+                </div>
+                <div><label for="flyerValidUntil" class="block text-sm font-medium mb-1">Offerte valide fino al (facoltativo)</label><input id="flyerValidUntil" type="date" class="w-full border border-gray-300 rounded-xl p-3"></div>
+            </div>
+        </section>
+        <section class="bg-white border border-gray-200 rounded-2xl p-4 mb-4">
+            <div class="flex items-center justify-between gap-2 mb-2"><h3 class="font-bold">Righe da importare</h3><button type="button" class="text-sm font-semibold text-emerald-700" onclick="addFlyerRow()">+ Aggiungi riga</button></div>
+            <p class="text-xs text-gray-500 mb-3">Una riga per prodotto. Puoi modificare il testo estratto. Formato: nome prodotto | prezzo | barcode facoltativo.</p>
+            <textarea id="flyerExtractedText" rows="5" class="w-full border border-gray-300 rounded-xl p-3 text-sm" placeholder="Pasta di semola 500 g | 0,89 | 8000000000000&#10;Latte intero 1 L | 1,19"></textarea>
+            <div class="flex flex-wrap gap-2 mt-3"><button type="button" onclick="parseFlyerText()" class="px-4 py-3 rounded-xl border border-gray-300 font-semibold">Prepara righe</button><button type="button" onclick="saveFlyerCatalog()" class="px-4 py-3 rounded-xl bg-green-700 text-white font-bold">Salva nel catalogo</button></div>
+            <p id="flyerSaveStatus" class="text-sm mt-3" role="status" aria-live="polite"></p>
+        </section>
+        <section class="bg-white border border-gray-200 rounded-2xl p-4">
+            <div class="flex items-center justify-between mb-3"><h3 class="font-bold">Anteprima e correzione</h3><span id="flyerRowCount" class="text-xs text-gray-500">0 prodotti</span></div>
+            <div id="flyerRows" class="space-y-3"><p class="text-sm text-gray-400">Estrai il testo o inserisci le righe manualmente, poi premi “Prepara righe”.</p></div>
+        </section>
+    </div>
+
     <!-- BARRA DI NAVIGAZIONE -->
     <nav id="bottomNav" class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 flex justify-between items-center hidden z-50">
         <button onclick="showScreen('screen-dashboard')" class="nav-item active flex flex-col items-center gap-1" id="nav-dashboard"><i class="fa-solid fa-house text-xl"></i><span class="text-xs font-medium">Home</span></button>
         <button onclick="showScreen('screen-shopping')" class="nav-item flex flex-col items-center gap-1" id="nav-shopping"><i class="fa-solid fa-basket-shopping text-xl"></i><span class="text-xs font-medium">Spesa</span></button>
         <button onclick="showScreen('screen-scan')" class="nav-item flex flex-col items-center gap-1" id="nav-scan"><i class="fa-solid fa-plus-circle text-2xl text-green-600"></i><span class="text-xs font-medium">Inserisci</span></button>
         <button onclick="showScreen('screen-list')" class="nav-item flex flex-col items-center gap-1" id="nav-list"><i class="fa-solid fa-list-ul text-xl"></i><span class="text-xs font-medium">Prezzi</span></button>
+        <button onclick="openFlyerCatalog()" class="nav-item flex flex-col items-center gap-1" id="nav-flyers"><i class="fa-solid fa-file-arrow-up text-xl"></i><span class="text-xs font-medium">Volantini</span></button>
     </nav>
 
     <!-- FIREBASE SDK -->
@@ -638,6 +676,208 @@
         });
 
 
+        let flyerParsedRows = [];
+        let flyerCurrentFileName = "";
+
+        window.openFlyerCatalog = () => {
+            if (!currentUser) { alert("Accedi con Google per usare il catalogo condiviso."); return; }
+            showScreen("screen-flyers");
+        };
+
+        function loadExternalScript(src, globalName) {
+            return new Promise((resolve, reject) => {
+                if (window[globalName]) { resolve(window[globalName]); return; }
+                const existing = document.querySelector('script[data-dynamic-src="' + src + '"]');
+                if (existing) {
+                    existing.addEventListener("load", () => resolve(window[globalName]), { once: true });
+                    existing.addEventListener("error", reject, { once: true });
+                    return;
+                }
+                const script = document.createElement("script");
+                script.src = src;
+                script.async = true;
+                script.dataset.dynamicSrc = src;
+                script.onload = () => window[globalName] ? resolve(window[globalName]) : reject(new Error("Libreria non disponibile"));
+                script.onerror = () => reject(new Error("Non riesco a caricare la libreria di lettura. Controlla la connessione."));
+                document.head.appendChild(script);
+            });
+        }
+
+        window.processFlyerFile = async (file) => {
+            if (!file) return;
+            flyerCurrentFileName = file.name;
+            const status = document.getElementById("flyerProcessingStatus");
+            const textarea = document.getElementById("flyerExtractedText");
+            status.textContent = "Lettura del file in corso…";
+            textarea.value = "";
+            try {
+                let extracted = "";
+                if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+                    status.textContent = "Apro il PDF ed estraggo il testo…";
+                    await loadExternalScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js", "pdfjsLib");
+                    window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+                    const buffer = await file.arrayBuffer();
+                    const pdf = await window.pdfjsLib.getDocument({ data: buffer }).promise;
+                    const pages = [];
+                    for (let pageNo = 1; pageNo <= pdf.numPages; pageNo++) {
+                        const page = await pdf.getPage(pageNo);
+                        const content = await page.getTextContent();
+                        pages.push(content.items.map(item => item.str).join(" "));
+                    }
+                    extracted = pages.join("\n");
+                    if (!extracted.trim()) status.textContent = "Il PDF sembra una scansione senza testo selezionabile. Provo l'OCR delle pagine…";
+                }
+                if (file.type.startsWith("image/") || !extracted.trim()) {
+                    status.textContent = "Riconoscimento testo (OCR) in corso; può richiedere un po' di tempo…";
+                    await loadExternalScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js", "Tesseract");
+                    if (file.type.startsWith("image/")) {
+                        const result = await window.Tesseract.recognize(file, "ita+eng", { logger: m => {
+                            if (m.status === "recognizing text") status.textContent = "OCR in corso: " + Math.round((m.progress || 0) * 100) + "%";
+                        }});
+                        extracted = result.data.text || "";
+                    } else if (!extracted.trim()) {
+                        // PDF scansionato: renderizza le pagine e applica OCR, con limite prudenziale.
+                        const buffer = await file.arrayBuffer();
+                        const pdf = await window.pdfjsLib.getDocument({ data: buffer }).promise;
+                        const pages = [];
+                        for (let pageNo = 1; pageNo <= Math.min(pdf.numPages, 12); pageNo++) {
+                            const page = await pdf.getPage(pageNo);
+                            const viewport = page.getViewport({ scale: 1.5 });
+                            const canvas = document.createElement("canvas");
+                            canvas.width = viewport.width; canvas.height = viewport.height;
+                            await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+                            const result = await window.Tesseract.recognize(canvas, "ita+eng");
+                            pages.push(result.data.text || "");
+                        }
+                        extracted = pages.join("\n");
+                    }
+                }
+                textarea.value = extracted;
+                status.textContent = extracted.trim()
+                    ? "Testo estratto. Controlla le righe: prezzi e nomi possono richiedere correzioni."
+                    : "Non ho trovato testo leggibile. Inserisci le righe manualmente nel formato indicato.";
+                parseFlyerText();
+            } catch (error) {
+                console.error("Lettura volantino:", error);
+                status.textContent = "Non riesco a leggere automaticamente questo file (" + (error.message || "errore") + "). Puoi incollare o scrivere le righe manualmente.";
+            }
+        };
+
+        window.addFlyerRow = () => {
+            flyerParsedRows.push({ productName: "", price: "", barcode: "" });
+            renderFlyerRows();
+        };
+
+        window.parseFlyerText = () => {
+            const text = document.getElementById("flyerExtractedText").value || "";
+            const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+            const rows = [];
+            for (const line of lines) {
+                const parts = line.split("|").map(part => part.trim());
+                if (parts.length >= 2) {
+                    const name = parts[0];
+                    const priceMatch = parts[1].match(/\d+[,.]\d{1,2}|\d+/);
+                    const barcode = (parts[2] || "").replace(/\D/g, "");
+                    if (name && priceMatch) rows.push({ productName: name, price: priceMatch[0].replace(",", "."), barcode: /^\d{8,14}$/.test(barcode) ? barcode : "" });
+                    continue;
+                }
+                const priceMatches = [...line.matchAll(/(?:€\s*)?(\d{1,3}[,.]\d{2})\s*€?/g)];
+                if (priceMatches.length) {
+                    const match = priceMatches[priceMatches.length - 1];
+                    const name = line.slice(0, match.index).replace(/[|•·—–-]+$/g, "").trim();
+                    if (name.length >= 3) rows.push({ productName: name, price: match[1].replace(",", "."), barcode: "" });
+                }
+            }
+            flyerParsedRows = rows.slice(0, 200);
+            renderFlyerRows();
+            document.getElementById("flyerSaveStatus").textContent = flyerParsedRows.length
+                ? "Trovate " + flyerParsedRows.length + " righe candidate. Verifica nomi e prezzi prima di salvare."
+                : "Non ho riconosciuto righe con un prezzo. Usa il formato nome | prezzo | barcode e premi Prepara righe.";
+        };
+
+        function renderFlyerRows() {
+            const container = document.getElementById("flyerRows");
+            const count = document.getElementById("flyerRowCount");
+            count.textContent = flyerParsedRows.length + (flyerParsedRows.length === 1 ? " prodotto" : " prodotti");
+            if (!flyerParsedRows.length) {
+                container.innerHTML = '<p class="text-sm text-gray-400">Nessuna riga pronta. Inserisci o correggi il testo sopra.</p>';
+                return;
+            }
+            container.innerHTML = flyerParsedRows.map((row, index) => `
+                <div class="border border-gray-200 rounded-xl p-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div><label class="block text-xs text-gray-500 mb-1">Prodotto</label><input data-flyer-field="productName" data-index="${index}" value="${escapeHtml(row.productName)}" class="w-full border border-gray-300 rounded-lg p-2 text-sm" maxlength="180"></div>
+                    <div><label class="block text-xs text-gray-500 mb-1">Prezzo (€)</label><input data-flyer-field="price" data-index="${index}" value="${escapeHtml(row.price)}" inputmode="decimal" class="w-full border border-gray-300 rounded-lg p-2 text-sm"></div>
+                    <div><label class="block text-xs text-gray-500 mb-1">Barcode (facoltativo)</label><input data-flyer-field="barcode" data-index="${index}" value="${escapeHtml(row.barcode)}" inputmode="numeric" class="w-full border border-gray-300 rounded-lg p-2 text-sm" maxlength="14"></div>
+                    <button type="button" class="text-xs text-red-600 font-semibold justify-self-start" onclick="removeFlyerRow(${index})">Rimuovi riga</button>
+                </div>`).join("");
+            container.querySelectorAll("[data-flyer-field]").forEach(input => input.addEventListener("input", () => {
+                const index = Number(input.dataset.index);
+                const field = input.dataset.flyerField;
+                if (flyerParsedRows[index]) flyerParsedRows[index][field] = input.value;
+            }));
+        }
+
+        window.removeFlyerRow = (index) => {
+            flyerParsedRows.splice(index, 1);
+            renderFlyerRows();
+        };
+
+        window.saveFlyerCatalog = async () => {
+            const status = document.getElementById("flyerSaveStatus");
+            if (!currentUser) { status.textContent = "Accedi con Google prima di salvare."; return; }
+            const supermarket = document.getElementById("flyerSupermarket").value.trim();
+            const validUntil = document.getElementById("flyerValidUntil").value;
+            if (!supermarket) { status.textContent = "Seleziona il supermercato del volantino."; return; }
+            if (!flyerParsedRows.length) { status.textContent = "Prepara almeno una riga prima di salvare."; return; }
+            const validRows = flyerParsedRows.map(row => ({
+                productName: String(row.productName || "").trim(),
+                price: Number(String(row.price || "").replace(",", ".")),
+                barcode: String(row.barcode || "").replace(/\D/g, "").slice(0, 14)
+            })).filter(row => row.productName && Number.isFinite(row.price) && row.price >= 0 && row.price < 100000);
+            if (!validRows.length) { status.textContent = "Nessuna riga valida: controlla nomi e prezzi."; return; }
+            if (validRows.length !== flyerParsedRows.length && !confirm("Alcune righe sono incomplete o hanno prezzi non validi. Salvare solo le " + validRows.length + " righe valide?")) return;
+            status.textContent = "Salvataggio di " + validRows.length + " prodotti…";
+            let saved = 0, failed = 0;
+            for (const row of validRows) {
+                const record = {
+                    barcode: row.barcode,
+                    productName: row.productName,
+                    price: row.price,
+                    supermarket,
+                    origin: "unknown",
+                    priceSource: "flyer",
+                    sourceUrl: "",
+                    brand: "",
+                    category: "",
+                    ingredients: "",
+                    countryOfOrigin: "",
+                    productSource: "Volantino: " + (flyerCurrentFileName || "inserimento manuale"),
+                    flyerName: flyerCurrentFileName || "Inserimento manuale",
+                    offerValidUntil: validUntil || "",
+                    userId: currentUser.email,
+                    timestamp: new Date().toISOString()
+                };
+                try {
+                    await addDoc(collection(db, "prices"), record);
+                    saved++;
+                } catch (error) {
+                    failed++;
+                    console.error("Salvataggio riga volantino:", error);
+                }
+            }
+            status.textContent = saved + " prodotti salvati nel catalogo e nello storico." + (failed ? " " + failed + " righe non salvate: verifica le regole Firebase e riprova." : "");
+            if (saved) {
+                await loadPrices();
+                if (!failed) {
+                    flyerParsedRows = [];
+                    renderFlyerRows();
+                    document.getElementById("flyerExtractedText").value = "";
+                    document.getElementById("flyerFile").value = "";
+                    document.getElementById("flyerProcessingStatus").textContent = "Importazione completata.";
+                }
+            }
+        };
+
         window.loginWithGoogle = async () => {
             const provider = new GoogleAuthProvider();
             try {
@@ -684,6 +924,7 @@
             if (screenId === 'screen-shopping') document.getElementById('nav-shopping').classList.add('active');
             if (screenId === 'screen-scan') document.getElementById('nav-scan').classList.add('active');
             if (screenId === 'screen-list') document.getElementById('nav-list').classList.add('active');
+            if (screenId === 'screen-flyers') document.getElementById('nav-flyers').classList.add('active');
         };
 
         window.openShoppingList = () => {
