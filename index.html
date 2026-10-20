@@ -6,6 +6,7 @@
     <title>SmartSpesa</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
         :root { color-scheme: light; --ss-green: #087f5b; --ss-ink: #17211d; --ss-line: #e4eae6; }
@@ -62,6 +63,10 @@
         .source-link { display: inline-flex; align-items: center; gap: 8px; padding: 12px 14px; border: 1px solid var(--ss-line); border-radius: 14px; background: white; color: var(--ss-ink); font-weight: 600; }
         #reader__dashboard_section_csr button { background: #16a34a; color: white; border-radius: 0.5rem; padding: 0.5rem 0.75rem; margin: 0.25rem; }
         #reader__dashboard_section_csr select { max-width: 100%; padding: 0.4rem; border: 1px solid #d1d5db; border-radius: 0.5rem; }
+        #nearbyMap { width: 100%; height: min(52vh, 430px); min-height: 300px; border-radius: 18px; z-index: 1; background: #e9efea; }
+        .nearby-map-pin { background: #087f5b; color: white; border: 2px solid white; border-radius: 50% 50% 50% 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; transform: rotate(-45deg); box-shadow: 0 2px 8px #17211d40; }
+        .nearby-map-pin i { transform: rotate(45deg); font-size: 12px; }
+        .nearby-result-card { border: 1px solid var(--ss-line); border-radius: 16px; background: white; padding: 14px; box-shadow: 0 3px 12px #17211d08; }
     </style>
 </head>
 <body class="text-gray-800">
@@ -307,6 +312,17 @@
         </section>
     </div>
 
+    <!-- SCHERMATA: SUPERMERCATI VICINI -->
+    <div id="screen-nearby" class="screen p-4 max-w-5xl mx-auto">
+        <div class="flex items-center gap-3 mb-5"><button onclick="showScreen('screen-dashboard')" class="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100" aria-label="Torna alla home"><i class="fa-solid fa-arrow-left"></i></button><div><h2 class="text-xl font-bold">Supermercati vicini</h2><p class="text-sm text-gray-500">Mappa, distanze e indicazioni stradali</p></div></div>
+        <section class="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 mb-4"><p class="font-semibold text-emerald-950">Cerca intorno a te</p><p class="text-sm text-emerald-900 mt-1">La posizione viene richiesta solo quando avvii la ricerca e non viene salvata nel profilo.</p><div class="flex flex-wrap gap-2 mt-3"><label class="sr-only" for="nearbyRadius">Raggio</label><select id="nearbyRadius" class="flex-1 min-w-[130px] rounded-xl border border-emerald-200 bg-white p-3 text-sm"><option value="1000">Entro 1 km</option><option value="3000" selected>Entro 3 km</option><option value="5000">Entro 5 km</option><option value="10000">Entro 10 km</option></select><button type="button" onclick="findNearbySupermarkets()" class="flex-1 min-w-[170px] px-4 py-3 rounded-xl bg-green-700 text-white font-bold"><i class="fa-solid fa-location-dot mr-2"></i>Usa la mia posizione</button></div></section>
+        <p id="nearbyStatus" class="text-sm text-gray-600 mb-3" role="status" aria-live="polite">Premi “Usa la mia posizione” per cercare supermercati vicini.</p>
+        <div class="bg-white border border-gray-200 rounded-2xl p-2 mb-4 shadow-sm"><div id="nearbyMap" role="application" aria-label="Mappa interattiva dei supermercati vicini"></div></div>
+        <div class="flex items-center justify-between gap-3 mb-3"><h3 class="font-bold text-gray-900">Punti vendita</h3><span id="nearbyCount" class="text-xs text-gray-500">0 risultati</span></div>
+        <div id="nearbyResults" class="space-y-3"><div class="rounded-2xl border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">I punti vendita trovati compariranno qui.</div></div>
+        <p class="text-xs text-gray-400 mt-4">Mappa © OpenStreetMap · Dati dei punti vendita da OpenStreetMap; orari e informazioni possono essere incompleti.</p>
+    </div>
+
     <!-- SCHERMATA: CATALOGO DA VOLANTINI -->
     <div id="screen-flyers" class="screen p-4 max-w-3xl mx-auto">
         <div class="flex items-center gap-3 mb-5">
@@ -350,6 +366,7 @@
         <button onclick="showScreen('screen-shopping')" class="nav-item flex flex-col items-center gap-1" id="nav-shopping"><i class="fa-solid fa-basket-shopping text-xl"></i><span class="text-xs font-medium">Spesa</span></button>
         <button onclick="showScreen('screen-scan')" class="nav-item flex flex-col items-center gap-1" id="nav-scan"><i class="fa-solid fa-plus-circle text-2xl text-green-600"></i><span class="text-xs font-medium">Inserisci</span></button>
         <button onclick="showScreen('screen-list')" class="nav-item flex flex-col items-center gap-1" id="nav-list"><i class="fa-solid fa-list-ul text-xl"></i><span class="text-xs font-medium">Prezzi</span></button>
+        <button onclick="openNearbyScreen()" class="nav-item flex flex-col items-center gap-1" id="nav-nearby"><i class="fa-solid fa-map-location-dot text-xl"></i><span class="text-xs font-medium">Vicini</span></button>
         <button onclick="openOffersScreen()" class="nav-item flex flex-col items-center gap-1" id="nav-offers"><i class="fa-solid fa-tags text-xl"></i><span class="text-xs font-medium">Offerte</span></button>
     </nav>
 
@@ -1063,6 +1080,7 @@
             if (screenId === 'screen-list') document.getElementById('nav-list').classList.add('active');
             if (screenId === 'screen-flyers' && document.getElementById('nav-flyers')) document.getElementById('nav-flyers').classList.add('active');
             if (screenId === 'screen-offers') document.getElementById('nav-offers').classList.add('active');
+            if (screenId === 'screen-nearby') document.getElementById('nav-nearby').classList.add('active');
         };
 
         window.openShoppingList = () => {
