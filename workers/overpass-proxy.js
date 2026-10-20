@@ -44,39 +44,36 @@ export default {
       });
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000);
     let lastError = "Overpass unavailable";
-    try {
-      for (const upstream of UPSTREAMS) {
-        try {
-          const target = upstream + "?data=" + encodeURIComponent(data);
-          const response = await fetch(target, {
-            method: "GET",
-            headers: { "Accept": "application/json", "User-Agent": "SmartSpesa/1.0 (nearby supermarket search)" },
-            signal: controller.signal
-          });
-          if (!response.ok) {
-            lastError = "Overpass returned HTTP " + response.status;
-            continue;
-          }
-          const body = await response.text();
-          let parsed;
-          try { parsed = JSON.parse(body); } catch { lastError = "Invalid JSON from Overpass"; continue; }
-          return new Response(JSON.stringify(parsed), {
-            status: 200,
-            headers: { ...headers, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, max-age=60" }
-          });
-        } catch (error) {
-          lastError = error?.name === "AbortError" ? "Overpass timed out" : "Overpass request failed";
-          if (error?.name === "AbortError") break;
+    for (const upstream of UPSTREAMS) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 4500);
+      try {
+        const target = upstream + "?data=" + encodeURIComponent(data);
+        const response = await fetch(target, {
+          method: "GET",
+          headers: { "Accept": "application/json", "User-Agent": "SmartSpesa/1.0 (nearby supermarket search)" },
+          signal: controller.signal
+        });
+        if (!response.ok) {
+          lastError = "Overpass returned HTTP " + response.status;
+          continue;
         }
+        const body = await response.text();
+        let parsed;
+        try { parsed = JSON.parse(body); } catch { lastError = "Invalid JSON from Overpass"; continue; }
+        return new Response(JSON.stringify(parsed), {
+          status: 200,
+          headers: { ...headers, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, max-age=60" }
+        });
+      } catch (error) {
+        lastError = error?.name === "AbortError" ? "Overpass timed out" : "Overpass request failed";
+      } finally {
+        clearTimeout(timeout);
       }
-      return new Response(JSON.stringify({ error: lastError }), {
-        status: 502, headers: { ...headers, "Content-Type": "application/json; charset=utf-8" }
-      });
-    } finally {
-      clearTimeout(timeout);
     }
+    return new Response(JSON.stringify({ error: lastError }), {
+      status: 502, headers: { ...headers, "Content-Type": "application/json; charset=utf-8" }
+    });
   }
 };
