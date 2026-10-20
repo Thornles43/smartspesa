@@ -865,13 +865,15 @@
                         "https://overpass.private.coffee/api/interpreter"
                     ];
                     // Interroga gli endpoint in parallelo: un server lento non deve bloccare gli altri.
+                    // GET evita il preflight CORS che può bloccare le richieste POST su alcuni browser/reti mobili.
                     const controllers = endpoints.map(() => new AbortController());
                     const requests = endpoints.map((endpoint, index) => {
-                        const timeoutId = setTimeout(() => controllers[index].abort(), 8000);
-                        return fetch(endpoint, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8", "Accept": "application/json" },
-                            body: "data=" + encodeURIComponent(query),
+                        const timeoutId = setTimeout(() => controllers[index].abort(), 9000);
+                        return fetch(endpoint + "?data=" + encodeURIComponent(query), {
+                            method: "GET",
+                            headers: { "Accept": "application/json" },
+                            mode: "cors",
+                            cache: "no-store",
                             signal: controllers[index].signal
                         }).then(res => {
                             if (!res.ok) throw new Error("Servizio cartografico HTTP " + res.status + ".");
@@ -882,7 +884,7 @@
                         response = await Promise.any(requests);
                     } catch (requestError) {
                         controllers.forEach(controller => controller.abort());
-                        throw new Error("I servizi di ricerca non rispondono. Controlla la connessione o riprova tra poco.");
+                        throw new Error("I servizi cartografici non sono raggiungibili dalla rete o dal browser. Usa la ricerca esterna qui sotto.");
                     }
                     controllers.forEach(controller => controller.abort());
                     let payload;
