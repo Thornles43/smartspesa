@@ -732,6 +732,7 @@
         let nearbyMarkersLayer = null;
         let nearbySupermarketResults = [];
         let nearbyMapLibrariesPromise = null;
+        let nearbyTileLoadTimeout = null;
 
         window.openNearbyScreen = async () => {
             if (!currentUser) { alert("Accedi con Google per usare SmartSpesa."); return; }
@@ -789,18 +790,36 @@
             if (!L) throw new Error("La libreria della mappa non è disponibile.");
             const fallback = document.getElementById("nearbyMapFallback");
             const mapElement = document.getElementById("nearbyMap");
-            if (fallback) fallback.style.display = "none";
+            // Mantieni visibile la mappa incorporata finché le tessere Leaflet non sono caricate:
+            // così una libreria caricata ma bloccata dalla rete non lascia una mappa vuota.
+            if (fallback) fallback.style.display = "block";
             if (mapElement) mapElement.style.display = "block";
             if (!nearbyMapInstance) {
                 nearbyMapInstance = L.map("nearbyMap").setView([lat, lon], zoom);
-                L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                const tileLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
                     maxZoom: 19,
                     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>'
-                }).addTo(nearbyMapInstance);
+                });
+                tileLayer.once("load", () => {
+                    if (nearbyTileLoadTimeout) clearTimeout(nearbyTileLoadTimeout);
+                    nearbyTileLoadTimeout = null;
+                    if (fallback) fallback.style.display = "none";
+                    if (mapElement) mapElement.style.display = "block";
+                });
+                tileLayer.addTo(nearbyMapInstance);
                 nearbyMarkersLayer = L.layerGroup().addTo(nearbyMapInstance);
             } else {
                 nearbyMapInstance.setView([lat, lon], zoom);
             }
+            if (nearbyTileLoadTimeout) clearTimeout(nearbyTileLoadTimeout);
+            nearbyTileLoadTimeout = setTimeout(() => {
+                const hasVisibleTiles = mapElement && mapElement.querySelector(".leaflet-tile-loaded");
+                if (!hasVisibleTiles) {
+                    if (mapElement) mapElement.style.display = "none";
+                    if (fallback) fallback.style.display = "block";
+                }
+                nearbyTileLoadTimeout = null;
+            }, 6500);
             setTimeout(() => nearbyMapInstance && nearbyMapInstance.invalidateSize(), 150);
             return L;
         }
@@ -1073,7 +1092,7 @@
                     flyerName: String(offer.store || "Volantino"),
                     offerValidUntil: String(offer.valid_until || ""),
                     flyerSource: String(offer.source || "Prezzi in Vista"),
-                    userId: currentUser.email,
+                    userId: currentUser.uid,
                     timestamp: new Date().toISOString()
                 });
                 alert("Offerta salvata nello storico prezzi. Fonte collegata: " + (offer.url || "non disponibile"));
@@ -1262,7 +1281,7 @@
                     productSource: "Volantino: " + (flyerCurrentFileName || "inserimento manuale"),
                     flyerName: flyerCurrentFileName || "Inserimento manuale",
                     offerValidUntil: validUntil || "",
-                    userId: currentUser.email,
+                    userId: currentUser.uid,
                     timestamp: new Date().toISOString()
                 };
                 try {
@@ -1764,7 +1783,7 @@
                 countryOfOrigin: scannedProductMetadata?.countryOfOrigin || "",
                 nutriScore: scannedProductMetadata?.nutriScore || "",
                 productSource: scannedProductMetadata?.productSource || "",
-                userId: currentUser.email,
+                userId: currentUser.uid,
                 timestamp: new Date().toISOString()
             };
 
