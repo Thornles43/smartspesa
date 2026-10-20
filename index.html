@@ -869,30 +869,27 @@
                     const controllers = endpoints.map(() => new AbortController());
                     const requests = endpoints.map((endpoint, index) => {
                         const timeoutId = setTimeout(() => controllers[index].abort(), 9000);
+                        // Legge il JSON prima di risolvere Promise.any: abortire gli altri
+                        // tentativi non deve interrompere il download della risposta vincente.
                         return fetch(endpoint + "?data=" + encodeURIComponent(query), {
                             method: "GET",
                             headers: { "Accept": "application/json" },
                             mode: "cors",
                             cache: "no-store",
                             signal: controllers[index].signal
-                        }).then(res => {
+                        }).then(async res => {
                             if (!res.ok) throw new Error("Servizio cartografico HTTP " + res.status + ".");
-                            return res;
+                            return await res.json();
                         }).finally(() => clearTimeout(timeoutId));
                     });
+                    let payload;
                     try {
-                        response = await Promise.any(requests);
+                        payload = await Promise.any(requests);
                     } catch (requestError) {
                         controllers.forEach(controller => controller.abort());
                         throw new Error("I servizi cartografici non sono raggiungibili dalla rete o dal browser. Usa la ricerca esterna qui sotto.");
                     }
                     controllers.forEach(controller => controller.abort());
-                    let payload;
-                    try {
-                        payload = await response.json();
-                    } catch (parseError) {
-                        throw new Error("Il servizio cartografico ha restituito una risposta non valida. Riprova tra poco.");
-                    }
                     const unique = new Map();
                     (payload.elements || []).forEach(element => {
                         const tags = element.tags || {};
