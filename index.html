@@ -210,6 +210,8 @@
                 <a class="source-link" href="https://spesaonline.conad.it/" target="_blank" rel="noopener noreferrer">Conad <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i></a>
                 <a class="source-link" href="https://www.lidl.it/c/offerte/s10019055" target="_blank" rel="noopener noreferrer">Lidl <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i></a>
                 <a class="source-link" href="https://www.eurospin.it/" target="_blank" rel="noopener noreferrer">Eurospin <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i></a>
+                <a class="source-link" href="https://www.carrefour.it/spesa-online.html" target="_blank" rel="noopener noreferrer">Carrefour <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i></a>
+                <a class="source-link" href="https://www.coop.it/spesa-e-servizi" target="_blank" rel="noopener noreferrer">Coop <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i></a>
             </div>
             <p class="text-xs text-emerald-800 mt-3">I collegamenti aprono i siti dei supermercati: non indicano ancora un prezzo importato automaticamente.</p>
         </section>
@@ -506,6 +508,19 @@
         window.savePrice = async (e) => {
             e.preventDefault();
             if (!currentUser) return alert("Devi effettuare il login!");
+            const selectedSource = document.getElementById("priceSource").value;
+            const enteredSourceUrl = document.getElementById("sourceUrl").value.trim();
+            if (selectedSource === "official") {
+                let parsedUrl;
+                try { parsedUrl = new URL(enteredSourceUrl); } catch (_) {}
+                const allowedOfficialDomains = ["esselunga.it", "conad.it", "lidl.it", "eurospin.it", "carrefour.it", "coop.it", "mdspa.it"];
+                const isAllowedOfficialUrl = parsedUrl && parsedUrl.protocol === "https:" &&
+                    allowedOfficialDomains.some(domain => parsedUrl.hostname === domain || parsedUrl.hostname.endsWith("." + domain));
+                if (!isAllowedOfficialUrl) {
+                    alert("Per un prezzo ufficiale inserisci un link HTTPS appartenente al sito ufficiale del supermercato.");
+                    return;
+                }
+            }
 
             const priceData = {
                 barcode: document.getElementById('barcode').value,
@@ -569,6 +584,12 @@
             if (target) target.textContent = "€" + potential.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
 
+        function escapeHtml(value) {
+            return String(value ?? "").replace(/[&<>"']/g, character => ({
+                "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"
+            })[character]);
+        }
+
         function renderPriceList(prices) {
             const container = document.getElementById('priceListContainer');
             if (prices.length === 0) {
@@ -594,7 +615,7 @@
 
                 html += `<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-4">
                     <div class="bg-gray-50 px-4 py-2 border-b border-gray-100 flex justify-between items-center">
-                        <h3 class="font-bold text-gray-800 text-sm">${name}</h3>
+                        <h3 class="font-bold text-gray-800 text-sm">${escapeHtml(name)}</h3>
                         ${originBadge}
                     </div>
                     <div class="divide-y divide-gray-100">`;
@@ -603,7 +624,7 @@
                     const isBest = index === 0;
                     html += `<div class="p-4 flex justify-between items-center ${isBest ? 'best-price' : ''}">
                         <div>
-                            <p class="font-bold text-gray-900">${item.supermarket}</p>
+                            <p class="font-bold text-gray-900">${escapeHtml(item.supermarket)}</p>
                             <p class="text-xs text-gray-500">${item.priceSource === 'official' && item.sourceUrl ? '<a class="underline text-emerald-700" href="' + item.sourceUrl.replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '" target="_blank" rel="noopener noreferrer">Fonte ufficiale ↗</a>' : 'Segnalato dalla community'}</p>
                         </div>
                         <div class="text-right">
