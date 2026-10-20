@@ -523,13 +523,57 @@
                         lastLookupError = lookupError;
                     }
                 }
-                if (!successfulResponse && lastLookupError) throw lastLookupError;
-                if (!data) throw new Error("Risposta vuota da Open Food Facts");
+                // Seconda fonte: UPCitemdb. Si usa solo se Open Food Facts non
+                // riconosce il codice o non è raggiungibile.
+                if (!data || data.status !== 1 || !data.product) {
+                    try {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 8000);
+                        let response;
+                        try {
+                            response = await fetch("https://api.upcitemdb.com/prod/trial/lookup?upc=" + encodeURIComponent(barcode), {
+                                method: "GET",
+                                headers: { "Accept": "application/json" },
+                                cache: "no-store",
+                                signal: controller.signal
+                            });
+                        } finally {
+                            clearTimeout(timeoutId);
+                        }
+                        if (!response.ok) throw new Error("UPCitemdb HTTP " + response.status);
+                        const result = await response.json();
+                        const item = result && Array.isArray(result.items) ? result.items[0] : null;
+                        if (item && (item.title || item.description)) {
+                            data = {
+                                status: 1,
+                                product: {
+                                    product_name: item.title || item.description || "",
+                                    product_name_it: item.title || "",
+                                    brands: item.brand || "",
+                                    categories: item.category || "",
+                                    categories_tags: [],
+                                    ingredients_text: item.description || "",
+                                    ingredients_text_it: "",
+                                    origins: "",
+                                    origins_tags: [],
+                                    countries: "",
+                                    countries_tags: [],
+                                    manufacturing_places: ""
+                                }
+                            };
+                            console.info("Prodotto riconosciuto tramite UPCitemdb");
+                        }
+                    } catch (fallbackError) {
+                        console.warn("Ricerca catalogo alternativo:", fallbackError);
+                    }
+                }
+                if (!data && lastLookupError) throw lastLookupError;
+                if (!data) throw new Error("Risposta vuota dai cataloghi prodotti");
                 if (data.status !== 1 || !data.product) {
                     scannedProductMetadata = null;
                     showProductMetadata(null);
                     document.getElementById("origin").value = "unknown";
-                    status.textContent = "Prodotto non trovato. Nome e provenienza possono essere inseriti manualmente; il barcode è stato mantenuto.";
+                    status.textContent = "Prodotto non trovato nei cataloghi disponibili. Il barcode è stato mantenuto: inserisci il nome manualmente.";
                     document.getElementById("productName").focus();
                     return;
                 }
