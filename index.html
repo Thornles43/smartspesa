@@ -148,6 +148,7 @@
                 <button type="button" onclick="startBarcodeScanner()" class="w-full mt-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg flex items-center justify-center gap-2">
                     <i class="fa-solid fa-camera"></i> Scansiona con la fotocamera
                 </button>
+                <p id="barcodeLookupStatus" class="hidden text-sm text-blue-700 mt-2" role="status" aria-live="polite"></p>
                 <div id="scannerPanel" class="hidden mt-3 p-3 bg-gray-50 border border-gray-200 rounded-xl">
                     <div class="flex items-center justify-between mb-2">
                         <p class="font-semibold text-sm">Inquadra il codice a barre</p>
@@ -308,6 +309,7 @@
 
         let currentUser = null;
         let barcodeScanner = null;
+        let barcodeLookupTimer = null;
         let scannedProductMetadata = null;
         let allKnownPrices = [];
         let shoppingItems = [];
@@ -472,10 +474,14 @@
             }
         };
 
-        async function lookupOpenFoodFacts(barcode) {
-            const status = document.getElementById("scannerStatus");
+        async function lookupOpenFoodFacts(barcode, manualLookup = false) {
             const panel = document.getElementById("scannerPanel");
-            panel.classList.remove("hidden");
+            const status = document.getElementById(manualLookup ? "barcodeLookupStatus" : "scannerStatus");
+            if (manualLookup) {
+                status.classList.remove("hidden");
+            } else {
+                panel.classList.remove("hidden");
+            }
             status.textContent = "Ricerca del prodotto su Open Food Facts…";
             try {
                 const fields = "code,product_name,product_name_it,brands,categories,categories_tags,ingredients_text,ingredients_text_it,origins,origins_tags,countries,countries_tags,manufacturing_places";
@@ -523,6 +529,27 @@
             document.getElementById("barcode").addEventListener("input", () => {
                 scannedProductMetadata = null;
                 showProductMetadata(null);
+                if (barcodeLookupTimer) clearTimeout(barcodeLookupTimer);
+                const code = document.getElementById("barcode").value.trim();
+                const status = document.getElementById("barcodeLookupStatus");
+                if (!code) {
+                    status.classList.add("hidden");
+                    status.textContent = "";
+                    return;
+                }
+                if (code.length === 13 && !isValidEan13(code)) {
+                    status.classList.remove("hidden");
+                    status.textContent = "Il codice deve essere un EAN-13 valido. Controlla le cifre e riprova.";
+                    return;
+                }
+                if (isValidEan13(code)) {
+                    status.classList.remove("hidden");
+                    status.textContent = "Codice valido. Riconoscimento automatico del prodotto…";
+                    barcodeLookupTimer = setTimeout(() => lookupOpenFoodFacts(code, true), 450);
+                } else {
+                    status.classList.add("hidden");
+                    status.textContent = "";
+                }
             });
         });
 
@@ -656,8 +683,44 @@
         };
 
         function normalizeProductName(value) {
-            return String(value || '').trim().toLocaleLowerCase('it-IT').replace(/\s+/g, ' ');
+            return String(value || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLocaleLowerCase('it-IT')
+                .replace(/[^a-z0-9]+/g, ' ').trim().replace(/\\s+/g, ' ');
         }
+
+        function productSearchScore(query, productName) {
+            const q = normalizeProductName(query);
+            const name = normalizeProductName(productName);
+            if (!q || !name) return 0;
+            if (name.includes(q)) return 1;
+            const queryTokens = q.split(' ').filter(token => token.length > 1);
+            if (!queryTokens.length) return name.startsWith(q) ? 1 : 0;
+            const nameTokens = name.split(' ');
+            const matched = queryTokens.filter(token => nameTokens.some(candidate =>
+                candidate.includes(token) || (token.length >= 4 && token.includes(candidate))
+            )).length;
+            return matched / queryTokens.length;
+        }
+
+        window.openPriceEntryForProduct = async (productName, barcode = '') => {
+            if (!currentUser) {
+                alert('Accedi con Google prima di inserire un prezzo.');
+                return;
+            }
+            const form = document.getElementById('priceForm');
+            form.reset();
+            toggleSourceUrl();
+            scannedProductMetadata = null;
+            showProductMetadata(null);
+            document.getElementById('productName').value = String(productName || '').trim();
+            document.getElementById('barcode').value = /^\\d{13}$/.test(String(barcode)) && isValidEan13(String(barcode)) ? String(barcode) : '';
+            document.getElementById('barcodeLookupStatus').classList.add('hidden');
+            window.showScreen('screen-scan');
+            if (document.getElementById('barcode').value) {
+                await lookupOpenFoodFacts(document.getElementById('barcode').value, true);
+            } else {
+                document.getElementById('productName').focus();
+            }
+        };
 
         window.searchShoppingProducts = async (rawTerm) => {
             const term = normalizeProductName(rawTerm);
@@ -671,34 +734,65 @@
             const matches = new Map();
             allKnownPrices.forEach(item => {
                 const name = String(item.productName || '').trim();
-                if (!name || !normalizeProductName(name).includes(term)) return;
+                if (!name) return;
+                const score = productSearchScore(term, name);
+                if (score < 0.5) return;
                 const key = normalizeProductName(name);
                 const rawPrice = item.price;
                 const price = rawPrice !== null && rawPrice !== undefined && rawPrice !== '' ? Number(rawPrice) : null;
                 const hasPrice = price !== null && Number.isFinite(price) && price >= 0;
                 const current = matches.get(key);
-                const currentHasPrice = current && current.price !== null && Number.isFinite(current.price);
-                if (!current || (hasPrice && (!currentHasPrice || price < current.price))) {
+                if (!current) {
                     matches.set(key, {
                         productName: name, barcode: item.barcode || '', price: hasPrice ? price : null,
                         supermarket: item.supermarket || '', priceSource: item.priceSource || 'community',
-                        sourceUrl: item.sourceUrl || '', timestamp: item.timestamp || ''
+                        sourceUrl: item.sourceUrl || '', timestamp: item.timestamp || '',
+                        priceCount: hasPrice ? 1 : 0, score
                     });
+                    return;
                 }
+                if (hasPrice) current.priceCount += 1;
+                if (score > current.score) current.score = score;
+                if (hasPrice && (current.price === null || price < current.price)) {
+                    current.price = price;
+                    current.supermarket = item.supermarket || '';
+                    current.priceSource = item.priceSource || 'community';
+                    current.sourceUrl = item.sourceUrl || '';
+                    current.timestamp = item.timestamp || '';
+                }
+                if (!current.barcode && item.barcode) current.barcode = item.barcode;
             });
 
-            // Completa la ricerca con il catalogo pubblico Open Food Facts.
             if (term.length >= 2) {
                 try {
-                    const url = 'https://world.openfoodfacts.org/cgi/search.pl?search_terms=' + encodeURIComponent(rawTerm.trim()) + '&search_simple=1&action=process&json=1&page_size=8&fields=code,product_name,product_name_it,brands';
+                    const url = 'https://world.openfoodfacts.org/cgi/search.pl?search_terms=' + encodeURIComponent(String(rawTerm || '').trim()) + '&search_simple=1&action=process&json=1&page_size=10&fields=code,product_name,product_name_it,brands';
                     const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
                     if (response.ok) {
                         const data = await response.json();
                         (data.products || []).forEach(product => {
                             const name = String(product.product_name_it || product.product_name || '').trim();
                             if (!name) return;
+                            const code = String(product.code || '');
+                            const knownByBarcode = code ? allKnownPrices.filter(priceItem => String(priceItem.barcode || '') === code) : [];
+                            const bestKnown = knownByBarcode
+                                .filter(priceItem => Number.isFinite(Number(priceItem.price)) && Number(priceItem.price) >= 0)
+                                .sort((a, b) => Number(a.price) - Number(b.price))[0];
                             const key = normalizeProductName(name);
-                            if (!matches.has(key)) matches.set(key, { productName: name, barcode: product.code || '', price: null, supermarket: '' });
+                            const existing = matches.get(key);
+                            if (existing) {
+                                if (!existing.barcode && code) existing.barcode = code;
+                                return;
+                            }
+                            matches.set(key, {
+                                productName: name, barcode: code,
+                                price: bestKnown ? Number(bestKnown.price) : null,
+                                supermarket: bestKnown ? (bestKnown.supermarket || '') : '',
+                                priceSource: bestKnown ? (bestKnown.priceSource || 'community') : 'community',
+                                sourceUrl: bestKnown ? (bestKnown.sourceUrl || '') : '',
+                                timestamp: bestKnown ? (bestKnown.timestamp || '') : '',
+                                priceCount: bestKnown ? knownByBarcode.filter(p => Number.isFinite(Number(p.price)) && Number(p.price) >= 0).length : 0,
+                                score: productSearchScore(term, name)
+                            });
                         });
                     }
                 } catch (error) {
@@ -707,25 +801,36 @@
             }
             if (requestId !== shoppingSearchRequestId) return;
 
-            const results = Array.from(matches.values()).slice(0, 8);
+            const results = Array.from(matches.values())
+                .filter(item => item.score >= 0.5)
+                .sort((a, b) => (b.score - a.score) || ((a.price ?? Number.POSITIVE_INFINITY) - (b.price ?? Number.POSITIVE_INFINITY)))
+                .slice(0, 8);
             let html = '';
             results.forEach(item => {
                 const safeName = JSON.stringify(item.productName).replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
                 const safeBarcode = JSON.stringify(item.barcode).replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
-                const priceText = item.price !== null ? 'Da €' + item.price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + (item.supermarket ? ' · ' + escapeHtml(item.supermarket) : '') : 'Prezzo non disponibile';
+                const priceText = item.price !== null
+                    ? 'Da €' + item.price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) +
+                      (item.supermarket ? ' · ' + escapeHtml(item.supermarket) : '') +
+                      (item.priceCount > 1 ? ' · ' + item.priceCount + ' prezzi registrati' : '')
+                    : 'Prezzo non ancora registrato';
                 const safePrice = item.price === null ? 'null' : String(item.price);
                 const safeSupermarket = JSON.stringify(item.supermarket || '').replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
                 const safePriceSource = JSON.stringify(item.priceSource || 'community').replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
                 const safeSourceUrl = JSON.stringify(item.sourceUrl || '').replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
                 const safeTimestamp = JSON.stringify(item.timestamp || '').replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
-                html += '<div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center gap-3"><div class="w-10 h-10 shrink-0 rounded-xl bg-emerald-50 flex items-center justify-center"><i class="fa-solid fa-box text-emerald-700"></i></div><div class="min-w-0 flex-1"><p class="font-semibold text-gray-900 break-words">' + escapeHtml(item.productName) + '</p><p class="text-xs text-gray-500">' + priceText + '</p></div><button type="button" class="shopping-action shrink-0" onclick=\'addShoppingItem(' + safeName + ', ' + safeBarcode + ', ' + safePrice + ', ' + safeSupermarket + ', ' + safePriceSource + ', ' + safeSourceUrl + ', ' + safeTimestamp + ')\'><i class="fa-solid fa-plus mr-1"></i>Aggiungi</button></div>';
+                const canRegisterPrice = item.price === null && /^\\d{13}$/.test(String(item.barcode || '')) && isValidEan13(String(item.barcode));
+                const registerButton = canRegisterPrice
+                    ? '<button type="button" class="shopping-secondary mt-2" onclick=\'openPriceEntryForProduct(' + safeName + ', ' + safeBarcode + ')\'><i class="fa-solid fa-tag mr-1"></i>Registra un prezzo</button>'
+                    : '';
+                html += '<div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center gap-3"><div class="w-10 h-10 shrink-0 rounded-xl bg-emerald-50 flex items-center justify-center"><i class="fa-solid fa-box text-emerald-700"></i></div><div class="min-w-0 flex-1"><p class="font-semibold text-gray-900 break-words">' + escapeHtml(item.productName) + '</p><p class="text-xs text-gray-500">' + priceText + '</p>' + registerButton + '</div><button type="button" class="shopping-action shrink-0" onclick=\'addShoppingItem(' + safeName + ', ' + safeBarcode + ', ' + safePrice + ', ' + safeSupermarket + ', ' + safePriceSource + ', ' + safeSourceUrl + ', ' + safeTimestamp + ')\'><i class="fa-solid fa-plus mr-1"></i>Aggiungi</button></div>';
             });
             const exactMatch = results.some(item => normalizeProductName(item.productName) === term);
             if (!exactMatch) {
                 const safeTerm = JSON.stringify(String(rawTerm || '').trim()).replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
-                html += '<div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex items-center gap-3"><div class="min-w-0 flex-1"><p class="font-semibold text-emerald-950">Aggiungi “' + escapeHtml(String(rawTerm || '').trim()) + '”</p><p class="text-xs text-emerald-800">Voce personalizzata nella tua lista</p></div><button type="button" class="shopping-action shrink-0" onclick=\'addShoppingItem(' + safeTerm + ', "")\'><i class="fa-solid fa-plus mr-1"></i>Aggiungi</button></div>';
+                html += '<div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex items-center gap-3"><div class="min-w-0 flex-1"><p class="font-semibold text-emerald-950">Aggiungi “' + escapeHtml(String(rawTerm || '').trim()) + '”</p><p class="text-xs text-emerald-800">Voce personalizzata nella tua lista, senza prezzo associato</p></div><button type="button" class="shopping-action shrink-0" onclick=\'addShoppingItem(' + safeTerm + ', "")\'><i class="fa-solid fa-plus mr-1"></i>Aggiungi</button></div>';
             }
-            container.innerHTML = html || '<p class="text-sm text-gray-500 text-center py-4">Nessun prodotto trovato.</p>';
+            container.innerHTML = html || '<p class="text-sm text-gray-500 text-center py-4">Nessun prodotto trovato. Puoi aggiungerlo come voce personalizzata.</p>';
         };
 
         window.addShoppingItem = async (productName, barcode = '', unitPrice = null, supermarket = '', priceSource = '', sourceUrl = '', priceTimestamp = '') => {
@@ -927,6 +1032,8 @@
                 alert("✅ Prezzo salvato con successo! Grazie per il contributo.");
                 document.getElementById('priceForm').reset();
                 toggleSourceUrl();
+                document.getElementById('barcodeLookupStatus').classList.add('hidden');
+                document.getElementById('barcodeLookupStatus').textContent = '';
                 scannedProductMetadata = null;
                 showProductMetadata(null);
                 document.getElementById("scannerStatus").textContent = "Scanner pronto.";
