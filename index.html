@@ -281,6 +281,7 @@
         let allKnownPrices = [];
         let shoppingItems = [];
         let shoppingListLoading = false;
+        let shoppingSearchRequestId = 0;
 
         const EU_COUNTRIES = new Set([
             "austria", "belgium", "bulgaria", "croatia", "cyprus", "czech republic", "czechia", "denmark", "estonia", "finland", "france", "germany", "greece", "hungary", "ireland", "italy", "latvia", "lithuania", "luxembourg", "malta", "netherlands", "poland", "portugal", "romania", "slovakia", "slovenia", "spain", "sweden"
@@ -543,34 +544,57 @@
             return String(value || '').trim().toLocaleLowerCase('it-IT').replace(/\s+/g, ' ');
         }
 
-        window.searchShoppingProducts = (rawTerm) => {
+        window.searchShoppingProducts = async (rawTerm) => {
             const term = normalizeProductName(rawTerm);
             const container = document.getElementById('shoppingSearchResults');
+            const requestId = ++shoppingSearchRequestId;
             if (!term) {
                 container.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">Scrivi il nome di un prodotto per iniziare.</p>';
                 return;
             }
+
             const matches = new Map();
             allKnownPrices.forEach(item => {
                 const name = String(item.productName || '').trim();
                 if (!name || !normalizeProductName(name).includes(term)) return;
                 const key = normalizeProductName(name);
                 const price = Number(item.price);
-                if (!matches.has(key) || (Number.isFinite(price) && price < matches.get(key).price)) {
+                if (!matches.has(key) || (Number.isFinite(price) && matches.get(key).price === null || Number.isFinite(price) && price < matches.get(key).price)) {
                     matches.set(key, { productName: name, barcode: item.barcode || '', price: Number.isFinite(price) ? price : null, supermarket: item.supermarket || '' });
                 }
             });
+
+            // Completa la ricerca con il catalogo pubblico Open Food Facts.
+            if (term.length >= 2) {
+                try {
+                    const url = 'https://world.openfoodfacts.org/cgi/search.pl?search_terms=' + encodeURIComponent(rawTerm.trim()) + '&search_simple=1&action=process&json=1&page_size=8&fields=code,product_name,product_name_it,brands';
+                    const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                    if (response.ok) {
+                        const data = await response.json();
+                        (data.products || []).forEach(product => {
+                            const name = String(product.product_name_it || product.product_name || '').trim();
+                            if (!name) return;
+                            const key = normalizeProductName(name);
+                            if (!matches.has(key)) matches.set(key, { productName: name, barcode: product.code || '', price: null, supermarket: '' });
+                        });
+                    }
+                } catch (error) {
+                    console.warn('Ricerca catalogo prodotti non disponibile:', error);
+                }
+            }
+            if (requestId !== shoppingSearchRequestId) return;
+
             const results = Array.from(matches.values()).slice(0, 8);
             let html = '';
             results.forEach(item => {
-                const safeName = JSON.stringify(item.productName).replace(/</g, '\\u003c');
-                const safeBarcode = JSON.stringify(item.barcode).replace(/</g, '\\u003c');
+                const safeName = JSON.stringify(item.productName).replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
+                const safeBarcode = JSON.stringify(item.barcode).replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
                 const priceText = item.price !== null ? 'Da €' + item.price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + (item.supermarket ? ' · ' + escapeHtml(item.supermarket) : '') : 'Prezzo non disponibile';
                 html += '<div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center gap-3"><div class="w-10 h-10 shrink-0 rounded-xl bg-emerald-50 flex items-center justify-center"><i class="fa-solid fa-box text-emerald-700"></i></div><div class="min-w-0 flex-1"><p class="font-semibold text-gray-900 break-words">' + escapeHtml(item.productName) + '</p><p class="text-xs text-gray-500">' + priceText + '</p></div><button type="button" class="shopping-action shrink-0" onclick=\'addShoppingItem(' + safeName + ', ' + safeBarcode + ')\'><i class="fa-solid fa-plus mr-1"></i>Aggiungi</button></div>';
             });
             const exactMatch = results.some(item => normalizeProductName(item.productName) === term);
             if (!exactMatch) {
-                const safeTerm = JSON.stringify(String(rawTerm || '').trim()).replace(/</g, '\\u003c');
+                const safeTerm = JSON.stringify(String(rawTerm || '').trim()).replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
                 html += '<div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex items-center gap-3"><div class="min-w-0 flex-1"><p class="font-semibold text-emerald-950">Aggiungi “' + escapeHtml(String(rawTerm || '').trim()) + '”</p><p class="text-xs text-emerald-800">Voce personalizzata nella tua lista</p></div><button type="button" class="shopping-action shrink-0" onclick=\'addShoppingItem(' + safeTerm + ', "")\'><i class="fa-solid fa-plus mr-1"></i>Aggiungi</button></div>';
             }
             container.innerHTML = html || '<p class="text-sm text-gray-500 text-center py-4">Nessun prodotto trovato.</p>';
