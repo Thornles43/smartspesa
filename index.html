@@ -26,6 +26,18 @@
         .shopping-qty { display: inline-flex; align-items: center; gap: 10px; }
         .shopping-qty button { width: 32px; height: 32px; border: 1px solid var(--ss-line); border-radius: 10px; background: #f8faf8; color: var(--ss-ink); font-weight: 700; }
         .shopping-secondary { min-height: 36px; padding: 7px 10px; border: 1px solid var(--ss-line); border-radius: 10px; background: white; color: #475569; font-size: 12px; font-weight: 600; }
+        .theme-palette { display: flex; flex-wrap: wrap; gap: 10px; }
+        .theme-swatch { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--ss-line); border-radius: 999px; padding: 7px 10px; background: white; font-size: 12px; font-weight: 600; }
+        .theme-dot { width: 16px; height: 16px; border-radius: 50%; display: inline-block; }
+        .theme-swatch[aria-pressed="true"] { outline: 2px solid var(--ss-green); outline-offset: 2px; }
+        .shopping-sync-notice { border-radius: 12px; padding: 10px 12px; font-size: 12px; margin-bottom: 12px; }
+        body .shopping-action, body #priceForm button[type="submit"], body #screen-dashboard button[onclick*="screen-scan"] { background: var(--ss-green) !important; }
+        body .shopping-check { accent-color: var(--ss-green); }
+        body .nav-item.active, body .text-green-600, body .text-emerald-700 { color: var(--ss-green) !important; }
+        body .bg-green-600, body .bg-emerald-600 { background-color: var(--ss-green) !important; }
+        body .bg-emerald-50, body .bg-green-100 { background-color: var(--ss-soft) !important; }
+        body .text-emerald-800, body .text-emerald-900, body .text-emerald-950 { color: var(--ss-accent-ink) !important; }
+        body .border-emerald-100 { border-color: var(--ss-line) !important; }
         #screen-dashboard h2 { letter-spacing: -0.035em; }
         #screen-dashboard .grid > div { border: 1px solid var(--ss-line) !important; border-radius: 18px !important; box-shadow: 0 5px 18px #17211d08 !important; background: white !important; }
         #screen-dashboard button[onclick*="screen-scan"] { background: var(--ss-green) !important; border-radius: 18px !important; box-shadow: 0 8px 18px #087f5b20 !important; }
@@ -237,6 +249,17 @@
     <!-- SCHERMATA 5: LISTA DELLA SPESA -->
     <div id="screen-shopping" class="screen p-4">
         <div class="flex items-center justify-between gap-3 mb-5"><div><h2 class="text-2xl font-bold text-gray-900">La mia spesa</h2><p class="text-sm text-gray-500 mt-1">Cerca i prodotti e aggiungili alla lista</p></div><div class="w-11 h-11 rounded-2xl bg-emerald-50 flex items-center justify-center"><i class="fa-solid fa-basket-shopping text-xl text-emerald-700"></i></div></div>
+        <div class="bg-white border border-gray-100 rounded-2xl p-4 mb-4">
+            <p class="text-sm font-semibold text-gray-800 mb-3">Personalizza i colori</p>
+            <div class="theme-palette" role="group" aria-label="Colori dell'app">
+                <button type="button" class="theme-swatch" data-theme-choice="green" aria-pressed="true" onclick="setAppTheme('green')"><span class="theme-dot" style="background:#087f5b"></span>Verde</button>
+                <button type="button" class="theme-swatch" data-theme-choice="blue" aria-pressed="false" onclick="setAppTheme('blue')"><span class="theme-dot" style="background:#2563eb"></span>Blu</button>
+                <button type="button" class="theme-swatch" data-theme-choice="purple" aria-pressed="false" onclick="setAppTheme('purple')"><span class="theme-dot" style="background:#7c3aed"></span>Viola</button>
+                <button type="button" class="theme-swatch" data-theme-choice="orange" aria-pressed="false" onclick="setAppTheme('orange')"><span class="theme-dot" style="background:#c2410c"></span>Arancione</button>
+                <button type="button" class="theme-swatch" data-theme-choice="rose" aria-pressed="false" onclick="setAppTheme('rose')"><span class="theme-dot" style="background:#be123c"></span>Bordeaux</button>
+            </div>
+        </div>
+        <div id="shoppingSyncNotice" class="hidden shopping-sync-notice" role="status" aria-live="polite"></div>
         <div class="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 mb-5">
             <label for="shoppingSearch" class="block text-sm font-semibold text-gray-700 mb-2">Cerca un prodotto</label>
             <div class="relative"><i class="fa-solid fa-magnifying-glass absolute left-4 top-4 text-gray-400"></i><input id="shoppingSearch" type="search" autocomplete="off" placeholder="Es. latte, pasta, mele..." class="w-full pl-11 pr-4 py-3 outline-none" oninput="searchShoppingProducts(this.value)"></div>
@@ -248,7 +271,7 @@
             <p id="shoppingPriceCoverage" class="text-xs text-gray-500">I prodotti senza prezzo registrato non sono inclusi nel totale.</p>
         </div>
         <div class="flex items-center justify-between gap-3 mb-3"><h3 class="font-bold text-gray-900">La tua lista</h3><span id="shoppingListCount" class="text-xs font-semibold bg-emerald-50 text-emerald-800 px-3 py-1 rounded-full">0 da comprare</span></div>
-        <div class="flex flex-wrap gap-2 mb-4"><button type="button" class="shopping-secondary" onclick="clearPurchasedShoppingItems()">Rimuovi acquistati</button><button type="button" class="shopping-secondary" onclick="clearShoppingList()">Svuota lista</button></div>
+        <div class="flex flex-wrap gap-2 mb-4"><button type="button" class="shopping-secondary" onclick="shareShoppingList()"><i class="fa-solid fa-share-nodes mr-1"></i>Condividi lista</button><button type="button" class="shopping-secondary" onclick="clearPurchasedShoppingItems()">Rimuovi acquistati</button><button type="button" class="shopping-secondary" onclick="clearShoppingList()">Svuota lista</button></div>
         <div id="shoppingListItems" class="space-y-3"><div class="bg-white rounded-2xl border border-gray-100 p-6 text-center text-gray-400"><i class="fa-solid fa-basket-shopping text-3xl mb-2"></i><p>La lista è vuota. Cerca un prodotto e premi Aggiungi.</p></div></div>
     </div>
 
@@ -290,6 +313,14 @@
         let shoppingItems = [];
         let shoppingListLoading = false;
         let shoppingSearchRequestId = 0;
+        const shoppingThemes = {
+            green: { primary: '#087f5b', soft: '#e5f5ed', ink: '#07543e', line: '#c8e8d7' },
+            blue: { primary: '#2563eb', soft: '#eaf2ff', ink: '#1e40af', line: '#cbdcff' },
+            purple: { primary: '#7c3aed', soft: '#f2eaff', ink: '#5b21b6', line: '#ddd0ff' },
+            orange: { primary: '#c2410c', soft: '#fff0e5', ink: '#9a3412', line: '#fed7aa' },
+            rose: { primary: '#be123c', soft: '#fff0f3', ink: '#9f1239', line: '#fecdd3' }
+        };
+        let localShoppingFallback = [];
 
         const EU_COUNTRIES = new Set([
             "austria", "belgium", "bulgaria", "croatia", "cyprus", "czech republic", "czechia", "denmark", "estonia", "finland", "france", "germany", "greece", "hungary", "ireland", "italy", "latvia", "lithuania", "luxembourg", "malta", "netherlands", "poland", "portugal", "romania", "slovakia", "slovenia", "spain", "sweden"
@@ -488,6 +519,7 @@
         }
 
         document.addEventListener("DOMContentLoaded", () => {
+            loadAppTheme();
             document.getElementById("barcode").addEventListener("input", () => {
                 scannedProductMetadata = null;
                 showProductMetadata(null);
@@ -546,6 +578,81 @@
         window.openShoppingList = () => {
             window.showScreen('screen-shopping');
             loadShoppingItems();
+        };
+
+        function localShoppingStorageKey() {
+            return 'smartspesa-shopping-local-' + (currentUser?.uid || 'guest');
+        }
+
+        function readLocalShoppingItems() {
+            try {
+                const value = JSON.parse(localStorage.getItem(localShoppingStorageKey()) || '[]');
+                return Array.isArray(value) ? value.filter(item => item && item.localOnly && item.id && item.productName) : [];
+            } catch (_) { return []; }
+        }
+
+        function saveLocalShoppingItems() {
+            try {
+                localStorage.setItem(localShoppingStorageKey(), JSON.stringify(shoppingItems.filter(item => item.localOnly)));
+            } catch (error) { console.warn('Salvataggio locale della lista non disponibile:', error); }
+        }
+
+        function showShoppingSyncNotice(message, kind = 'warning') {
+            const notice = document.getElementById('shoppingSyncNotice');
+            if (!notice) return;
+            notice.textContent = message || '';
+            notice.classList.toggle('hidden', !message);
+            notice.style.background = kind === 'success' ? 'var(--ss-soft)' : '#fff7ed';
+            notice.style.color = kind === 'success' ? 'var(--ss-accent-ink)' : '#9a3412';
+            notice.style.border = kind === 'success' ? '1px solid var(--ss-line)' : '1px solid #fed7aa';
+        }
+
+        window.setAppTheme = (themeName) => {
+            const selectedName = Object.prototype.hasOwnProperty.call(shoppingThemes, themeName) ? themeName : 'green';
+            const theme = shoppingThemes[selectedName];
+            document.documentElement.style.setProperty('--ss-green', theme.primary);
+            document.documentElement.style.setProperty('--ss-soft', theme.soft);
+            document.documentElement.style.setProperty('--ss-accent-ink', theme.ink);
+            document.documentElement.style.setProperty('--ss-line', theme.line);
+            try { localStorage.setItem('smartspesa-theme', selectedName); } catch (_) {}
+            document.querySelectorAll('[data-theme-choice]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.themeChoice === selectedName)));
+        };
+
+        function loadAppTheme() {
+            let themeName = 'green';
+            try { themeName = localStorage.getItem('smartspesa-theme') || 'green'; } catch (_) {}
+            window.setAppTheme(themeName);
+        }
+
+        window.shareShoppingList = async () => {
+            const items = shoppingItems.slice();
+            if (!items.length) { alert('La lista è vuota: aggiungi almeno un prodotto prima di condividerla.'); return; }
+            const active = items.filter(item => !item.checked);
+            const bought = items.filter(item => item.checked);
+            const lines = ['La mia lista della spesa - SmartSpesa', '', 'DA COMPRARE'];
+            active.forEach(item => {
+                const quantity = Math.max(1, Math.floor(Number(item.quantity) || 1));
+                const price = item.unitPrice !== null && item.unitPrice !== undefined && item.unitPrice !== '' ? Number(item.unitPrice) : NaN;
+                const priceText = Number.isFinite(price) && price >= 0 ? ' — €' + (price * quantity).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ' — prezzo da verificare';
+                lines.push('☐ ' + item.productName + ' × ' + quantity + priceText);
+            });
+            if (bought.length) {
+                lines.push('', 'GIÀ ACQUISTATI');
+                bought.forEach(item => lines.push('✓ ' + item.productName + ' × ' + Math.max(1, Math.floor(Number(item.quantity) || 1))));
+            }
+            const shareText = lines.join('\n');
+            try {
+                if (navigator.share) await navigator.share({ title: 'La mia lista della spesa', text: shareText });
+                else if (navigator.clipboard?.writeText) {
+                    await navigator.clipboard.writeText(shareText);
+                    alert('Lista copiata. Ora puoi incollarla in WhatsApp o in un altro messaggio.');
+                } else window.prompt('Copia la lista della spesa:', shareText);
+            } catch (error) {
+                if (error?.name !== 'AbortError') {
+                    console.error('Errore condivisione lista:', error);
+                    try { window.prompt('Copia la lista della spesa:', shareText); } catch (_) {}
+                }
+            }
         };
 
         function normalizeProductName(value) {
@@ -645,7 +752,11 @@
                 renderShoppingItems();
             } catch (error) {
                 console.error('Errore aggiunta prodotto alla lista:', error);
-                alert('Non riesco a salvare il prodotto. Controlla la connessione e riprova.');
+                const localItem = { id: 'local-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8), ...itemData, localOnly: true };
+                shoppingItems.push(localItem);
+                saveLocalShoppingItems();
+                renderShoppingItems();
+                showShoppingSyncNotice('Salvataggio online non riuscito (' + (error.code || 'errore di connessione') + '). Il prodotto è stato salvato solo su questo dispositivo. Per sincronizzarlo tra dispositivi bisogna correggere le regole Firestore.', 'warning');
             }
         };
 
@@ -653,14 +764,20 @@
             if (!currentUser || shoppingListLoading) return;
             shoppingListLoading = true;
             document.getElementById('shoppingListItems').innerHTML = '<p class="text-sm text-gray-400 text-center py-4">Caricamento della lista…</p>';
+            localShoppingFallback = readLocalShoppingItems();
             try {
                 const q = query(collection(db, 'shoppingItems'), where('userId', '==', currentUser.uid));
                 const snapshot = await getDocs(q);
-                shoppingItems = snapshot.docs.map(itemDoc => ({ id: itemDoc.id, ...itemDoc.data() }));
+                const cloudItems = snapshot.docs.map(itemDoc => ({ id: itemDoc.id, ...itemDoc.data() }));
+                const cloudNames = new Set(cloudItems.filter(item => !item.checked).map(item => normalizeProductName(item.productName)));
+                shoppingItems = cloudItems.concat(localShoppingFallback.filter(item => !cloudNames.has(normalizeProductName(item.productName))));
                 renderShoppingItems();
+                showShoppingSyncNotice(localShoppingFallback.length ? 'Alcuni prodotti sono salvati solo su questo dispositivo e non sono sincronizzati online.' : '', localShoppingFallback.length ? 'warning' : 'success');
             } catch (error) {
                 console.error('Errore caricamento lista della spesa:', error);
-                document.getElementById('shoppingListItems').innerHTML = '<p class="text-sm text-red-600 text-center py-4">Non riesco a caricare la lista. Verifica le regole di accesso Firestore.</p>';
+                shoppingItems = localShoppingFallback;
+                renderShoppingItems();
+                showShoppingSyncNotice('Firebase non consente di leggere la lista (' + (error.code || 'errore di connessione') + '). Puoi usare e condividere i prodotti salvati localmente su questo dispositivo; la sincronizzazione online richiede una verifica delle regole Firestore.', 'warning');
             } finally { shoppingListLoading = false; }
         }
 
@@ -702,8 +819,9 @@
             const nextQuantity = Math.max(1, oldQuantity + Number(delta || 0));
             if (nextQuantity === oldQuantity) return;
             try {
-                await updateDoc(doc(db, 'shoppingItems', itemId), { quantity: nextQuantity });
+                if (!item.localOnly) await updateDoc(doc(db, 'shoppingItems', itemId), { quantity: nextQuantity });
                 item.quantity = nextQuantity;
+                saveLocalShoppingItems();
                 renderShoppingItems();
             } catch (error) {
                 console.error('Errore aggiornamento quantità:', error);
@@ -717,8 +835,9 @@
             if (!confirm('Rimuovere dalla lista tutti i prodotti già acquistati?')) return;
             for (const item of purchased) {
                 try {
-                    await deleteDoc(doc(db, 'shoppingItems', item.id));
+                    if (!item.localOnly) await deleteDoc(doc(db, 'shoppingItems', item.id));
                     shoppingItems = shoppingItems.filter(entry => entry.id !== item.id);
+                    saveLocalShoppingItems();
                 } catch (error) {
                     console.error('Errore rimozione prodotto acquistato:', error);
                     alert('Alcuni prodotti non sono stati rimossi. Riprova.');
@@ -734,8 +853,9 @@
             if (!confirm('Vuoi eliminare tutti i prodotti dalla lista? Questa operazione non si può annullare.')) return;
             for (const item of [...shoppingItems]) {
                 try {
-                    await deleteDoc(doc(db, 'shoppingItems', item.id));
+                    if (!item.localOnly) await deleteDoc(doc(db, 'shoppingItems', item.id));
                     shoppingItems = shoppingItems.filter(entry => entry.id !== item.id);
+                    saveLocalShoppingItems();
                 } catch (error) {
                     console.error('Errore svuotamento lista:', error);
                     alert('La lista è stata svuotata solo in parte. Riprova.');
@@ -749,13 +869,23 @@
         window.toggleShoppingItem = async (itemId, checked) => {
             const item = shoppingItems.find(entry => entry.id === itemId);
             if (!item) return;
-            try { await updateDoc(doc(db, 'shoppingItems', itemId), { checked: Boolean(checked) }); item.checked = Boolean(checked); renderShoppingItems(); }
-            catch (error) { console.error('Errore aggiornamento prodotto:', error); alert('Non riesco ad aggiornare il prodotto. Riprova.'); renderShoppingItems(); }
+            try {
+                if (!item.localOnly) await updateDoc(doc(db, 'shoppingItems', itemId), { checked: Boolean(checked) });
+                item.checked = Boolean(checked);
+                saveLocalShoppingItems();
+                renderShoppingItems();
+            } catch (error) { console.error('Errore aggiornamento prodotto:', error); alert('Non riesco ad aggiornare il prodotto: ' + (error.code || error.message)); renderShoppingItems(); }
         };
 
         window.removeShoppingItem = async (itemId) => {
-            try { await deleteDoc(doc(db, 'shoppingItems', itemId)); shoppingItems = shoppingItems.filter(item => item.id !== itemId); renderShoppingItems(); }
-            catch (error) { console.error('Errore rimozione prodotto:', error); alert('Non riesco a rimuovere il prodotto. Riprova.'); }
+            const item = shoppingItems.find(entry => entry.id === itemId);
+            if (!item) return;
+            try {
+                if (!item.localOnly) await deleteDoc(doc(db, 'shoppingItems', itemId));
+                shoppingItems = shoppingItems.filter(entry => entry.id !== itemId);
+                saveLocalShoppingItems();
+                renderShoppingItems();
+            } catch (error) { console.error('Errore rimozione prodotto:', error); alert('Non riesco a rimuovere il prodotto: ' + (error.code || error.message)); }
         };
 
         window.savePrice = async (e) => {
