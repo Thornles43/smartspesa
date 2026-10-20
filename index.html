@@ -728,6 +728,164 @@
 
         let liveFlyerOffers = [];
 
+        let nearbyMapInstance = null;
+        let nearbyMarkersLayer = null;
+        let nearbySupermarketResults = [];
+        let nearbyMapLibrariesPromise = null;
+
+        window.openNearbyScreen = () => {
+            if (!currentUser) { alert("Accedi con Google per usare SmartSpesa."); return; }
+            showScreen("screen-nearby");
+            if (nearbyMapInstance) setTimeout(() => nearbyMapInstance.invalidateSize(), 100);
+        };
+
+        function loadNearbyMapLibraries() {
+            if (window.L) return Promise.resolve(window.L);
+            if (nearbyMapLibrariesPromise) return nearbyMapLibrariesPromise;
+            nearbyMapLibrariesPromise = new Promise((resolve, reject) => {
+                const script = document.createElement("script");
+                script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+                script.crossOrigin = "";
+                script.onload = () => window.L ? resolve(window.L) : reject(new Error("La libreria della mappa non è disponibile."));
+                script.onerror = () => reject(new Error("Non riesco a caricare la mappa. Controlla la connessione."));
+                document.head.appendChild(script);
+            }).catch(error => { nearbyMapLibrariesPromise = null; throw error; });
+            return nearbyMapLibrariesPromise;
+        }
+
+        function nearbyDistanceKm(lat1, lon1, lat2, lon2) {
+            const rad = value => value * Math.PI / 180;
+            const dLat = rad(lat2 - lat1), dLon = rad(lon2 - lon1);
+            const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLon / 2) ** 2;
+            return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        function nearbyAddress(tags) {
+            return [
+                tags["addr:street"] ? tags["addr:street"] + (tags["addr:housenumber"] ? " " + tags["addr:housenumber"] : "") : "",
+                tags["addr:postcode"] || "",
+                tags["addr:city"] || tags["addr:town"] || tags["addr:village"] || ""
+            ].filter(Boolean).join(", ");
+        }
+
+        function nearbyMapsUrl(place) {
+            return "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(place.lat + "," + place.lon);
+        }
+
+        window.findNearbySupermarkets = () => {
+            const status = document.getElementById("nearbyStatus");
+            const results = document.getElementById("nearbyResults");
+            const radius = Math.max(1000, Math.min(10000, Number(document.getElementById("nearbyRadius").value) || 3000));
+            if (!navigator.geolocation) {
+                status.textContent = "Questo browser non supporta la geolocalizzazione. Controlla le impostazioni del browser o del dispositivo.";
+                return;
+            }
+            status.textContent = "Richiedo la posizione al dispositivo…";
+            results.innerHTML = '<div class="rounded-2xl border border-gray-200 bg-white p-5 text-sm text-gray-500">Ricerca dei punti vendita in corso…</div>';
+            document.getElementById("nearbyCount").textContent = "Ricerca…";
+            navigator.geolocation.getCurrentPosition(async position => {
+                const lat = position.coords.latitude, lon = position.coords.longitude;
+                try {
+                    status.textContent = "Carico la mappa e cerco supermercati entro " + (radius / 1000) + " km…";
+                    await loadNearbyMapLibraries();
+                    if (!nearbyMapInstance) {
+                        nearbyMapInstance = L.map("nearbyMap").setView([lat, lon], 14);
+                        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                            maxZoom: 19,
+                            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>'
+                        }).addTo(nearbyMapInstance);
+                        nearbyMarkersLayer = L.layerGroup().addTo(nearbyMapInstance);
+                    }
+                    nearbyMapInstance.setView([lat, lon], 14);
+                    nearbyMarkersLayer.clearLayers();
+                    setTimeout(() => nearbyMapInstance.invalidateSize(), 100);
+                    const query = '[out:json][timeout:25];(nwr["shop"~"supermarket|convenience|grocery|greengrocer"](around:' + radius + ',' + lat + ',' + lon + ');nwr["amenity"="supermarket"](around:' + radius + ',' + lat + ',' + lon + '););out center tags;';
+                    let response = null, lastError = null;
+                    for (const endpoint of ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"]) {
+                        try {
+                            response = await fetch(endpoint, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8", "Accept": "application/json" },
+                                body: "data=" + encodeURIComponent(query)
+                            });
+                            if (response.ok) break;
+                            lastError = new Error("Servizio cartografico HTTP " + response.status + ".");
+                            response = null;
+                        } catch (error) { lastError = error; response = null; }
+                    }
+                    if (!response || !response.ok) throw lastError || new Error("Servizio cartografico non disponibile.");
+                    const payload = await response.json(), unique = new Map();
+                    (payload.elements || []).forEach(element => {
+                        const tags = element.tags || {};
+                        const pointLat = Number(element.lat ?? (element.center && element.center.lat));
+                        const pointLon = Number(element.lon ?? (element.center && element.center.lon));
+                        if (!Number.isFinite(pointLat) || !Number.isFinite(pointLon)) return;
+                        const key = element.type + ":" + element.id;
+                        if (unique.has(key)) return;
+                        unique.set(key, {
+                            id: key, name: String(tags.name || tags.brand || tags.operator || "Punto vendita senza nome"),
+                            lat: pointLat, lon: pointLon, distanceKm: nearbyDistanceKm(lat, lon, pointLat, pointLon),
+                            tags, address: nearbyAddress(tags),
+                            category: tags.shop === "convenience" ? "Negozio di prossimità" : tags.shop === "grocery" ? "Alimentari" : tags.shop === "greengrocer" ? "Frutta e verdura" : "Supermercato"
+                        });
+                    });
+                    nearbySupermarketResults = Array.from(unique.values()).sort((a, b) => a.distanceKm - b.distanceKm);
+                    nearbyMarkersLayer.addLayer(L.circleMarker([lat, lon], { radius: 8, color: "#fff", weight: 3, fillColor: "#2563eb", fillOpacity: 1 }).bindPopup("La tua posizione"));
+                    nearbySupermarketResults.forEach((place, index) => {
+                        const marker = L.marker([place.lat, place.lon], {
+                            icon: L.divIcon({ className: "", html: '<div class="nearby-map-pin"><i class="fa-solid fa-basket-shopping"></i></div>', iconSize: [30, 34], iconAnchor: [15, 30] })
+                        }).bindPopup('<strong>' + escapeHtml(place.name) + '</strong><br>' + place.distanceKm.toLocaleString("it-IT", { maximumFractionDigits: 1 }) + ' km<br><a href="' + nearbyMapsUrl(place) + '" target="_blank" rel="noopener noreferrer">Indicazioni stradali ↗</a>');
+                        marker.on("click", () => {
+                            const card = document.getElementById("nearby-card-" + index);
+                            if (card) card.scrollIntoView({ behavior: "smooth", block: "center" });
+                        });
+                        nearbyMarkersLayer.addLayer(marker);
+                    });
+                    if (nearbySupermarketResults.length) {
+                        nearbyMapInstance.fitBounds(L.latLngBounds([[lat, lon], ...nearbySupermarketResults.map(place => [place.lat, place.lon])]).pad(0.14), { maxZoom: 15 });
+                        results.innerHTML = nearbySupermarketResults.map((place, index) => {
+                            const opening = place.tags.opening_hours ? '<p class="text-xs text-gray-500 mt-1"><i class="fa-regular fa-clock mr-1"></i>' + escapeHtml(place.tags.opening_hours) + '</p>' : "";
+                            const phone = place.tags.phone ? '<p class="text-xs text-gray-500 mt-1"><i class="fa-solid fa-phone mr-1"></i>' + escapeHtml(place.tags.phone) + '</p>' : "";
+                            const address = place.address ? '<p class="text-sm text-gray-600 mt-1">' + escapeHtml(place.address) + '</p>' : '<p class="text-xs text-gray-400 mt-1">Indirizzo non presente nei dati cartografici</p>';
+                            const distance = place.distanceKm < 1 ? Math.round(place.distanceKm * 1000) + " m" : place.distanceKm.toLocaleString("it-IT", { maximumFractionDigits: 1 }) + " km";
+                            return '<article id="nearby-card-' + index + '" class="nearby-result-card"><div class="flex items-start gap-3"><div class="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-800 flex items-center justify-center shrink-0"><i class="fa-solid fa-basket-shopping"></i></div><div class="min-w-0 flex-1"><div class="flex items-start justify-between gap-2"><h4 class="font-bold text-gray-900">' + escapeHtml(place.name) + '</h4><span class="text-xs whitespace-nowrap rounded-full bg-emerald-50 text-emerald-800 px-2 py-1 font-semibold">' + distance + '</span></div><p class="text-xs text-gray-500 mt-1">' + escapeHtml(place.category) + '</p>' + address + opening + phone + '<div class="flex flex-wrap gap-3 mt-3"><button type="button" class="text-sm font-semibold text-emerald-800 underline" onclick="focusNearbyPlace(' + index + ')">Mostra sulla mappa</button><a class="text-sm font-semibold text-emerald-800 underline" href="' + nearbyMapsUrl(place) + '" target="_blank" rel="noopener noreferrer">Indicazioni ↗</a></div></div></div></article>';
+                        }).join("");
+                        status.textContent = "Trovati " + nearbySupermarketResults.length + " punti vendita entro " + (radius / 1000) + " km. Distanze in linea d'aria.";
+                    } else {
+                        nearbyMapInstance.setView([lat, lon], 14);
+                        results.innerHTML = '<div class="rounded-2xl border border-gray-200 bg-white p-5 text-sm text-gray-600">Non risultano punti vendita mappati entro questo raggio. Prova ad aumentarlo o ripeti la ricerca più tardi.</div>';
+                        status.textContent = "Nessun punto vendita trovato nel raggio selezionato.";
+                    }
+                    document.getElementById("nearbyCount").textContent = nearbySupermarketResults.length + (nearbySupermarketResults.length === 1 ? " risultato" : " risultati");
+                } catch (error) {
+                    console.error("Ricerca supermercati vicini:", error);
+                    status.textContent = "Non riesco a caricare la mappa o i punti vendita (" + (error.message || "errore di rete") + "). Controlla la connessione e riprova.";
+                    results.innerHTML = '<div class="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">Il servizio cartografico potrebbe essere temporaneamente occupato o bloccato dalla rete. Riprova tra poco.</div>';
+                    document.getElementById("nearbyCount").textContent = "0 risultati";
+                }
+            }, error => {
+                const messages = {
+                    1: "Permesso di posizione negato. Abilita la posizione per SmartSpesa nelle impostazioni del browser e riprova.",
+                    2: "La posizione non è disponibile. Controlla GPS e servizi di localizzazione del dispositivo.",
+                    3: "La richiesta di posizione è scaduta. Riprova in un luogo con segnale migliore."
+                };
+                status.textContent = messages[error.code] || "Non è stato possibile ottenere la posizione.";
+                results.innerHTML = '<div class="rounded-2xl border border-gray-200 bg-white p-5 text-sm text-gray-600">SmartSpesa non userà una posizione stimata se il dispositivo non concede il permesso.</div>';
+                document.getElementById("nearbyCount").textContent = "0 risultati";
+            }, { enableHighAccuracy: false, timeout: 12000, maximumAge: 60000 });
+        };
+
+        window.focusNearbyPlace = (index) => {
+            const place = nearbySupermarketResults[index];
+            if (!place || !nearbyMapInstance || !window.L) return;
+            nearbyMapInstance.setView([place.lat, place.lon], 17);
+            nearbyMarkersLayer.eachLayer(marker => {
+                const point = marker.getLatLng && marker.getLatLng();
+                if (point && Math.abs(point.lat - place.lat) < 0.00001 && Math.abs(point.lng - place.lon) < 0.00001) marker.openPopup();
+            });
+        };
+
+
         window.openOffersScreen = () => {
             if (!currentUser) { alert("Accedi con Google per usare SmartSpesa."); return; }
             showScreen("screen-offers");
