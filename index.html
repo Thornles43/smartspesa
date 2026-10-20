@@ -888,7 +888,7 @@
                     status.textContent = "Posizione ottenuta. Cerco i supermercati…";
                     let response = null;
                     const endpoints = [
-                        ...(window.SMARTSPESA_OVERPASS_PROXY_URL ? [String(window.SMARTSPESA_OVERPASS_PROXY_URL).replace(/\\/$/, "")] : []),
+                        ...(window.SMARTSPESA_OVERPASS_PROXY_URL ? [String(window.SMARTSPESA_OVERPASS_PROXY_URL).replace(/\/$/, "")] : []),
                         "https://overpass-api.de/api/interpreter",
                         "https://overpass.kumi.systems/api/interpreter",
                         "https://overpass.private.coffee/api/interpreter"
