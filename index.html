@@ -485,18 +485,24 @@
             status.textContent = "Ricerca del prodotto su Open Food Facts…";
             try {
                 const fields = "code,product_name,product_name_it,brands,categories,categories_tags,ingredients_text,ingredients_text_it,origins,origins_tags,countries,countries_tags,manufacturing_places";
-                // Prova prima l'istanza italiana e poi quella mondiale: se una risponde
-                // con errore/rete o rate limit, l'altra può comunque riconoscere il barcode.
-                const hosts = ["https://it.openfoodfacts.org", "https://world.openfoodfacts.org"];
+                // Prova più endpoint/versioni: alcuni browser o reti possono fallire
+                // su un singolo host o percorso API.
+                const endpoints = [
+                    { url: "https://world.openfoodfacts.org/api/v2/product/", version: "v2" },
+                    { url: "https://world.openfoodfacts.org/api/v0/product/", version: "v0" },
+                    { url: "https://it.openfoodfacts.org/api/v2/product/", version: "v2" }
+                ];
                 let data = null;
                 let lastLookupError = null;
-                for (const host of hosts) {
+                let successfulResponse = false;
+                for (const endpoint of endpoints) {
                     try {
                         const controller = new AbortController();
                         const timeoutId = setTimeout(() => controller.abort(), 10000);
                         let response;
+                        const query = endpoint.version === "v2" ? "?fields=" + fields : "?fields=" + fields;
                         try {
-                            response = await fetch(host + "/api/v2/product/" + encodeURIComponent(barcode) + ".json?fields=" + fields, {
+                            response = await fetch(endpoint.url + encodeURIComponent(barcode) + ".json" + query, {
                                 method: "GET",
                                 headers: { "Accept": "application/json" },
                                 cache: "no-store",
@@ -505,19 +511,19 @@
                         } finally {
                             clearTimeout(timeoutId);
                         }
-                        if (!response.ok) throw new Error("Open Food Facts (" + response.status + ")");
+                        if (!response.ok) throw new Error("HTTP " + response.status + " (" + endpoint.version + ")");
                         const candidate = await response.json();
+                        successfulResponse = true;
                         if (candidate && candidate.status === 1 && candidate.product) {
                             data = candidate;
                             break;
                         }
-                        // Se l'istanza locale non trova il prodotto, prova quella mondiale.
                         data = candidate;
                     } catch (lookupError) {
                         lastLookupError = lookupError;
                     }
                 }
-                if (!data && lastLookupError) throw lastLookupError;
+                if (!successfulResponse && lastLookupError) throw lastLookupError;
                 if (!data) throw new Error("Risposta vuota da Open Food Facts");
                 if (data.status !== 1 || !data.product) {
                     scannedProductMetadata = null;
@@ -548,7 +554,12 @@
             } catch (error) {
                 scannedProductMetadata = null;
                 showProductMetadata(null);
-                status.textContent = "Non riesco a contattare Open Food Facts. Controlla la connessione o inserisci i dati manualmente.";
+                const detail = error && error.name === "AbortError"
+                    ? "richiesta scaduta"
+                    : error && error.message
+                    ? error.message
+                    : "errore di rete o CORS";
+                status.textContent = "Open Food Facts non raggiungibile (" + detail + "). Riprova o inserisci i dati manualmente.";
                 console.error("Ricerca Open Food Facts:", error);
             }
         }
