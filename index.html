@@ -19,7 +19,10 @@
         #screen-login .fa-cart-shopping { color: white !important; }
         #screen-login h1 { letter-spacing: -0.04em; }
         #screen-login .google-btn { background: white; border: 1px solid #dce5df; border-radius: 14px; min-height: 52px; box-shadow: 0 4px 14px #17211d0a; }
-        #screen-dashboard, #screen-scan, #screen-list { max-width: 720px; margin: 0 auto; }
+        #screen-dashboard, #screen-scan, #screen-list, #screen-shopping { max-width: 720px; margin: 0 auto; }
+        #shoppingSearch { min-height: 50px; border: 1px solid #d9e2dc; border-radius: 14px; background: #fff; color: #17211d; }
+        .shopping-action { min-height: 42px; border-radius: 12px; background: var(--ss-green); color: white; font-weight: 700; padding: 0 14px; }
+        .shopping-check { accent-color: var(--ss-green); width: 20px; height: 20px; }
         #screen-dashboard h2 { letter-spacing: -0.035em; }
         #screen-dashboard .grid > div { border: 1px solid var(--ss-line) !important; border-radius: 18px !important; box-shadow: 0 5px 18px #17211d08 !important; background: white !important; }
         #screen-dashboard button[onclick*="screen-scan"] { background: var(--ss-green) !important; border-radius: 18px !important; box-shadow: 0 8px 18px #087f5b20 !important; }
@@ -91,6 +94,11 @@
 
         <h3 class="font-bold text-gray-800 mb-3">Azioni Rapide</h3>
         <div class="space-y-3">
+            <button onclick="openShoppingList()" class="w-full bg-white text-gray-800 p-4 rounded-xl shadow-sm border border-emerald-100 flex items-center gap-3 active:scale-95 transition-transform">
+                <div class="bg-emerald-50 p-2 rounded-lg"><i class="fa-solid fa-basket-shopping text-xl text-emerald-700"></i></div>
+                <div class="text-left flex-1"><p class="font-bold">La mia lista della spesa</p><p class="text-xs text-gray-500">Cerca prodotti e aggiungili alla lista</p></div>
+                <i class="fa-solid fa-chevron-right text-gray-400"></i>
+            </button>
             <button onclick="showScreen('screen-scan')" class="w-full bg-green-600 text-white p-4 rounded-xl shadow-md flex items-center gap-3 active:scale-95 transition-transform">
                 <div class="bg-white/20 p-2 rounded-lg"><i class="fa-solid fa-barcode text-xl"></i></div>
                 <div class="text-left">
@@ -223,27 +231,32 @@
         </div>
     </div>
 
+    <!-- SCHERMATA 5: LISTA DELLA SPESA -->
+    <div id="screen-shopping" class="screen p-4">
+        <div class="flex items-center justify-between gap-3 mb-5"><div><h2 class="text-2xl font-bold text-gray-900">La mia spesa</h2><p class="text-sm text-gray-500 mt-1">Cerca i prodotti e aggiungili alla lista</p></div><div class="w-11 h-11 rounded-2xl bg-emerald-50 flex items-center justify-center"><i class="fa-solid fa-basket-shopping text-xl text-emerald-700"></i></div></div>
+        <div class="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 mb-5">
+            <label for="shoppingSearch" class="block text-sm font-semibold text-gray-700 mb-2">Cerca un prodotto</label>
+            <div class="relative"><i class="fa-solid fa-magnifying-glass absolute left-4 top-4 text-gray-400"></i><input id="shoppingSearch" type="search" autocomplete="off" placeholder="Es. latte, pasta, mele..." class="w-full pl-11 pr-4 py-3 outline-none" oninput="searchShoppingProducts(this.value)"></div>
+            <p class="text-xs text-gray-500 mt-2">La ricerca usa i prodotti già presenti su SmartSpesa. Se non trovi un prodotto, puoi aggiungerlo manualmente.</p>
+        </div>
+        <div id="shoppingSearchResults" class="space-y-3 mb-6"><p class="text-sm text-gray-400 text-center py-4">Scrivi il nome di un prodotto per iniziare.</p></div>
+        <div class="flex items-center justify-between mb-3"><h3 class="font-bold text-gray-900">La tua lista</h3><span id="shoppingListCount" class="text-xs font-semibold bg-emerald-50 text-emerald-800 px-3 py-1 rounded-full">0 da comprare</span></div>
+        <div id="shoppingListItems" class="space-y-3"><div class="bg-white rounded-2xl border border-gray-100 p-6 text-center text-gray-400"><i class="fa-solid fa-basket-shopping text-3xl mb-2"></i><p>La lista è vuota. Cerca un prodotto e premi Aggiungi.</p></div></div>
+    </div>
+
     <!-- BARRA DI NAVIGAZIONE -->
-    <nav id="bottomNav" class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-3 flex justify-between items-center hidden z-50">
-        <button onclick="showScreen('screen-dashboard')" class="nav-item active flex flex-col items-center gap-1" id="nav-dashboard">
-            <i class="fa-solid fa-house text-xl"></i>
-            <span class="text-xs font-medium">Home</span>
-        </button>
-        <button onclick="showScreen('screen-scan')" class="nav-item flex flex-col items-center gap-1" id="nav-scan">
-            <i class="fa-solid fa-plus-circle text-2xl text-green-600"></i>
-            <span class="text-xs font-medium">Inserisci</span>
-        </button>
-        <button onclick="showScreen('screen-list')" class="nav-item flex flex-col items-center gap-1" id="nav-list">
-            <i class="fa-solid fa-list-ul text-xl"></i>
-            <span class="text-xs font-medium">Lista</span>
-        </button>
+    <nav id="bottomNav" class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 flex justify-between items-center hidden z-50">
+        <button onclick="showScreen('screen-dashboard')" class="nav-item active flex flex-col items-center gap-1" id="nav-dashboard"><i class="fa-solid fa-house text-xl"></i><span class="text-xs font-medium">Home</span></button>
+        <button onclick="showScreen('screen-shopping')" class="nav-item flex flex-col items-center gap-1" id="nav-shopping"><i class="fa-solid fa-basket-shopping text-xl"></i><span class="text-xs font-medium">Spesa</span></button>
+        <button onclick="showScreen('screen-scan')" class="nav-item flex flex-col items-center gap-1" id="nav-scan"><i class="fa-solid fa-plus-circle text-2xl text-green-600"></i><span class="text-xs font-medium">Inserisci</span></button>
+        <button onclick="showScreen('screen-list')" class="nav-item flex flex-col items-center gap-1" id="nav-list"><i class="fa-solid fa-list-ul text-xl"></i><span class="text-xs font-medium">Prezzi</span></button>
     </nav>
 
     <!-- FIREBASE SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, query, orderBy, where, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         // LA TUA CONFIGURAZIONE FIREBASE
         const firebaseConfig = {
@@ -265,6 +278,9 @@
         let currentUser = null;
         let barcodeScanner = null;
         let scannedProductMetadata = null;
+        let allKnownPrices = [];
+        let shoppingItems = [];
+        let shoppingListLoading = false;
 
         const EU_COUNTRIES = new Set([
             "austria", "belgium", "bulgaria", "croatia", "cyprus", "czech republic", "czechia", "denmark", "estonia", "finland", "france", "germany", "greece", "hungary", "ireland", "italy", "latvia", "lithuania", "luxembourg", "malta", "netherlands", "poland", "portugal", "romania", "slovakia", "slovenia", "spain", "sweden"
@@ -513,8 +529,108 @@
 
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             if (screenId === 'screen-dashboard') document.getElementById('nav-dashboard').classList.add('active');
+            if (screenId === 'screen-shopping') document.getElementById('nav-shopping').classList.add('active');
             if (screenId === 'screen-scan') document.getElementById('nav-scan').classList.add('active');
             if (screenId === 'screen-list') document.getElementById('nav-list').classList.add('active');
+        };
+
+        window.openShoppingList = () => {
+            window.showScreen('screen-shopping');
+            loadShoppingItems();
+        };
+
+        function normalizeProductName(value) {
+            return String(value || '').trim().toLocaleLowerCase('it-IT').replace(/\s+/g, ' ');
+        }
+
+        window.searchShoppingProducts = (rawTerm) => {
+            const term = normalizeProductName(rawTerm);
+            const container = document.getElementById('shoppingSearchResults');
+            if (!term) {
+                container.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">Scrivi il nome di un prodotto per iniziare.</p>';
+                return;
+            }
+            const matches = new Map();
+            allKnownPrices.forEach(item => {
+                const name = String(item.productName || '').trim();
+                if (!name || !normalizeProductName(name).includes(term)) return;
+                const key = normalizeProductName(name);
+                const price = Number(item.price);
+                if (!matches.has(key) || (Number.isFinite(price) && price < matches.get(key).price)) {
+                    matches.set(key, { productName: name, barcode: item.barcode || '', price: Number.isFinite(price) ? price : null, supermarket: item.supermarket || '' });
+                }
+            });
+            const results = Array.from(matches.values()).slice(0, 8);
+            let html = '';
+            results.forEach(item => {
+                const safeName = JSON.stringify(item.productName).replace(/</g, '\\u003c');
+                const safeBarcode = JSON.stringify(item.barcode).replace(/</g, '\\u003c');
+                const priceText = item.price !== null ? 'Da €' + item.price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + (item.supermarket ? ' · ' + escapeHtml(item.supermarket) : '') : 'Prezzo non disponibile';
+                html += '<div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center gap-3"><div class="w-10 h-10 shrink-0 rounded-xl bg-emerald-50 flex items-center justify-center"><i class="fa-solid fa-box text-emerald-700"></i></div><div class="min-w-0 flex-1"><p class="font-semibold text-gray-900 break-words">' + escapeHtml(item.productName) + '</p><p class="text-xs text-gray-500">' + priceText + '</p></div><button type="button" class="shopping-action shrink-0" onclick=\'addShoppingItem(' + safeName + ', ' + safeBarcode + ')\'><i class="fa-solid fa-plus mr-1"></i>Aggiungi</button></div>';
+            });
+            const exactMatch = results.some(item => normalizeProductName(item.productName) === term);
+            if (!exactMatch) {
+                const safeTerm = JSON.stringify(String(rawTerm || '').trim()).replace(/</g, '\\u003c');
+                html += '<div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex items-center gap-3"><div class="min-w-0 flex-1"><p class="font-semibold text-emerald-950">Aggiungi “' + escapeHtml(String(rawTerm || '').trim()) + '”</p><p class="text-xs text-emerald-800">Voce personalizzata nella tua lista</p></div><button type="button" class="shopping-action shrink-0" onclick=\'addShoppingItem(' + safeTerm + ', "")\'><i class="fa-solid fa-plus mr-1"></i>Aggiungi</button></div>';
+            }
+            container.innerHTML = html || '<p class="text-sm text-gray-500 text-center py-4">Nessun prodotto trovato.</p>';
+        };
+
+        window.addShoppingItem = async (productName, barcode = '') => {
+            const name = String(productName || '').trim();
+            if (!name || !currentUser) return;
+            if (shoppingItems.some(item => normalizeProductName(item.productName) === normalizeProductName(name) && !item.checked)) {
+                alert('Questo prodotto è già presente nella tua lista.');
+                return;
+            }
+            try {
+                const created = await addDoc(collection(db, 'shoppingItems'), { userId: currentUser.uid, productName: name, barcode: String(barcode || ''), checked: false, createdAt: new Date().toISOString() });
+                shoppingItems.push({ id: created.id, userId: currentUser.uid, productName: name, barcode: String(barcode || ''), checked: false });
+                renderShoppingItems();
+            } catch (error) {
+                console.error('Errore aggiunta prodotto alla lista:', error);
+                alert('Non riesco a salvare il prodotto. Controlla la connessione e riprova.');
+            }
+        };
+
+        async function loadShoppingItems() {
+            if (!currentUser || shoppingListLoading) return;
+            shoppingListLoading = true;
+            document.getElementById('shoppingListItems').innerHTML = '<p class="text-sm text-gray-400 text-center py-4">Caricamento della lista…</p>';
+            try {
+                const q = query(collection(db, 'shoppingItems'), where('userId', '==', currentUser.uid));
+                const snapshot = await getDocs(q);
+                shoppingItems = snapshot.docs.map(itemDoc => ({ id: itemDoc.id, ...itemDoc.data() }));
+                renderShoppingItems();
+            } catch (error) {
+                console.error('Errore caricamento lista della spesa:', error);
+                document.getElementById('shoppingListItems').innerHTML = '<p class="text-sm text-red-600 text-center py-4">Non riesco a caricare la lista. Verifica le regole di accesso Firestore.</p>';
+            } finally { shoppingListLoading = false; }
+        }
+
+        function renderShoppingItems() {
+            const container = document.getElementById('shoppingListItems');
+            const activeItems = shoppingItems.filter(item => !item.checked);
+            const checkedItems = shoppingItems.filter(item => item.checked);
+            document.getElementById('shoppingListCount').textContent = activeItems.length + ' da comprare';
+            if (shoppingItems.length === 0) {
+                container.innerHTML = '<div class="bg-white rounded-2xl border border-gray-100 p-6 text-center text-gray-400"><i class="fa-solid fa-basket-shopping text-3xl mb-2"></i><p>La lista è vuota. Cerca un prodotto e premi Aggiungi.</p></div>';
+                return;
+            }
+            const renderItem = (item) => '<div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center gap-3"><input class="shopping-check shrink-0" type="checkbox" ' + (item.checked ? 'checked' : '') + ' aria-label="Segna ' + escapeHtml(item.productName) + ' come acquistato" onchange="toggleShoppingItem(\'' + item.id + '\', this.checked)"><div class="min-w-0 flex-1 ' + (item.checked ? 'line-through opacity-50' : '') + '"><p class="font-semibold text-gray-900 break-words">' + escapeHtml(item.productName) + '</p><p class="text-xs text-gray-500">' + (item.checked ? 'Acquistato' : 'Da comprare') + '</p></div><button type="button" class="w-10 h-10 rounded-xl border border-gray-200 text-gray-500" aria-label="Rimuovi ' + escapeHtml(item.productName) + '" onclick="removeShoppingItem(\'' + item.id + '\')"><i class="fa-solid fa-trash"></i></button></div>';
+            container.innerHTML = activeItems.map(renderItem).join('') + (checkedItems.length ? '<p class="text-xs uppercase tracking-wide text-gray-400 mt-5 mb-2">Già acquistati</p>' + checkedItems.map(renderItem).join('') : '');
+        }
+
+        window.toggleShoppingItem = async (itemId, checked) => {
+            const item = shoppingItems.find(entry => entry.id === itemId);
+            if (!item) return;
+            try { await updateDoc(doc(db, 'shoppingItems', itemId), { checked: Boolean(checked) }); item.checked = Boolean(checked); renderShoppingItems(); }
+            catch (error) { console.error('Errore aggiornamento prodotto:', error); alert('Non riesco ad aggiornare il prodotto. Riprova.'); renderShoppingItems(); }
+        };
+
+        window.removeShoppingItem = async (itemId) => {
+            try { await deleteDoc(doc(db, 'shoppingItems', itemId)); shoppingItems = shoppingItems.filter(item => item.id !== itemId); renderShoppingItems(); }
+            catch (error) { console.error('Errore rimozione prodotto:', error); alert('Non riesco a rimuovere il prodotto. Riprova.'); }
         };
 
         window.savePrice = async (e) => {
@@ -574,7 +690,10 @@
                 const querySnapshot = await getDocs(q);
                 const prices = [];
                 querySnapshot.forEach((doc) => prices.push(doc.data()));
+                allKnownPrices = prices;
                 renderPriceList(prices);
+                const searchInput = document.getElementById('shoppingSearch');
+                if (searchInput && searchInput.value.trim()) window.searchShoppingProducts(searchInput.value);
                 document.getElementById('trackedCount').textContent = prices.length;
                 updateEstimatedSaving(prices);
             } catch (e) {
