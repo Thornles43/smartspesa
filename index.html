@@ -2,465 +2,329 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartSpesa - Risparmia senza rinunciare alla qualità</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SmartSpesa</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 500px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            padding: 30px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        }
-
-        .logo {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        .logo h1 {
-            color: #667eea;
-            font-size: 32px;
-            margin-bottom: 10px;
-        }
-
-        .logo p {
-            color: #666;
-            font-size: 14px;
-        }
-
-        .btn {
-            width: 100%;
-            padding: 15px;
-            border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            margin-bottom: 15px;
-            transition: all 0.3s;
-        }
-
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-        }
-
-        .btn-secondary {
-            background: #f0f0f0;
-            color: #333;
-        }
-
-        .btn-secondary:hover {
-            background: #e0e0e0;
-        }
-
-        .user-info {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            display: none;
-        }
-
-        .user-info.active {
-            display: block;
-        }
-
-        .user-info h3 {
-            color: #667eea;
-            margin-bottom: 10px;
-        }
-
-        .scan-section {
-            display: none;
-            margin-top: 20px;
-        }
-
-        .scan-section.active {
-            display: block;
-        }
-
-        .input-group {
-            margin-bottom: 15px;
-        }
-
-        .input-group label {
-            display: block;
-            margin-bottom: 5px;
-            color: #333;
-            font-weight: 600;
-        }
-
-        .input-group input, .input-group select {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 16px;
-        }
-
-        .input-group input:focus, .input-group select:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .price-list {
-            margin-top: 20px;
-        }
-
-        .price-item {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .price-item.best {
-            background: #d4edda;
-            border: 2px solid #28a745;
-        }
-
-        .price-info h4 {
-            color: #333;
-            margin-bottom: 5px;
-        }
-
-        .price-info p {
-            color: #666;
-            font-size: 14px;
-        }
-
-        .price-value {
-            font-size: 24px;
-            font-weight: 700;
-            color: #667eea;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 600;
-            margin-left: 5px;
-        }
-
-        .badge-italian {
-            background: #28a745;
-            color: white;
-        }
-
-        .badge-eu {
-            background: #ffc107;
-            color: #333;
-        }
-
-        .badge-extra-eu {
-            background: #6c757d;
-            color: white;
-        }
-
-        .hidden {
-            display: none;
-        }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: #f3f4f6; -webkit-tap-highlight-color: transparent; }
+        .screen { display: none; padding-bottom: 80px; animation: fadeIn 0.3s ease-in-out; }
+        .screen.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .google-btn { background: white; border: 1px solid #dadce0; color: #3c4043; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 10px; transition: background 0.2s; }
+        .google-btn:hover { background: #f8f9fa; border-color: #d2e3fc; }
+        .badge-it { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+        .badge-eu { background: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
+        .badge-extra { background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; }
+        .best-price { border: 2px solid #22c55e; background: #f0fdf4; }
+        .nav-item { color: #9ca3af; transition: color 0.2s; }
+        .nav-item.active { color: #16a34a; }
     </style>
 </head>
-<body>
-    <div class="container">
-        <div class="logo">
-            <h1>🛒 SmartSpesa</h1>
-            <p>Risparmia senza rinunciare alla qualità</p>
+<body class="text-gray-800">
+
+    <!-- SCHERMATA 1: LOGIN -->
+    <div id="screen-login" class="screen active h-screen flex flex-col items-center justify-center p-6 bg-white">
+        <div class="text-center mb-8">
+            <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fa-solid fa-cart-shopping text-3xl text-green-600"></i>
+            </div>
+            <h1 class="text-3xl font-bold text-gray-900">SmartSpesa</h1>
+            <p class="text-gray-500 mt-2">Risparmia senza rinunciare alla qualità.<br>Unisciti alla community.</p>
+        </div>
+        <button onclick="loginWithGoogle()" class="google-btn w-full max-w-sm py-3 px-4 rounded-lg shadow-sm text-sm">
+            <svg class="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+            Accedi con Google
+        </button>
+        <p class="text-xs text-gray-400 mt-6 text-center">I tuoi dati sono al sicuro.</p>
+    </div>
+
+    <!-- SCHERMATA 2: DASHBOARD -->
+    <div id="screen-dashboard" class="screen p-4">
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-900">Ciao, <span id="userNameDisplay">Utente</span>! 👋</h2>
+                <p class="text-sm text-gray-500">Pronto a risparmiare oggi?</p>
+            </div>
+            <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                <i class="fa-solid fa-user text-green-600"></i>
+            </div>
         </div>
 
-        <!-- Sezione Login -->
-        <div id="loginSection">
-            <button class="btn btn-primary" onclick="loginWithGoogle()">
-                🔐 Accedi con Google
-            </button>
-            <p style="text-align: center; color: #666; font-size: 14px; margin-top: 20px;">
-                Unisciti alla community per confrontare i prezzi e risparmiare sulla spesa
-            </p>
+        <div class="grid grid-cols-2 gap-4 mb-6">
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                <p class="text-xs text-gray-500 uppercase font-semibold">Risparmio Stimato</p>
+                <p class="text-2xl font-bold text-green-600">€12.50</p>
+                <p class="text-xs text-gray-400 mt-1">Questo mese</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                <p class="text-xs text-gray-500 uppercase font-semibold">Prodotti Tracciati</p>
+                <p class="text-2xl font-bold text-blue-600" id="trackedCount">0</p>
+                <p class="text-xs text-gray-400 mt-1">Nella tua zona</p>
+            </div>
         </div>
 
-        <!-- Sezione Utente Loggato -->
-        <div id="userSection" class="user-info">
-            <h3>Benvenuto, <span id="userName"></span>!</h3>
-            <p id="userEmail" style="color: #666; font-size: 14px;"></p>
-            <button class="btn btn-secondary" onclick="logout()" style="margin-top: 15px;">
-                Esci
+        <h3 class="font-bold text-gray-800 mb-3">Azioni Rapide</h3>
+        <div class="space-y-3">
+            <button onclick="showScreen('screen-scan')" class="w-full bg-green-600 text-white p-4 rounded-xl shadow-md flex items-center gap-3 active:scale-95 transition-transform">
+                <div class="bg-white/20 p-2 rounded-lg"><i class="fa-solid fa-barcode text-xl"></i></div>
+                <div class="text-left">
+                    <p class="font-bold">Scansiona o Inserisci Prezzo</p>
+                    <p class="text-xs text-green-100">Aiuta la community</p>
+                </div>
             </button>
-        </div>
-
-        <!-- Sezione Principale (dopo login) -->
-        <div id="mainSection" class="hidden">
-            <button class="btn btn-primary" onclick="showScanSection()">
-                📷 Scansiona Barcode
-            </button>
-            <button class="btn btn-secondary" onclick="showPriceList()">
-                📊 Vedi Prezzi
-            </button>
-            <button class="btn btn-secondary" onclick="showShoppingList()">
-                🛍️ Lista della Spesa
-            </button>
-        </div>
-
-        <!-- Sezione Scansione -->
-        <div id="scanSection" class="scan-section">
-            <h3 style="margin-bottom: 20px; color: #667eea;">Inserisci Prezzo</h3>
-            
-            <div class="input-group">
-                <label>Codice Barcode (EAN)</label>
-                <input type="text" id="barcode" placeholder="Es: 8001234567890">
-            </div>
-
-            <div class="input-group">
-                <label>Nome Prodotto</label>
-                <input type="text" id="productName" placeholder="Es: Pasta Barilla 500g">
-            </div>
-
-            <div class="input-group">
-                <label>Prezzo (€)</label>
-                <input type="number" id="price" step="0.01" placeholder="Es: 1.29">
-            </div>
-
-            <div class="input-group">
-                <label>Supermercato</label>
-                <select id="supermarket">
-                    <option value="">Seleziona...</option>
-                    <option value="esselunga">Esselunga</option>
-                    <option value="coop">Coop</option>
-                    <option value="conad">Conad</option>
-                    <option value="carrefour">Carrefour</option>
-                    <option value="lidl">Lidl</option>
-                    <option value="md">MD</option>
-                    <option value="eurospin">Eurospin</option>
-                    <option value="altro">Altro</option>
-                </select>
-            </div>
-
-            <div class="input-group">
-                <label>Provenienza</label>
-                <select id="origin">
-                    <option value="italian">🇮🇹 100% Italiano</option>
-                    <option value="eu">🇪🇺 Origine UE</option>
-                    <option value="extra-eu">🌍 Origine Extra-UE</option>
-                    <option value="unknown">❓ Non specificato</option>
-                </select>
-            </div>
-
-            <button class="btn btn-primary" onclick="savePrice()">
-                💾 Salva Prezzo
-            </button>
-            <button class="btn btn-secondary" onclick="hideScanSection()">
-                ← Indietro
-            </button>
-        </div>
-
-        <!-- Sezione Lista Prezzi -->
-        <div id="priceListSection" class="scan-section">
-            <h3 style="margin-bottom: 20px; color: #667eea;">Confronto Prezzi</h3>
-            <div id="priceList" class="price-list">
-                <!-- I prezzi verranno inseriti qui dinamicamente -->
-            </div>
-            <button class="btn btn-secondary" onclick="hidePriceList()">
-                ← Indietro
+            <button onclick="showScreen('screen-list')" class="w-full bg-white text-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 flex items-center gap-3 active:scale-95 transition-transform">
+                <div class="bg-gray-100 p-2 rounded-lg"><i class="fa-solid fa-list-ul text-xl text-gray-600"></i></div>
+                <div class="text-left">
+                    <p class="font-bold">Confronta Prezzi</p>
+                    <p class="text-xs text-gray-500">Vedi dove conviene</p>
+                </div>
             </button>
         </div>
     </div>
 
-    <script>
-        // Database locale (simulato - useremo Firebase in seguito)
-        let pricesDB = JSON.parse(localStorage.getItem('pricesDB') || '[]');
-        let currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    <!-- SCHERMATA 3: INSERIMENTO PREZZO -->
+    <div id="screen-scan" class="screen p-4">
+        <div class="flex items-center gap-3 mb-6">
+            <button onclick="showScreen('screen-dashboard')" class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100"><i class="fa-solid fa-arrow-left"></i></button>
+            <h2 class="text-xl font-bold">Inserisci Prezzo</h2>
+        </div>
 
-        // Inizializzazione
-        window.onload = function() {
-            if (currentUser) {
-                showMainSection();
+        <form id="priceForm" onsubmit="savePrice(event)" class="space-y-4 bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Codice Barcode (EAN)</label>
+                <div class="relative">
+                    <i class="fa-solid fa-barcode absolute left-3 top-3 text-gray-400"></i>
+                    <input type="text" id="barcode" required class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none" placeholder="Es: 8001234567890">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Nome Prodotto</label>
+                <input type="text" id="productName" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" placeholder="Es: Pasta Barilla 500g">
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Prezzo (€)</label>
+                    <input type="number" id="price" step="0.01" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" placeholder="1.29">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Supermercato</label>
+                    <select id="supermarket" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none bg-white">
+                        <option value="">Scegli...</option>
+                        <option value="Esselunga">Esselunga</option>
+                        <option value="Coop">Coop</option>
+                        <option value="Conad">Conad</option>
+                        <option value="Carrefour">Carrefour</option>
+                        <option value="Lidl">Lidl</option>
+                        <option value="Eurospin">Eurospin</option>
+                        <option value="MD">MD</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Provenienza</label>
+                <select id="origin" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none bg-white">
+                    <option value="it">🇮🇹 100% Italiano</option>
+                    <option value="eu">🇪🇺 Origine UE</option>
+                    <option value="extra">🌍 Origine Extra-UE</option>
+                    <option value="unknown">❓ Non specificato</option>
+                </select>
+            </div>
+
+            <button type="submit" class="w-full bg-green-600 text-white font-bold py-3 rounded-lg shadow-md active:scale-95 transition-transform mt-4">
+                💾 Salva e Condividi
+            </button>
+        </form>
+    </div>
+
+    <!-- SCHERMATA 4: LISTA PREZZI -->
+    <div id="screen-list" class="screen p-4">
+        <div class="flex items-center gap-3 mb-6">
+            <button onclick="showScreen('screen-dashboard')" class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100"><i class="fa-solid fa-arrow-left"></i></button>
+            <h2 class="text-xl font-bold">Confronto Prezzi</h2>
+        </div>
+
+        <div id="priceListContainer" class="space-y-4">
+            <div class="text-center py-10 text-gray-400">
+                <i class="fa-solid fa-basket-shopping text-4xl mb-3"></i>
+                <p>Nessun prezzo inserito ancora.<br>Inizia a scansionare!</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- BARRA DI NAVIGAZIONE -->
+    <nav id="bottomNav" class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-3 flex justify-between items-center hidden z-50">
+        <button onclick="showScreen('screen-dashboard')" class="nav-item active flex flex-col items-center gap-1" id="nav-dashboard">
+            <i class="fa-solid fa-house text-xl"></i>
+            <span class="text-xs font-medium">Home</span>
+        </button>
+        <button onclick="showScreen('screen-scan')" class="nav-item flex flex-col items-center gap-1" id="nav-scan">
+            <i class="fa-solid fa-plus-circle text-2xl text-green-600"></i>
+            <span class="text-xs font-medium">Inserisci</span>
+        </button>
+        <button onclick="showScreen('screen-list')" class="nav-item flex flex-col items-center gap-1" id="nav-list">
+            <i class="fa-solid fa-list-ul text-xl"></i>
+            <span class="text-xs font-medium">Lista</span>
+        </button>
+    </nav>
+
+    <!-- FIREBASE SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // LA TUA CONFIGURAZIONE FIREBASE
+        const firebaseConfig = {
+            apiKey: "AIzaSyCzVgKnVk58vfwyodbLHGemCIiBo1wYnUk",
+            authDomain: "smartspesa-f9718.firebaseapp.com",
+            projectId: "smartspesa-f9718",
+            storageBucket: "smartspesa-f9718.firebasestorage.app",
+            messagingSenderId: "894849912142",
+            appId: "1:894849912142:web:501990402734d3130ca21f",
+            measurementId: "G-TYFYY4HL8P"
+        };
+
+        // Inizializza Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUser = null;
+
+        window.loginWithGoogle = async () => {
+            const provider = new GoogleAuthProvider();
+            try {
+                const result = await signInWithPopup(auth, provider);
+                currentUser = result.user;
+                updateUIForUser();
+            } catch (error) {
+                alert("Errore nel login: " + error.message);
             }
         };
 
-        // Login simulato (in useremo Firebase Auth)
-        function loginWithGoogle() {
-            // Simulazione login - in produzione useremo Firebase
-            const userName = prompt("Inserisci il tuo nome:");
-            const userEmail = prompt("Inserisci la tua email:");
-            
-            if (userName && userEmail) {
-                currentUser = { name: userName, email: userEmail };
-                localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                showMainSection();
-            }
-        }
-
-        function logout() {
+        window.logout = async () => {
+            await signOut(auth);
             currentUser = null;
-            localStorage.removeItem('currentUser');
-            document.getElementById('loginSection').classList.remove('hidden');
-            document.getElementById('userSection').classList.remove('active');
-            document.getElementById('mainSection').classList.add('hidden');
+            document.getElementById('bottomNav').classList.add('hidden');
+            showScreen('screen-login');
+        };
+
+        function updateUIForUser() {
+            document.getElementById('userNameDisplay').textContent = currentUser.displayName || currentUser.email.split('@')[0];
+            document.getElementById('bottomNav').classList.remove('hidden');
+            showScreen('screen-dashboard');
+            loadPrices();
         }
 
-        function showMainSection() {
-            document.getElementById('loginSection').classList.add('hidden');
-            document.getElementById('userSection').classList.add('active');
-            document.getElementById('mainSection').classList.remove('hidden');
-            document.getElementById('userName').textContent = currentUser.name;
-            document.getElementById('userEmail').textContent = currentUser.email;
-        }
+        window.showScreen = (screenId) => {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+            
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            if(screenId === 'screen-dashboard') document.getElementById('nav-dashboard').classList.add('active');
+            if(screenId === 'screen-scan') document.getElementById('nav-scan').classList.add('active');
+            if(screenId === 'screen-list') document.getElementById('nav-list').classList.add('active');
+        };
 
-        function showScanSection() {
-            document.getElementById('mainSection').classList.add('hidden');
-            document.getElementById('scanSection').classList.add('active');
-        }
+        window.savePrice = async (e) => {
+            e.preventDefault();
+            if (!currentUser) return alert("Devi effettuare il login!");
 
-        function hideScanSection() {
-            document.getElementById('scanSection').classList.remove('active');
-            document.getElementById('mainSection').classList.remove('hidden');
-        }
-
-        function showPriceList() {
-            document.getElementById('mainSection').classList.add('hidden');
-            document.getElementById('priceListSection').classList.add('active');
-            renderPriceList();
-        }
-
-        function hidePriceList() {
-            document.getElementById('priceListSection').classList.remove('active');
-            document.getElementById('mainSection').classList.remove('hidden');
-        }
-
-        function savePrice() {
-            const barcode = document.getElementById('barcode').value;
-            const productName = document.getElementById('productName').value;
-            const price = parseFloat(document.getElementById('price').value);
-            const supermarket = document.getElementById('supermarket').value;
-            const origin = document.getElementById('origin').value;
-
-            if (!barcode || !productName || !price || !supermarket) {
-                alert('Compila tutti i campi obbligatori!');
-                return;
-            }
-
-            const newPrice = {
-                id: Date.now(),
-                barcode,
-                productName,
-                price,
-                supermarket,
-                origin,
+            const priceData = {
+                barcode: document.getElementById('barcode').value,
+                productName: document.getElementById('productName').value,
+                price: parseFloat(document.getElementById('price').value),
+                supermarket: document.getElementById('supermarket').value,
+                origin: document.getElementById('origin').value,
                 userId: currentUser.email,
-                date: new Date().toISOString()
+                timestamp: new Date().toISOString()
             };
 
-            pricesDB.push(newPrice);
-            localStorage.setItem('pricesDB', JSON.stringify(pricesDB));
+            try {
+                await addDoc(collection(db, "prices"), priceData);
+                alert("✅ Prezzo salvato con successo! Grazie per il contributo.");
+                document.getElementById('priceForm').reset();
+                showScreen('screen-dashboard');
+            } catch (error) {
+                alert("Errore nel salvataggio: " + error.message);
+            }
+        };
 
-            alert('✅ Prezzo salvato con successo!');
-            
-            // Reset form
-            document.getElementById('barcode').value = '';
-            document.getElementById('productName').value = '';
-            document.getElementById('price').value = '';
-            document.getElementById('supermarket').value = '';
-            
-            hideScanSection();
+        async function loadPrices() {
+            try {
+                const q = query(collection(db, "prices"), orderBy("timestamp", "desc"));
+                const querySnapshot = await getDocs(q);
+                const prices = [];
+                querySnapshot.forEach((doc) => prices.push(doc.data()));
+                renderPriceList(prices);
+                document.getElementById('trackedCount').textContent = prices.length;
+            } catch (e) {
+                console.log("Errore caricamento", e);
+            }
         }
 
-        function renderPriceList() {
-            const priceListDiv = document.getElementById('priceList');
-            
-            if (pricesDB.length === 0) {
-                priceListDiv.innerHTML = '<p style="text-align: center; color: #666;">Nessun prezzo inserito. Inizia a scansionare!</p>';
+        function renderPriceList(prices) {
+            const container = document.getElementById('priceListContainer');
+            if (prices.length === 0) {
+                container.innerHTML = `<div class="text-center py-10 text-gray-400"><i class="fa-solid fa-basket-shopping text-4xl mb-3"></i><p>Nessun prezzo inserito ancora.<br>Inizia a scansionare!</p></div>`;
                 return;
             }
 
-            // Raggruppa per prodotto
-            const products = {};
-            pricesDB.forEach(item => {
-                if (!products[item.barcode]) {
-                    products[item.barcode] = [];
-                }
-                products[item.barcode].push(item);
+            const grouped = {};
+            prices.forEach(p => {
+                if (!grouped[p.productName]) grouped[p.productName] = [];
+                grouped[p.productName].push(p);
             });
 
             let html = '';
-            Object.keys(products).forEach(barcode => {
-                const items = products[barcode];
-                const sorted = items.sort((a, b) => a.price - b.price);
-                const best = sorted[0];
-
-                html += `<h4 style="margin: 20px 0 10px 0; color: #333;">${best.productName}</h4>`;
+            for (const [name, items] of Object.entries(grouped)) {
+                items.sort((a, b) => a.price - b.price);
+                const best = items[0];
                 
-                sorted.forEach((item, index) => {
+                const originBadge = best.origin === 'it' ? '<span class="badge-it text-xs px-2 py-1 rounded-full font-bold">🇮 Italiano</span>' : 
+                                   best.origin === 'eu' ? '<span class="badge-eu text-xs px-2 py-1 rounded-full font-bold">🇪🇺 UE</span>' : 
+                                   '<span class="badge-extra text-xs px-2 py-1 rounded-full font-bold">🌍 Extra-UE</span>';
+
+                html += `<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-4">
+                    <div class="bg-gray-50 px-4 py-2 border-b border-gray-100 flex justify-between items-center">
+                        <h3 class="font-bold text-gray-800 text-sm">${name}</h3>
+                        ${originBadge}
+                    </div>
+                    <div class="divide-y divide-gray-100">`;
+                
+                items.forEach((item, index) => {
                     const isBest = index === 0;
-                    const originBadge = getOriginBadge(item.origin);
-                    
-                    html += `
-                        <div class="price-item ${isBest ? 'best' : ''}">
-                            <div class="price-info">
-                                <h4>${getSupermarketName(item.supermarket)} ${originBadge}</h4>
-                                <p>Inserito da ${item.userId}</p>
-                            </div>
-                            <div class="price-value">€${item.price.toFixed(2)}</div>
+                    html += `<div class="p-4 flex justify-between items-center ${isBest ? 'best-price' : ''}">
+                        <div>
+                            <p class="font-bold text-gray-900">${item.supermarket}</p>
+                            <p class="text-xs text-gray-500">Segnalato da community</p>
                         </div>
-                    `;
+                        <div class="text-right">
+                            <p class="text-xl font-bold ${isBest ? 'text-green-600' : 'text-gray-700'}">€${item.price.toFixed(2)}</p>
+                            ${isBest ? '<span class="text-xs font-bold text-green-600">MIGLIOR PREZZO</span>' : ''}
+                        </div>
+                    </div>`;
                 });
-            });
-
-            priceListDiv.innerHTML = html;
+                html += `</div></div>`;
+            }
+            container.innerHTML = html;
         }
 
-        function getSupermarketName(code) {
-            const names = {
-                'esselunga': 'Esselunga',
-                'coop': 'Coop',
-                'conad': 'Conad',
-                'carrefour': 'Carrefour',
-                'lidl': 'Lidl',
-                'md': 'MD',
-                'eurospin': 'Eurospin',
-                'altro': 'Altro'
-            };
-            return names[code] || code;
-        }
-
-        function getOriginBadge(origin) {
-            const badges = {
-                'italian': '<span class="badge badge-italian">🇮🇹 Italiano</span>',
-                'eu': '<span class="badge badge-eu">🇪🇺 UE</span>',
-                'extra-eu': '<span class="badge badge-extra-eu">🌍 Extra-UE</span>',
-                'unknown': ''
-            };
-            return badges[origin] || '';
-        }
-
-        function showShoppingList() {
-            alert('🛍️ Funzione lista della spesa - Prossimamente!');
-        }
+        // Monitora lo stato di autenticazione
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                updateUIForUser();
+            } else {
+                currentUser = null;
+                document.getElementById('bottomNav').classList.add('hidden');
+                showScreen('screen-login');
+            }
+        });
     </script>
 </body>
 </html>
