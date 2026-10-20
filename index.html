@@ -1101,7 +1101,7 @@
                     flyerName: String(offer.store || "Volantino"),
                     offerValidUntil: String(offer.valid_until || ""),
                     flyerSource: String(offer.source || "Prezzi in Vista"),
-                    userId: currentUser.uid,
+                    userId: currentUser.email,
                     timestamp: new Date().toISOString()
                 });
                 alert("Offerta salvata nello storico prezzi. Fonte collegata: " + (offer.url || "non disponibile"));
@@ -1290,7 +1290,7 @@
                     productSource: "Volantino: " + (flyerCurrentFileName || "inserimento manuale"),
                     flyerName: flyerCurrentFileName || "Inserimento manuale",
                     offerValidUntil: validUntil || "",
-                    userId: currentUser.uid,
+                    userId: currentUser.email,
                     timestamp: new Date().toISOString()
                 };
                 try {
@@ -1792,7 +1792,7 @@
                 countryOfOrigin: scannedProductMetadata?.countryOfOrigin || "",
                 nutriScore: scannedProductMetadata?.nutriScore || "",
                 productSource: scannedProductMetadata?.productSource || "",
-                userId: currentUser.uid,
+                userId: currentUser.email,
                 timestamp: new Date().toISOString()
             };
 
