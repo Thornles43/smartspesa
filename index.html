@@ -276,6 +276,36 @@
         <div id="shoppingListItems" class="space-y-3"><div class="bg-white rounded-2xl border border-gray-100 p-6 text-center text-gray-400"><i class="fa-solid fa-basket-shopping text-3xl mb-2"></i><p>La lista è vuota. Cerca un prodotto e premi Aggiungi.</p></div></div>
     </div>
 
+    <!-- SCHERMATA: OFFERTE AUTOMATICHE E CONFRONTO ONLINE -->
+    <div id="screen-offers" class="screen p-4 max-w-3xl mx-auto">
+        <div class="flex items-center gap-3 mb-5">
+            <button onclick="showScreen('screen-dashboard')" class="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100" aria-label="Torna alla home"><i class="fa-solid fa-arrow-left"></i></button>
+            <div><h2 class="text-xl font-bold">Offerte automatiche</h2><p class="text-sm text-gray-500">Cerca nei volantini aggiornati online.</p></div>
+        </div>
+        <section class="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 mb-4">
+            <p class="font-semibold text-emerald-950 mb-1"><i class="fa-solid fa-rotate mr-2"></i>Volantini aggiornati automaticamente</p>
+            <p class="text-sm text-emerald-900">SmartSpesa interroga un catalogo di offerte dei volantini italiani aggiornato dal fornitore. I risultati mostrano la fonte e il collegamento all'offerta originale; non viene copiato in blocco l'archivio del fornitore.</p>
+        </section>
+        <section class="bg-white border border-gray-200 rounded-2xl p-4 mb-4">
+            <label for="offerSearchQuery" class="block text-sm font-semibold mb-2">Prodotto da cercare</label>
+            <input id="offerSearchQuery" type="search" maxlength="80" placeholder="Es. pasta Barilla, caffè, detersivo..." class="w-full border border-gray-300 rounded-xl p-3 mb-3" onkeydown="if(event.key==='Enter'){event.preventDefault();searchFlyerOffers();}">
+            <label for="offerSearchCity" class="block text-sm font-semibold mb-2">Comune (facoltativo)</label>
+            <input id="offerSearchCity" type="text" maxlength="60" placeholder="Es. Bologna" class="w-full border border-gray-300 rounded-xl p-3 mb-3" onkeydown="if(event.key==='Enter'){event.preventDefault();searchFlyerOffers();}">
+            <div class="flex flex-wrap gap-2">
+                <button type="button" onclick="searchFlyerOffers()" class="flex-1 min-w-[140px] px-4 py-3 rounded-xl bg-green-700 text-white font-bold"><i class="fa-solid fa-magnifying-glass mr-2"></i>Cerca offerte</button>
+                <button type="button" onclick="openAmazonSearch()" class="flex-1 min-w-[140px] px-4 py-3 rounded-xl border border-gray-300 font-semibold"><i class="fa-brands fa-amazon mr-2"></i>Cerca su Amazon</button>
+            </div>
+            <p class="text-xs text-gray-500 mt-3">Il comune serve a filtrare le offerte dei volantini per zona. Amazon si apre in una ricerca separata: il prezzo live Amazon non viene mostrato finché non viene configurata la sua API ufficiale.</p>
+        </section>
+        <p id="offerSearchStatus" class="text-sm text-gray-600 mb-3" role="status" aria-live="polite">Inserisci un prodotto e premi Cerca offerte.</p>
+        <div id="flyerOfferResults" class="space-y-3 mb-5"></div>
+        <section class="rounded-2xl border border-gray-200 bg-white p-4">
+            <h3 class="font-bold mb-1">Vuoi gestire i volantini manualmente?</h3>
+            <p class="text-sm text-gray-600 mb-3">Puoi anche caricare un PDF o un'immagine e controllare le righe prima di salvarle.</p>
+            <button type="button" onclick="openFlyerCatalog()" class="px-4 py-2 rounded-xl border border-gray-300 font-semibold">Apri importazione manuale</button>
+        </section>
+    </div>
+
     <!-- SCHERMATA: CATALOGO DA VOLANTINI -->
     <div id="screen-flyers" class="screen p-4 max-w-3xl mx-auto">
         <div class="flex items-center gap-3 mb-5">
@@ -319,7 +349,7 @@
         <button onclick="showScreen('screen-shopping')" class="nav-item flex flex-col items-center gap-1" id="nav-shopping"><i class="fa-solid fa-basket-shopping text-xl"></i><span class="text-xs font-medium">Spesa</span></button>
         <button onclick="showScreen('screen-scan')" class="nav-item flex flex-col items-center gap-1" id="nav-scan"><i class="fa-solid fa-plus-circle text-2xl text-green-600"></i><span class="text-xs font-medium">Inserisci</span></button>
         <button onclick="showScreen('screen-list')" class="nav-item flex flex-col items-center gap-1" id="nav-list"><i class="fa-solid fa-list-ul text-xl"></i><span class="text-xs font-medium">Prezzi</span></button>
-        <button onclick="openFlyerCatalog()" class="nav-item flex flex-col items-center gap-1" id="nav-flyers"><i class="fa-solid fa-file-arrow-up text-xl"></i><span class="text-xs font-medium">Volantini</span></button>
+        <button onclick="openOffersScreen()" class="nav-item flex flex-col items-center gap-1" id="nav-offers"><i class="fa-solid fa-tags text-xl"></i><span class="text-xs font-medium">Offerte</span></button>
     </nav>
 
     <!-- FIREBASE SDK -->
@@ -676,6 +706,110 @@
         });
 
 
+        let liveFlyerOffers = [];
+
+        window.openOffersScreen = () => {
+            if (!currentUser) { alert("Accedi con Google per usare SmartSpesa."); return; }
+            showScreen("screen-offers");
+        };
+
+        window.openAmazonSearch = () => {
+            const queryText = (document.getElementById("offerSearchQuery").value || "").trim();
+            if (!queryText) { alert("Scrivi prima il nome di un prodotto."); return; }
+            window.open("https://www.amazon.it/s?k=" + encodeURIComponent(queryText), "_blank", "noopener,noreferrer");
+        };
+
+        window.searchFlyerOffers = async () => {
+            const queryText = (document.getElementById("offerSearchQuery").value || "").trim();
+            const city = (document.getElementById("offerSearchCity").value || "").trim();
+            const status = document.getElementById("offerSearchStatus");
+            const results = document.getElementById("flyerOfferResults");
+            if (queryText.length < 2) { status.textContent = "Inserisci almeno due caratteri del prodotto."; return; }
+            status.textContent = "Cerco nei volantini attualmente validi…";
+            results.innerHTML = "";
+            liveFlyerOffers = [];
+            const params = new URLSearchParams({ query: queryText, limit: "15", sort: "price" });
+            if (city) params.set("city", city);
+            try {
+                const response = await fetch("https://www.prezzinvista.it/api/v1/offers?" + params.toString(), {
+                    method: "GET",
+                    headers: { "Accept": "application/json" },
+                    cache: "no-store"
+                });
+                if (!response.ok) {
+                    if (response.status === 429) throw new Error("Troppe richieste al catalogo offerte. Attendi un minuto e riprova.");
+                    throw new Error("Il catalogo offerte ha risposto con HTTP " + response.status + ".");
+                }
+                const payload = await response.json();
+                liveFlyerOffers = Array.isArray(payload.offers) ? payload.offers : [];
+                if (!liveFlyerOffers.length) {
+                    status.textContent = "Nessuna offerta trovata per questa ricerca. Prova una parola più generica o rimuovi il comune.";
+                    return;
+                }
+                const updated = payload.updated_at ? new Date(payload.updated_at).toLocaleString("it-IT") : "";
+                status.textContent = liveFlyerOffers.length + " offerte trovate" +
+                    (payload.total > liveFlyerOffers.length ? " (mostrate le prime " + liveFlyerOffers.length + ")" : "") +
+                    (updated ? ". Catalogo aggiornato: " + updated : "") +
+                    (payload.source ? ". Fonte: " + payload.source : "") + ".";
+                results.innerHTML = liveFlyerOffers.map((offer, index) => {
+                    const name = escapeHtml(offer.name || "Prodotto");
+                    const store = escapeHtml(offer.store || "Supermercato");
+                    const price = Number(offer.price_eur);
+                    const priceText = Number.isFinite(price) ? price.toLocaleString("it-IT", { style: "currency", currency: "EUR" }) : "Prezzo non disponibile";
+                    const size = offer.size ? " · " + escapeHtml(offer.size) : "";
+                    const until = offer.valid_until ? "Valida fino al " + escapeHtml(offer.valid_until) : "Scadenza non indicata";
+                    const conditions = offer.conditions ? '<p class="text-xs text-amber-700 mt-1">' + escapeHtml(offer.conditions) + '</p>' : "";
+                    const unit = Number.isFinite(Number(offer.unit_price_eur)) && offer.unit_price_per
+                        ? '<p class="text-xs text-gray-500 mt-1">' + Number(offer.unit_price_eur).toLocaleString("it-IT", {style:"currency",currency:"EUR"}) + " / " + escapeHtml(offer.unit_price_per) + '</p>' : "";
+                    const link = /^https:\/\//i.test(offer.url || "") ? offer.url : "";
+                    const sourceLink = link ? '<a href="' + escapeHtml(link) + '" target="_blank" rel="noopener noreferrer" class="text-sm underline text-emerald-700">Fonte e volantino</a>' : "";
+                    const officialLink = /^https:\/\//i.test(offer.official_flyer_url || "") ? '<a href="' + escapeHtml(offer.official_flyer_url) + '" target="_blank" rel="noopener noreferrer" class="text-sm underline text-emerald-700 ml-3">Sito ufficiale</a>' : "";
+                    return '<article class="bg-white border border-gray-200 rounded-2xl p-4">' +
+                        '<div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class="font-bold text-gray-900">' + name + size + '</p><p class="text-sm text-gray-600 mt-1">' + store + '</p></div><strong class="text-lg text-emerald-800 whitespace-nowrap">' + priceText + '</strong></div>' +
+                        (offer.brand ? '<p class="text-xs text-gray-500 mt-1">Marca: ' + escapeHtml(offer.brand) + '</p>' : "") +
+                        '<p class="text-xs text-gray-500 mt-2">' + until + '</p>' + conditions + unit +
+                        '<div class="flex flex-wrap items-center gap-y-2 mt-3">' + sourceLink + officialLink +
+                        '<button type="button" onclick="saveLiveFlyerOffer(' + index + ')" class="ml-auto px-3 py-2 rounded-lg bg-green-700 text-white text-sm font-semibold">Salva nello storico</button></div></article>';
+                }).join("");
+            } catch (error) {
+                console.error("Ricerca offerte volantino:", error);
+                status.textContent = "Non riesco a recuperare le offerte automatiche dal browser (" + (error.message || "errore di rete/CORS") + "). Se il catalogo è raggiungibile ma il browser blocca la richiesta, servirà un endpoint server intermedio.";
+            }
+        };
+
+        window.saveLiveFlyerOffer = async (index) => {
+            const offer = liveFlyerOffers[index];
+            if (!offer || !currentUser) { alert("Accedi prima di salvare il prezzo."); return; }
+            const price = Number(offer.price_eur);
+            if (!offer.name || !Number.isFinite(price) || price < 0) { alert("Questa offerta non contiene dati sufficienti per essere salvata."); return; }
+            try {
+                await addDoc(collection(db, "prices"), {
+                    barcode: "",
+                    productName: String(offer.name),
+                    price,
+                    supermarket: String(offer.store || "Supermercato"),
+                    origin: "unknown",
+                    priceSource: "flyer",
+                    sourceUrl: String(offer.url || ""),
+                    brand: String(offer.brand || ""),
+                    category: String(offer.category || ""),
+                    ingredients: "",
+                    countryOfOrigin: "",
+                    productSource: "Offerta da volantino online",
+                    flyerName: String(offer.store || "Volantino"),
+                    offerValidUntil: String(offer.valid_until || ""),
+                    flyerSource: String(offer.source || "Prezzi in Vista"),
+                    userId: currentUser.email,
+                    timestamp: new Date().toISOString()
+                });
+                alert("Offerta salvata nello storico prezzi. Fonte collegata: " + (offer.url || "non disponibile"));
+                await loadPrices();
+            } catch (error) {
+                console.error("Salvataggio offerta:", error);
+                alert("Non sono riuscito a salvare l'offerta in Firebase: " + error.message);
+            }
+        };
+
         let flyerParsedRows = [];
         let flyerCurrentFileName = "";
 
@@ -924,7 +1058,8 @@
             if (screenId === 'screen-shopping') document.getElementById('nav-shopping').classList.add('active');
             if (screenId === 'screen-scan') document.getElementById('nav-scan').classList.add('active');
             if (screenId === 'screen-list') document.getElementById('nav-list').classList.add('active');
-            if (screenId === 'screen-flyers') document.getElementById('nav-flyers').classList.add('active');
+            if (screenId === 'screen-flyers' && document.getElementById('nav-flyers')) document.getElementById('nav-flyers').classList.add('active');
+            if (screenId === 'screen-offers') document.getElementById('nav-offers').classList.add('active');
         };
 
         window.openShoppingList = () => {
