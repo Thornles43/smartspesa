@@ -170,13 +170,14 @@
                 <p id="productCategory" class="hidden"><span class="font-medium">Categoria:</span> <span></span></p>
                 <p id="productIngredients" class="hidden mt-1"><span class="font-medium">Ingredienti:</span> <span></span></p>
                 <p id="productCountry" class="hidden mt-1"><span class="font-medium">Origine dichiarata:</span> <span></span></p>
+                <p id="productNutriScore" class="hidden mt-1"><span class="font-medium">Nutri-Score:</span> <span></span></p>
                 <p id="productDataSource" class="text-xs text-gray-500 mt-2">Dati forniti da Open Food Facts; possono essere incompleti.</p>
             </div>
 
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Prezzo (€)</label>
-                    <input type="number" id="price" step="0.01" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" placeholder="1.29">
+                    <input type="number" id="price" min="0" step="0.01" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" placeholder="1.29">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Supermercato</label>
@@ -429,6 +430,7 @@
             setMetadataLine("productCategory", metadata.category);
             setMetadataLine("productIngredients", metadata.ingredients);
             setMetadataLine("productCountry", metadata.countryOfOrigin);
+            setMetadataLine("productNutriScore", metadata.nutriScore ? String(metadata.nutriScore).toUpperCase() : "");
             panel.classList.remove("hidden");
         }
 
@@ -552,7 +554,7 @@
             }
             status.textContent = "Ricerca del prodotto su Open Food Facts…";
             try {
-                const fields = "code,product_name,product_name_it,brands,categories,categories_tags,ingredients_text,ingredients_text_it,origins,origins_tags,countries,countries_tags,manufacturing_places";
+                const fields = "code,product_name,product_name_it,brands,categories,categories_tags,ingredients_text,ingredients_text_it,origins,origins_tags,countries,countries_tags,manufacturing_places,nutriscore_grade";
                 // Prova più endpoint/versioni: alcuni browser o reti possono fallire
                 // su un singolo host o percorso API.
                 const endpoints = [
@@ -656,6 +658,7 @@
                     category: category,
                     ingredients: ingredients,
                     countryOfOrigin: countryOfOrigin,
+                    nutriScore: p.nutriscore_grade || "",
                     productSource: "Open Food Facts"
                 };
                 if (name) document.getElementById("productName").value = name;
@@ -1470,10 +1473,15 @@
                 }
             }
 
+            const enteredPrice = Number(document.getElementById("price").value);
+            if (!Number.isFinite(enteredPrice) || enteredPrice < 0) {
+                alert("Inserisci un prezzo valido, pari o superiore a zero.");
+                return;
+            }
             const priceData = {
                 barcode: document.getElementById('barcode').value,
                 productName: document.getElementById('productName').value,
-                price: parseFloat(document.getElementById('price').value),
+                price: enteredPrice,
                 supermarket: document.getElementById('supermarket').value,
                 origin: document.getElementById('origin').value,
                 priceSource: document.getElementById('priceSource').value,
@@ -1482,6 +1490,7 @@
                 category: scannedProductMetadata?.category || "",
                 ingredients: scannedProductMetadata?.ingredients || "",
                 countryOfOrigin: scannedProductMetadata?.countryOfOrigin || "",
+                nutriScore: scannedProductMetadata?.nutriScore || "",
                 productSource: scannedProductMetadata?.productSource || "",
                 userId: currentUser.email,
                 timestamp: new Date().toISOString()
@@ -1549,6 +1558,24 @@
             })[character]);
         }
 
+        function priceOriginBadge(origin) {
+            if (origin === 'it') return '<span class="badge-it text-xs px-2 py-1 rounded-full font-bold">🇮🇹 Origine Italia dichiarata</span>';
+            if (origin === 'eu') return '<span class="badge-eu text-xs px-2 py-1 rounded-full font-bold">🇪🇺 Origine UE dichiarata</span>';
+            if (origin === 'extra') return '<span class="badge-extra text-xs px-2 py-1 rounded-full font-bold">🌍 Origine extra-UE dichiarata</span>';
+            return '<span class="badge-extra text-xs px-2 py-1 rounded-full font-bold">❓ Origine non verificata</span>';
+        }
+
+        function priceFreshnessLabel(timestamp) {
+            if (!timestamp) return 'Data del prezzo non disponibile';
+            const date = new Date(timestamp);
+            if (Number.isNaN(date.getTime())) return 'Data del prezzo non disponibile';
+            const ageDays = Math.max(0, Math.floor((Date.now() - date.getTime()) / 86400000));
+            const formatted = date.toLocaleDateString('it-IT');
+            if (ageDays > 60) return 'Rilevato il ' + formatted + ' · dato datato, da verificare';
+            if (ageDays > 14) return 'Rilevato il ' + formatted + ' · verifica il prezzo in negozio';
+            return 'Rilevato il ' + formatted;
+        }
+
         function renderPriceList(prices) {
             const container = document.getElementById('priceListContainer');
             if (prices.length === 0) {
@@ -1556,45 +1583,58 @@
                 return;
             }
 
-            const grouped = {};
+            // Se esiste un barcode, è l'identificatore preferito: nomi simili non
+            // devono far confrontare confezioni o prodotti diversi.
+            const grouped = new Map();
             prices.forEach(p => {
-                if (!grouped[p.productName]) grouped[p.productName] = [];
-                grouped[p.productName].push(p);
+                const name = String(p.productName || 'Prodotto senza nome').trim();
+                const barcode = String(p.barcode || '').trim();
+                const key = barcode ? 'ean:' + barcode : 'name:' + normalizeProductName(name);
+                if (!grouped.has(key)) grouped.set(key, { name, items: [] });
+                const group = grouped.get(key);
+                if (name.length > group.name.length && !barcode) group.name = name;
+                group.items.push(p);
             });
 
             let html = '';
-            for (const [name, items] of Object.entries(grouped)) {
-                items.sort((a, b) => a.price - b.price);
-                const best = items[0];
-                
-                const originBadge = best.origin === 'it' ? '<span class="badge-it text-xs px-2 py-1 rounded-full font-bold">🇮🇹 Italiano</span>' : 
-                                   best.origin === 'eu' ? '<span class="badge-eu text-xs px-2 py-1 rounded-full font-bold">🇪🇺 UE</span>' : 
-                                   best.origin === 'extra' ? '<span class="badge-extra text-xs px-2 py-1 rounded-full font-bold">🌍 Extra-UE</span>' :
-                                   '<span class="badge-extra text-xs px-2 py-1 rounded-full font-bold">❓ Non specificato</span>';
-
+            for (const { name, items } of grouped.values()) {
+                items.sort((a, b) => Number(a.price) - Number(b.price));
+                const validItems = items.filter(item => Number.isFinite(Number(item.price)) && Number(item.price) >= 0);
+                if (!validItems.length) continue;
+                const best = validItems[0];
+                const nutriScore = items.find(item => item.nutriScore)?.nutriScore;
                 html += `<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-4">
-                    <div class="bg-gray-50 px-4 py-2 border-b border-gray-100 flex justify-between items-center">
-                        <h3 class="font-bold text-gray-800 text-sm">${escapeHtml(name)}</h3>
-                        ${originBadge}
+                    <div class="bg-gray-50 px-4 py-3 border-b border-gray-100">
+                        <div class="flex flex-wrap justify-between items-start gap-2">
+                            <h3 class="font-bold text-gray-800 text-sm">${escapeHtml(name)}</h3>
+                            ${nutriScore ? '<span class="text-xs px-2 py-1 rounded-full bg-blue-50 text-blue-800 border border-blue-100">Nutri-Score ' + escapeHtml(String(nutriScore).toUpperCase()) + '</span>' : ''}
+                        </div>
+                        ${items.some(item => item.barcode) ? '<p class="text-xs text-gray-400 mt-1">Confronto per codice a barre: prodotti identificati come lo stesso articolo</p>' : '<p class="text-xs text-gray-400 mt-1">Confronto basato sul nome: controlla formato e confezione</p>'}
                     </div>
                     <div class="divide-y divide-gray-100">`;
-                
-                items.forEach((item, index) => {
-                    const isBest = index === 0;
-                    html += `<div class="p-4 flex justify-between items-center ${isBest ? 'best-price' : ''}">
-                        <div>
-                            <p class="font-bold text-gray-900">${escapeHtml(item.supermarket)}</p>
-                            <p class="text-xs text-gray-500">${item.priceSource === 'official' && item.sourceUrl ? '<a class="underline text-emerald-700" href="' + item.sourceUrl.replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '" target="_blank" rel="noopener noreferrer">Fonte ufficiale ↗</a>' : 'Segnalato dalla community'}</p>
+
+                validItems.forEach(item => {
+                    const isBest = item === best;
+                    const price = Number(item.price);
+                    const sourceLabel = item.priceSource === 'official' && item.sourceUrl
+                        ? '<a class="underline text-emerald-700" href="' + escapeHtml(item.sourceUrl) + '" target="_blank" rel="noopener noreferrer">Fonte ufficiale ↗</a>'
+                        : 'Segnalato dalla community';
+                    html += `<div class="p-4 flex justify-between items-start gap-3 ${isBest ? 'best-price' : ''}">
+                        <div class="min-w-0">
+                            <p class="font-bold text-gray-900">${escapeHtml(item.supermarket || 'Punto vendita non indicato')}</p>
+                            <p class="text-xs text-gray-500 mt-1">${sourceLabel}</p>
+                            <p class="text-xs text-gray-500 mt-1">${priceFreshnessLabel(item.timestamp)}</p>
+                            <div class="mt-2">${priceOriginBadge(item.origin)}</div>
                         </div>
-                        <div class="text-right">
-                            <p class="text-xl font-bold ${isBest ? 'text-green-600' : 'text-gray-700'}">€${item.price.toFixed(2)}</p>
-                            ${isBest ? '<span class="text-xs font-bold text-green-600">MIGLIOR PREZZO</span>' : ''}
+                        <div class="text-right shrink-0">
+                            <p class="text-xl font-bold ${isBest ? 'text-green-600' : 'text-gray-700'}">€${price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                            ${isBest ? '<span class="text-xs font-bold text-green-600">PREZZO PIÙ BASSO REGISTRATO</span>' : ''}
                         </div>
                     </div>`;
                 });
                 html += `</div></div>`;
             }
-            container.innerHTML = html;
+            container.innerHTML = html || '<div class="text-center py-10 text-gray-400">Nessun prezzo valido da mostrare.</div>';
         }
 
         // Monitora lo stato di autenticazione e mostra una sola schermata alla volta.
