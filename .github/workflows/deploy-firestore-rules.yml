@@ -30,6 +30,7 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: projects/894849912142/locations/global/workloadIdentityPools/github-actions/providers/github
+          audience: //iam.googleapis.com/projects/894849912142/locations/global/workloadIdentityPools/github-actions/providers/github
           service_account: smartspesa-rules-deployer@smartspesa-f9718.iam.gserviceaccount.com
 
       - name: Set up Node.js
