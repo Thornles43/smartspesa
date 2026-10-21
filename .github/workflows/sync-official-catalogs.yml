@@ -41,5 +41,6 @@ jobs:
             echo "Nessun aggiornamento al catalogo"
           else
             git commit -m "Aggiorna cataloghi ufficiali supermercati"
+            git pull --rebase origin main
             git push
           fi
