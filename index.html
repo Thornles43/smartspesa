@@ -1941,9 +1941,9 @@
                 { name: 'Iper Rossetto / Rossetto', query: 'site:rossettogroup.it/prezzi-rossetto OR site:rossettogroup.it' },
                 { name: 'Iperlando', query: 'site:iperlando.it' },
                 { name: 'Iper La grande i', query: 'site:iper.it' },
-                { name: 'Conad', query: 'site:conad.it' },
+                { name: 'Conad', query: 'site:conad.it OR site:spesaonline.conad.it' },
                 { name: 'Coop', query: 'site:coop.it' },
-                { name: 'Esselunga', query: 'site:esselunga.it' },
+                { name: 'Esselunga', query: 'site:esselunga.it OR site:spesaonline.esselunga.it' },
                 { name: 'Lidl', query: 'site:lidl.it' },
                 { name: 'Eurospin', query: 'site:eurospin.it' },
                 { name: 'MD', query: 'site:mdspa.it' },
@@ -1982,16 +1982,36 @@
                 { name: 'Supermercati Piccolo', query: 'site:supermercatipiccolo.it' },
                 { name: 'Tigre', query: 'site:gruppoarena.it' },
                 { name: 'Tosano', query: 'site:tosano.it' },
-                { name: 'Visotto', query: 'site:visotto.it' } 
+                { name: 'Visotto', query: 'site:visotto.it' }
             ];
-            const officialSearchHtml = retailerSearches.map(retailer => {
+            // Link diretti verificati a cataloghi o sezioni ufficiali. Non tutti rappresentano l'intero assortimento fisico.
+            const officialCatalogs = {
+                'Sole 365': { url: 'https://catalogo.sole365.it/', label: 'Catalogo prodotti e prezzi' },
+                'Iper Rossetto / Rossetto': { url: 'https://rossettogroup.it/prezzi-rossetto/', label: 'Prezzi e promozioni' },
+                'Conad': { url: 'https://spesaonline.conad.it/tutti-i-prodotti', label: 'Spesa online e catalogo' },
+                'Coop': { url: 'https://www.coop.it/prodotti-coop/catalogo-prodotti', label: 'Catalogo prodotti Coop' },
+                'Esselunga': { url: 'https://spesaonline.esselunga.it/commerce/nav/supermercato/', label: 'Spesa online e catalogo' },
+                'Carrefour': { url: 'https://www.carrefour.it/spesa-online/i-nostri-prodotti-a-marchio/', label: 'Catalogo prodotti a marchio' },
+                'Lidl': { url: 'https://www.lidl.it/c/cibo-e-bevande/s10068374', label: 'Catalogo categorie prodotti' },
+                'Eurospin': { url: 'https://www.eurospin.it/ribassati/', label: 'Prodotti ribassati e offerte' },
+                'Aldi': { url: 'https://www.aldi.it/prodotti', label: 'Catalogo prodotti' }
+            };
+            const relevantRetailers = retailerSearches.filter(retailer =>
+                !selectedMarket || marketMatchesSelected(retailer.name, selectedMarket)
+            );
+            const officialSearchHtml = relevantRetailers.map(retailer => {
                 const searchUrl = 'https://www.google.com/search?q=' + encodeURIComponent(retailer.query + ' ' + String(rawTerm || '').trim());
-                return '<a class="shopping-secondary inline-flex items-center gap-2" href="' + searchUrl + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(retailer.name) + ' <i class="fa-solid fa-arrow-up-right-from-square"></i></a>';
+                const catalog = officialCatalogs[retailer.name];
+                const directLink = catalog
+                    ? '<a class="shopping-secondary inline-flex items-center gap-2" href="' + catalog.url + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(catalog.label) + ' <i class="fa-solid fa-arrow-up-right-from-square"></i></a>'
+                    : '';
+                const searchLink = '<a class="shopping-secondary inline-flex items-center gap-2" href="' + searchUrl + '" target="_blank" rel="noopener noreferrer">Cerca ' + escapeHtml(retailer.name) + ' <i class="fa-solid fa-arrow-up-right-from-square"></i></a>';
+                return '<div class="flex flex-wrap gap-2 items-center"><span class="text-xs font-semibold text-gray-600">' + escapeHtml(retailer.name) + '</span>' + directLink + searchLink + '</div>';
             }).join('');
             container.innerHTML = (html || '<p class="text-sm text-gray-500 text-center py-4">Nessun prodotto trovato. Puoi aggiungerlo come voce personalizzata.</p>') +
                 '<details class="bg-white border border-emerald-100 rounded-2xl p-4 mt-4"><summary class="font-semibold text-gray-800 cursor-pointer">Cerca “' + escapeHtml(String(rawTerm || '').trim()) + '” sui siti dei supermercati</summary>' +
-                '<p class="text-xs text-gray-500 mt-2 mb-3">I risultati interni provengono solo da prezzi associati a un supermercato. Per articoli non ancora registrati, scegli l’insegna e consulta il suo sito o volantino ufficiale; la disponibilità può variare per punto vendita.</p>' +
-                '<div class="flex flex-wrap gap-2">' + officialSearchHtml + '</div></details>';
+                '<p class="text-xs text-gray-500 mt-2 mb-3">Per gli articoli non ancora registrati, consulta il catalogo o la ricerca del sito ufficiale. Alcuni cataloghi richiedono CAP, negozio o accesso; i risultati non confermano automaticamente la disponibilità nel punto vendita.</p>' +
+                '<div class="space-y-3 mt-3">' + officialSearchHtml + '</div></details>';
         };
 
         window.addShoppingItem = async (productName, barcode = '', unitPrice = null, supermarket = '', priceSource = '', sourceUrl = '', priceTimestamp = '') => {
