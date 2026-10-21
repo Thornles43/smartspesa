@@ -728,147 +728,80 @@
         async function lookupOpenFoodFacts(barcode, manualLookup = false) {
             const panel = document.getElementById("scannerPanel");
             const status = document.getElementById(manualLookup ? "barcodeLookupStatus" : "scannerStatus");
-            if (manualLookup) {
-                status.classList.remove("hidden");
-            } else {
-                panel.classList.remove("hidden");
+            if (manualLookup) status.classList.remove("hidden");
+            else panel.classList.remove("hidden");
+
+            status.textContent = "Verifico se il codice è già associato a un supermercato nei dati SmartSpesa…";
+            scannedProductMetadata = null;
+            showProductMetadata(null);
+
+            if (!isValidEan13(String(barcode || ""))) {
+                status.textContent = "Codice EAN-13 non valido. Controlla il codice a barre.";
+                return;
             }
-            status.textContent = "Ricerca del prodotto nei cataloghi internazionali…";
+
             try {
-                const fields = "code,product_name,product_name_it,brands,categories,categories_tags,ingredients_text,ingredients_text_it,origins,origins_tags,countries,countries_tags,manufacturing_places,nutriscore_grade,nutriscore_data,nova_group,ecoscore_grade,allergens,allergens_tags,additives_n,additives_tags,nutriments,quantity";
-                // Cataloghi separati per alimenti, cosmetici/igiene, prodotti generici e alimenti per animali.
-                const catalogs = [
-                    { base: "https://world.openfoodfacts.org", source: "Open Food Facts" },
-                    { base: "https://world.openbeautyfacts.org", source: "Open Beauty Facts" },
-                    { base: "https://world.openproductsfacts.org", source: "Open Products Facts" },
-                    { base: "https://world.openpetfoodfacts.org", source: "Open Pet Food Facts" }
-                ];
-                const lookups = catalogs.map(async catalog => {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 7000);
+                let matches = [];
+                // Prima fonte e unica fonte usata per identificare un prodotto come associato a un supermercato:
+                // prezzi registrati in SmartSpesa. I cataloghi generalisti non provano la vendita presso un'insegna.
+                if (currentUser) {
                     try {
-                        const response = await fetch(catalog.base + "/api/v2/product/" + encodeURIComponent(barcode) + ".json?fields=" + fields, {
-                            method: "GET", headers: { "Accept": "application/json" }, cache: "no-store", signal: controller.signal
-                        });
-                        if (!response.ok) throw new Error(catalog.source + " HTTP " + response.status);
-                        const candidate = await response.json();
-                        if (!candidate || candidate.status !== 1 || !candidate.product) throw new Error(catalog.source + ": codice non presente");
-                        candidate.product.productSource = catalog.source;
-                        return candidate;
-                    } finally {
-                        clearTimeout(timeoutId);
+                        const productQuery = query(
+                            collection(db, "prices"),
+                            where("barcode", "==", String(barcode)),
+                            limit(25)
+                        );
+                        const snapshot = await getDocs(productQuery);
+                        matches = snapshot.docs.map(item => ({ id: item.id, ...item.data() }));
+                    } catch (queryError) {
+                        console.warn("Ricerca barcode nei prezzi SmartSpesa:", queryError);
+                        matches = allKnownPrices.filter(item => String(item.barcode || "") === String(barcode));
                     }
-                });
-                let data = null;
-                let lastLookupError = null;
-                try {
-                    data = await Promise.any(lookups);
-                } catch (lookupError) {
-                    lastLookupError = lookupError;
+                } else {
+                    matches = allKnownPrices.filter(item => String(item.barcode || "") === String(barcode));
                 }
-                // Seconda fonte: UPCitemdb. Si usa solo se Open Food Facts non
-                // riconosce il codice o non è raggiungibile.
-                if (!data || data.status !== 1 || !data.product) {
-                    try {
-                        const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 8000);
-                        let response;
-                        try {
-                            response = await fetch("https://api.upcitemdb.com/prod/trial/lookup?upc=" + encodeURIComponent(barcode), {
-                                method: "GET",
-                                headers: { "Accept": "application/json" },
-                                cache: "no-store",
-                                signal: controller.signal
-                            });
-                        } finally {
-                            clearTimeout(timeoutId);
-                        }
-                        if (!response.ok) throw new Error("UPCitemdb HTTP " + response.status);
-                        const result = await response.json();
-                        const item = result && Array.isArray(result.items) ? result.items[0] : null;
-                        if (item && (item.title || item.description)) {
-                            data = {
-                                status: 1,
-                                product: {
-                                    product_name: item.title || item.description || "",
-                                    product_name_it: item.title || "",
-                                    brands: item.brand || "",
-                                    categories: item.category || "",
-                                    productSource: "UPCitemdb (solo metadati)",
-                                    categories_tags: [],
-                                    ingredients_text: item.description || "",
-                                    ingredients_text_it: "",
-                                    origins: "",
-                                    origins_tags: [],
-                                    countries: "",
-                                    countries_tags: [],
-                                    manufacturing_places: ""
-                                }
-                            };
-                            console.info("Prodotto riconosciuto tramite UPCitemdb");
-                        }
-                    } catch (fallbackError) {
-                        console.warn("Ricerca catalogo alternativo:", fallbackError);
-                    }
-                }
-                if (!data && lastLookupError) throw lastLookupError;
-                if (!data) throw new Error("Risposta vuota dai cataloghi prodotti");
-                if (data.status !== 1 || !data.product) {
-                    scannedProductMetadata = null;
-                    showProductMetadata(null);
+
+                matches = matches.filter(item =>
+                    String(item.productName || "").trim() &&
+                    String(item.supermarket || "").trim()
+                );
+
+                if (!matches.length) {
                     document.getElementById("origin").value = "unknown";
-                    status.textContent = "Prodotto non trovato nei cataloghi disponibili. Il barcode è stato mantenuto: inserisci il nome manualmente.";
+                    status.textContent = "Nessun prodotto con questo codice risulta ancora associato a un supermercato nei dati SmartSpesa. Per evitare attribuzioni errate, non uso cataloghi generici come prova di vendita: inserisci il nome e verifica il prodotto sul sito ufficiale dell'insegna.";
                     document.getElementById("productName").focus();
                     return;
                 }
-                const p = data.product;
-                const name = p.product_name_it || p.product_name || "";
-                const origins = Array.isArray(p.origins_tags) ? p.origins_tags : [];
-                const countryOfOrigin = p.origins || (origins.length ? origins.map(cleanTag).join(", ") : "");
-                const category = p.categories || (Array.isArray(p.categories_tags) ? p.categories_tags.slice(0, 3).map(cleanTag).join(", ") : "");
-                const ingredients = p.ingredients_text_it || p.ingredients_text || "";
-                const nutriments = p.nutriments || {};
-                const numericNutrition = key => {
-                    const value = nutriments[key];
-                    return value !== undefined && value !== null && value !== "" && Number.isFinite(Number(value)) ? Number(value) : "";
-                };
-                const additivesTags = Array.isArray(p.additives_tags) ? p.additives_tags : [];
-                const allergensTags = Array.isArray(p.allergens_tags) ? p.allergens_tags : [];
-                scannedProductMetadata = {
-                    brand: p.brands || "",
-                    category: category,
-                    ingredients: ingredients,
-                    countryOfOrigin: countryOfOrigin,
-                    nutriScore: p.nutriscore_grade || (p.nutriscore_data && p.nutriscore_data.grade) || "",
-                    nutriScoreSource: (p.nutriscore_grade || (p.nutriscore_data && p.nutriscore_data.grade)) ? "official" : "",
-                    novaGroup: Number(p.nova_group) >= 1 && Number(p.nova_group) <= 4 ? Number(p.nova_group) : "",
-                    ecoScore: p.ecoscore_grade || "",
-                    energyKcal: numericNutrition("energy-kcal_100g"),
-                    sugars: numericNutrition("sugars_100g"),
-                    saturatedFat: numericNutrition("saturated-fat_100g"),
-                    salt: numericNutrition("salt_100g"),
-                    fiber: numericNutrition("fiber_100g"),
-                    proteins: numericNutrition("proteins_100g"),
-                    allergens: p.allergens || allergensTags.map(cleanTag).join(", "),
-                    additivesCount: Number.isFinite(Number(p.additives_n)) ? Number(p.additives_n) : "",
-                    additives: additivesTags.map(cleanTag).join(", "),
-                    productSource: p.productSource || "Catalogo descrittivo collaborativo (insegna non verificata)"
-                };
+
+                matches.sort((a, b) => {
+                    const at = Date.parse(a.timestamp || a.createdAt || "");
+                    const bt = Date.parse(b.timestamp || b.createdAt || "");
+                    return (Number.isFinite(bt) ? bt : 0) - (Number.isFinite(at) ? at : 0);
+                });
+                const found = matches[0];
+                const name = String(found.productName || "").trim();
+                const market = String(found.supermarket || "").trim();
+                const rawPrice = found.price;
+                const price = rawPrice !== null && rawPrice !== undefined && rawPrice !== "" && Number.isFinite(Number(rawPrice))
+                    ? Number(rawPrice) : null;
+                const rawDate = found.timestamp || found.createdAt || "";
+                const date = rawDate ? new Date(rawDate) : null;
+                const dateText = date && Number.isFinite(date.getTime())
+                    ? date.toLocaleDateString("it-IT")
+                    : "data non disponibile";
+
                 if (name) document.getElementById("productName").value = name;
-                document.getElementById("origin").value = mapOrigin(origins);
-                showProductMetadata(scannedProductMetadata);
-                status.textContent = name ? "Scheda identificata in " + (p.productSource || "un catalogo descrittivo") + ". I dati non confermano la vendita presso il supermercato: verifica l’insegna e completa prezzo e fonte." : "Codice trovato, ma il nome manca: inseriscilo manualmente e verifica il prodotto nel catalogo del supermercato.";
-                document.getElementById(name ? "price" : "productName").focus();
+                document.getElementById("supermarket").value = market;
+                document.getElementById("origin").value = "unknown";
+                // Non precompilare il prezzo: una rilevazione precedente non è un prezzo corrente.
+                document.getElementById("price").value = "";
+                status.textContent = "Trovato nei dati SmartSpesa: " + name + " · insegna registrata: " + market +
+                    (price !== null ? " · ultima rilevazione €" + price.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "") +
+                    " · data: " + dateText + ". Il prezzo precedente è storico: inserisci quello osservato ora.";
+                document.getElementById("price").focus();
             } catch (error) {
-                scannedProductMetadata = null;
-                showProductMetadata(null);
-                const detail = error && error.name === "AbortError"
-                    ? "richiesta scaduta"
-                    : error && error.message
-                    ? error.message
-                    : "errore di rete o CORS";
-                status.textContent = "Open Food Facts non raggiungibile (" + detail + "). Riprova o inserisci i dati manualmente.";
-                console.error("Ricerca Open Food Facts:", error);
+                console.error("Ricerca barcode nei dati dei supermercati:", error);
+                status.textContent = "Non riesco a verificare il codice nei dati SmartSpesa. Puoi inserire manualmente il prodotto, l'insegna e il prezzo osservato.";
             }
         }
 
