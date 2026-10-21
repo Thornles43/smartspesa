@@ -794,6 +794,7 @@
                                     product_name_it: item.title || "",
                                     brands: item.brand || "",
                                     categories: item.category || "",
+                                    productSource: "UPCitemdb (solo metadati)",
                                     categories_tags: [],
                                     ingredients_text: item.description || "",
                                     ingredients_text_it: "",
@@ -851,12 +852,12 @@
                     allergens: p.allergens || allergensTags.map(cleanTag).join(", "),
                     additivesCount: Number.isFinite(Number(p.additives_n)) ? Number(p.additives_n) : "",
                     additives: additivesTags.map(cleanTag).join(", "),
-                    productSource: p.productSource || "Catalogo prodotti collaborativo"
+                    productSource: p.productSource || "Catalogo descrittivo collaborativo (insegna non verificata)"
                 };
                 if (name) document.getElementById("productName").value = name;
                 document.getElementById("origin").value = mapOrigin(origins);
                 showProductMetadata(scannedProductMetadata);
-                status.textContent = name ? "Prodotto trovato in " + (p.productSource || "un catalogo prodotti") + ": controlla i dati e completa prezzo e supermercato." : "Codice trovato, ma il nome manca: inseriscilo manualmente e completa prezzo e supermercato.";
+                status.textContent = name ? "Scheda identificata in " + (p.productSource || "un catalogo descrittivo") + ". I dati non confermano la vendita presso il supermercato: verifica l’insegna e completa prezzo e fonte." : "Codice trovato, ma il nome manca: inseriscilo manualmente e verifica il prodotto nel catalogo del supermercato.";
                 document.getElementById(name ? "price" : "productName").focus();
             } catch (error) {
                 scannedProductMetadata = null;
