@@ -40,6 +40,7 @@
 - La sezione “Cerca sui siti dei supermercati” apre i collegamenti ufficiali noti o una ricerca web limitata ai domini dichiarati delle insegne. Il collegamento esterno è una via per consultare la fonte, non prova che il prodotto sia disponibile.
 - I collegamenti diretti a cataloghi sono stati aggiunti solo per pagine pubbliche individuate e verificate. Dove il sito non offre un catalogo pubblico completo, l'app non deve inventarlo.
 - La ricerca online non è ancora un connettore dati strutturato: non importa automaticamente tutte le schede, i prezzi o le disponibilità dei siti esterni.
+- Il riconoscimento tramite barcode può recuperare metadati da cataloghi collaborativi o da UPCitemdb; questi dati descrittivi non provano che il prodotto sia venduto da una specifica insegna. La vendita presso il supermercato va verificata separatamente tramite catalogo ufficiale, prezzo registrato con fonte o altra evidenza attendibile.
 - Non sono state trovate e validate, in questa verifica pubblica, API aperte e documentate che forniscano l'intero catalogo aggiornato di tutte le insegne elencate. Per integrazioni commerciali o sincronizzazioni su larga scala serve verificare termini d'uso e, dove necessario, chiedere autorizzazione/feed al retailer.
 
 ## Regole dati richieste
