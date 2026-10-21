@@ -1,0 +1,166 @@
+import fs from "node:fs/promises";
+import path from "node:path";
+
+const OUT = path.resolve("data/official-catalogs.json");
+const NOW = new Date();
+const TODAY = NOW.toISOString().slice(0, 10);
+const MAX_SOURCE_BYTES = 8 * 1024 * 1024;
+const MONTHS = { gennaio:1, febbraio:2, marzo:3, aprile:4, maggio:5, giugno:6, luglio:7, agosto:8, settembre:9, ottobre:10, novembre:11, dicembre:12 };
+const SOURCES = [
+  { id: "sole365", name: "Sole 365", url: "https://catalogo.sole365.it/", mode: "catalog" },
+  { id: "rossetto", name: "Iper Rossetto / Rossetto", url: "https://rossettogroup.it/prezzi-rossetto-in-corso/", mode: "promotions" }
+];
+
+function decodeEntities(s) {
+  return String(s || "")
+    .replace(/&nbsp;|&#160;/gi, " ")
+    .replace(/&amp;/gi, "&").replace(/&quot;/gi, '"').replace(/&#39;|&apos;/gi, "'")
+    .replace(/&euro;/gi, "€").replace(/&agrave;/gi, "à").replace(/&egrave;/gi, "è")
+    .replace(/&igrave;/gi, "ì").replace(/&ograve;/gi, "ò").replace(/&ugrave;/gi, "ù")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/&#x([\da-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)));
+}
+function htmlText(html) {
+  return decodeEntities(String(html || "")
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<!--([\s\S]*?)-->/g, " ")
+    .replace(/<[^>]+>/g, " "))
+    .replace(/[\t\r\n]+/g, " ").replace(/\s+/g, " ").trim();
+}
+function normalize(s) {
+  return String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
+}
+function parseMoney(s) {
+  if (!s) return null;
+  const cleaned = String(s).replace(/\./g, "").replace(",", ".");
+  const n = Number(cleaned);
+  return Number.isFinite(n) && n >= 0 && n <= 100000 ? n : null;
+}
+function parseExpiry(text) {
+  const m = String(text || "").match(/(?:fino\s+al|valido\s+fino\s+al)\s+(\d{1,2})\s+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:\s+(20\d{2}))?/i);
+  if (!m) return null;
+  const day = Number(m[1]);
+  const month = MONTHS[m[2].toLowerCase()];
+  let year = m[3] ? Number(m[3]) : NOW.getUTCFullYear();
+  if (!m[3] && month < NOW.getUTCMonth() + 1) return null; // expired dates are never rolled into next year
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  return date.toISOString().slice(0, 10);
+}
+function extractHeadings(html, allowedTags) {
+  const re = new RegExp("<(" + allowedTags.join("|") + ")\\b[^>]*>([\\s\\S]*?)<\\/\\1\\s*>", "gi");
+  const headings = [];
+  for (const m of html.matchAll(re)) {
+    const title = htmlText(m[2]);
+    if (title.length >= 3 && title.length <= 180) headings.push({ title, end: m.index + m[0].length });
+  }
+  return headings;
+}
+function parseProducts(source, html) {
+  const allowedTags = source.id === "sole365" ? ["h2"] : ["h4"];
+  const headings = extractHeadings(html, allowedTags);
+  const products = [];
+  const seen = new Set();
+  for (let i = 0; i < headings.length; i++) {
+    const heading = headings[i];
+    const segment = html.slice(heading.end, headings[i + 1]?.end ? headings[i + 1].end - 500 : heading.end + 3500);
+    const text = htmlText(segment);
+    if (!text || /cerca nel volantino|categorie|ultime ricette|scopri di piu/i.test(heading.title)) continue;
+
+    let price = null;
+    let regularPrice = null;
+    if (source.id === "sole365") {
+      const special = text.match(/a partire da\s*(?:prezzo speciale\s*)?€\s*([\d.]+,[\d]{2}|[\d]+\.[\d]{2})/i);
+      const generic = text.match(/€\s*([\d.]+,[\d]{2}|[\d]+\.[\d]{2})/i);
+      const sale = special || generic;
+      if (sale) price = parseMoney(sale[1]);
+      const regular = text.match(/prezzo di vendita\s*:?\s*€\s*([\d.]+,[\d]{2}|[\d]+\.[\d]{2})/i);
+      if (regular) regularPrice = parseMoney(regular[1]);
+    } else {
+      const expiry = parseExpiry(text);
+      if (!expiry || expiry < TODAY) continue;
+      const priceMatches = [...text.matchAll(/(?:€\s*)?([\d]{1,3}(?:\.\d{3})*,[\d]{2}|[\d]+,[\d]{2})(?:\s*€)?/g)];
+      if (priceMatches.length) price = parseMoney(priceMatches[0][1]);
+    }
+    if (price === null) continue;
+
+    const qty = text.match(/\b(?:\d+(?:[,.]\d+)?\s?(?:kg|g|mg|ml|lt|l|cl)|x\s?\d+|\d+\s?(?:pezzi|pz))\b/i);
+    const expiry = source.id === "rossetto" ? parseExpiry(text) : null;
+    const key = normalize(heading.title) + "|" + (qty ? normalize(qty[0]) : "");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    products.push({
+      id: source.id + ":" + key,
+      supermarket: source.name,
+      productName: heading.title,
+      brand: "",
+      quantity: qty ? qty[0] : "",
+      price,
+      regularPrice,
+      priceStatus: source.id === "rossetto" ? "official_promotion_with_expiry" : "official_catalog_validity_unconfirmed",
+      validUntil: expiry,
+      sourceUrl: source.url,
+      catalogSource: source.id === "rossetto" ? "Pagina prezzi ufficiale Rossetto" : "Catalogo ufficiale Sole 365",
+      retrievedAt: NOW.toISOString(),
+      sourceVerified: true
+    });
+  }
+  return products.slice(0, 250);
+}
+async function fetchSource(source) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const response = await fetch(source.url, {
+      headers: { "User-Agent": "SmartSpesaOfficialCatalogSync/1.0 (+https://github.com/Thornles43/smartspesa)", "Accept": "text/html" },
+      signal: controller.signal
+    });
+    if (!response.ok) throw new Error("HTTP " + response.status);
+    const reader = response.body.getReader();
+    const chunks = [];
+    let total = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_SOURCE_BYTES) throw new Error("Risposta oltre il limite consentito");
+      chunks.push(value);
+    }
+    const bytes = Buffer.concat(chunks);
+    const html = new TextDecoder("utf-8").decode(bytes);
+    const products = parseProducts(source, html);
+    if (!products.length) throw new Error("Nessun prodotto con struttura e prezzo riconosciuti; non sovrascrivo il catalogo con dati vuoti");
+    return { products, sourceStatus: { id: source.id, name: source.name, url: source.url, lastFetched: NOW.toISOString(), status: "ok", productCount: products.length } };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+let previous = { products: [], sources: [] };
+try { previous = JSON.parse(await fs.readFile(OUT, "utf8")); } catch {}
+const nextProducts = [];
+const sourceStatuses = [];
+for (const source of SOURCES) {
+  try {
+    const result = await fetchSource(source);
+    nextProducts.push(...result.products);
+    sourceStatuses.push(result.sourceStatus);
+    console.log(source.id + ": " + result.products.length + " prodotti ufficiali acquisiti");
+  } catch (error) {
+    console.error(source.id + ": acquisizione non riuscita - " + String(error?.message || error));
+    const oldProducts = (previous.products || []).filter(p => p.id && p.id.startsWith(source.id + ":"));
+    nextProducts.push(...oldProducts);
+    const oldStatus = (previous.sources || []).find(s => s.id === source.id);
+    sourceStatuses.push({
+      id: source.id, name: source.name, url: source.url,
+      lastFetched: oldStatus?.lastFetched || null, status: "error",
+      productCount: oldProducts.length, error: String(error?.message || error).slice(0, 240)
+    });
+  }
+}
+const output = { schemaVersion: 1, updatedAt: NOW.toISOString(), products: nextProducts, sources: sourceStatuses };
+await fs.mkdir(path.dirname(OUT), { recursive: true });
+await fs.writeFile(OUT, JSON.stringify(output, null, 2) + "\n", "utf8");
+console.log("Scritto " + OUT + " con " + nextProducts.length + " prodotti totali.");
