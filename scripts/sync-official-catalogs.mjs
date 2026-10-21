@@ -54,7 +54,7 @@ function extractHeadings(html, allowedTags) {
   const headings = [];
   for (const m of html.matchAll(re)) {
     const title = htmlText(m[2]);
-    if (title.length >= 3 && title.length <= 180) headings.push({ title, end: m.index + m[0].length });
+    if (title.length >= 3 && title.length <= 180) headings.push({ title, start: m.index, end: m.index + m[0].length });
   }
   return headings;
 }
@@ -65,7 +65,7 @@ function parseProducts(source, html) {
   const seen = new Set();
   for (let i = 0; i < headings.length; i++) {
     const heading = headings[i];
-    const segment = html.slice(heading.end, headings[i + 1]?.end ? headings[i + 1].end - 500 : heading.end + 3500);
+    const segment = html.slice(heading.end, headings[i + 1]?.start ?? (heading.end + 3500));
     const text = htmlText(segment);
     if (!text || /cerca nel volantino|categorie|ultime ricette|scopri di piu/i.test(heading.title)) continue;
 
