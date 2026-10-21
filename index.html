@@ -923,17 +923,18 @@
             if (!L) throw new Error("La libreria della mappa non è disponibile.");
             const fallback = document.getElementById("nearbyMapFallback");
             const mapElement = document.getElementById("nearbyMap");
-            // Mantieni visibile la mappa incorporata finché le tessere Leaflet non sono caricate:
-            // così una libreria caricata ma bloccata dalla rete non lascia una mappa vuota.
-            if (fallback) fallback.style.display = "block";
-            if (mapElement) mapElement.style.display = "block";
+            // Mostra la mappa di riserva solo finché Leaflet non ha tessere utilizzabili.
+            // L'evento "load" deve restare attivo anche quando la schermata viene riaperta.
+            const hasVisibleTiles = !!(mapElement && mapElement.querySelector(".leaflet-tile-loaded"));
+            if (fallback) fallback.style.display = hasVisibleTiles ? "none" : "block";
+            if (mapElement) mapElement.style.display = hasVisibleTiles ? "block" : "block";
             if (!nearbyMapInstance) {
                 nearbyMapInstance = L.map("nearbyMap").setView([lat, lon], zoom);
                 const tileLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
                     maxZoom: 19,
                     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>'
                 });
-                tileLayer.once("load", () => {
+                tileLayer.on("load", () => {
                     if (nearbyTileLoadTimeout) clearTimeout(nearbyTileLoadTimeout);
                     nearbyTileLoadTimeout = null;
                     if (fallback) fallback.style.display = "none";
