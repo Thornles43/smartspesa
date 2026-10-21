@@ -96,7 +96,7 @@ export default {
       brand: String(item.brand || "").trim().slice(0, 80),
       quantity: String(item.quantity || "").trim().slice(0, 50),
       supermarket: String(item.supermarket || "").trim().slice(0, 100)
-    })).filter(item => item.name && item.supermarket && (!supermarket || item.supermarket.toLocaleLowerCase("it-IT").includes(supermarket.toLocaleLowerCase("it-IT")) || supermarket.toLocaleLowerCase("it-IT").includes(item.supermarket.toLocaleLowerCase("it-IT"))));
+    })).filter(item => item.name && item.supermarket); // The app has already applied its alias-aware supermarket filter.
 
     if (query.length < 2 || safeCandidates.length < 2) {
       return json({ rankedIds: safeCandidates.map(item => item.id), usedAI: false }, 200, corsHeaders);
