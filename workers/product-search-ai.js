@@ -14,7 +14,7 @@ const ALLOWED_ORIGINS = new Set([
   "http://localhost:8788",
   "http://127.0.0.1:8788"
 ]);
-const MAX_BODY_CHARS = 22000;
+const MAX_BODY_CHARS = 50000;
 const MAX_CANDIDATES = 20;
 
 function json(data, status, corsHeaders) {
