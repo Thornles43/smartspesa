@@ -139,6 +139,8 @@
                     <p class="text-xs text-gray-500">Vedi dove conviene</p>
                 </div>
             </button>
+            <button onclick="openReceiptImport()" class="w-full bg-white text-gray-800 p-4 rounded-xl shadow-sm border border-emerald-100 flex items-center gap-3 active:scale-95 transition-transform"><div class="bg-emerald-50 p-2 rounded-lg"><i class="fa-solid fa-receipt text-xl text-emerald-700"></i></div><div class="text-left flex-1"><p class="font-bold">Carica uno scontrino</p><p class="text-xs text-gray-500">Foto o PDF · riconoscimento automatico e verifica</p></div><i class="fa-solid fa-chevron-right text-gray-400"></i></button>
+            <button onclick="openReceiptImport()" class="w-full bg-white text-gray-800 p-4 rounded-xl shadow-sm border border-emerald-100 flex items-center gap-3 active:scale-95 transition-transform"><div class="bg-emerald-50 p-2 rounded-lg"><i class="fa-solid fa-receipt text-xl text-emerald-700"></i></div><div class="text-left flex-1"><p class="font-bold">Carica uno scontrino</p><p class="text-xs text-gray-500">Foto o PDF · riconoscimento automatico e verifica</p></div><i class="fa-solid fa-chevron-right text-gray-400"></i></button>
         </div>
     </div>
 
@@ -343,6 +345,40 @@
         <div class="flex items-center justify-between gap-3 mb-3"><h3 class="font-bold text-gray-900">Punti vendita</h3><span id="nearbyCount" class="text-xs text-gray-500">0 risultati</span></div>
         <div id="nearbyResults" class="space-y-3"><div class="rounded-2xl border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">I punti vendita trovati compariranno qui.</div></div>
         <p class="text-xs text-gray-400 mt-4">Mappa © OpenStreetMap · Dati dei punti vendita da OpenStreetMap; orari e informazioni possono essere incompleti.</p>
+    </div>
+
+    <!-- SCHERMATA: IMPORTA SCONTRINO -->
+    <div id="screen-receipts" class="screen p-4 max-w-3xl mx-auto">
+        <div class="flex items-center gap-3 mb-5"><button onclick="showScreen('screen-dashboard')" class="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100" aria-label="Torna alla home"><i class="fa-solid fa-arrow-left"></i></button><div><h2 class="text-xl font-bold">Carica uno scontrino</h2><p class="text-sm text-gray-500">Foto o PDF, riconoscimento testo e controllo dei prezzi.</p></div></div>
+        <div class="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 mb-4"><p class="font-semibold text-emerald-950 mb-1"><i class="fa-solid fa-shield-halved mr-2"></i>Privacy e verifica</p><p class="text-sm text-emerald-900">Il file viene elaborato nel browser. Non archiviamo la foto né il testo OCR completo: vengono salvati soltanto i prodotti e i prezzi che confermi. Controlla i dati prima di salvarli nel catalogo condiviso.</p></div>
+        <section class="bg-white border border-gray-200 rounded-2xl p-4 mb-4">
+            <label class="block text-sm font-semibold mb-1" for="receiptFile">Foto o PDF dello scontrino</label><input id="receiptFile" type="file" accept=".pdf,image/*" capture="environment" class="w-full text-sm border border-gray-300 rounded-xl p-3" onchange="processReceiptFile(this.files && this.files[0])">
+            <p id="receiptProcessingStatus" class="text-sm text-gray-600 mt-2" role="status" aria-live="polite">Scatta una foto o seleziona un'immagine o un PDF.</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+                <div><label for="receiptSupermarket" class="block text-sm font-medium mb-1">Supermercato / negozio</label><input id="receiptSupermarket" type="text" maxlength="80" class="w-full border border-gray-300 rounded-xl p-3" placeholder="Es. Coop, Lidl, Conad"></div>
+                <div><label for="receiptDate" class="block text-sm font-medium mb-1">Data acquisto</label><input id="receiptDate" type="date" class="w-full border border-gray-300 rounded-xl p-3"></div>
+                <div><label for="receiptTotal" class="block text-sm font-medium mb-1">Totale scontrino (€), facoltativo</label><input id="receiptTotal" type="text" inputmode="decimal" class="w-full border border-gray-300 rounded-xl p-3" placeholder="Es. 34,75"></div>
+            </div>
+        </section>
+        <section class="bg-white border border-gray-200 rounded-2xl p-4 mb-4"><h3 class="font-bold mb-2">Testo riconosciuto</h3><p class="text-xs text-gray-500 mb-3">Correggi eventuali errori e premi “Estrai prodotti”. Puoi anche incollare il testo manualmente.</p><textarea id="receiptExtractedText" rows="8" class="w-full border border-gray-300 rounded-xl p-3 text-sm" placeholder="Il testo dello scontrino comparirà qui."></textarea><div class="flex flex-wrap gap-2 mt-3"><button type="button" onclick="parseReceiptText()" class="px-4 py-3 rounded-xl border border-gray-300 font-semibold">Estrai prodotti</button><button type="button" onclick="addReceiptRow()" class="px-4 py-3 rounded-xl border border-gray-300 font-semibold">+ Aggiungi riga</button></div></section>
+        <section class="bg-white border border-gray-200 rounded-2xl p-4"><div class="flex items-center justify-between gap-2 mb-3"><h3 class="font-bold">Prodotti da confermare</h3><span id="receiptRowCount" class="text-xs text-gray-500">0 prodotti</span></div><div id="receiptRows" class="space-y-3"><p class="text-sm text-gray-400">Carica lo scontrino e verifica le righe riconosciute.</p></div><button type="button" id="saveReceiptButton" onclick="saveReceiptItems()" class="w-full mt-4 px-4 py-3 rounded-xl bg-green-700 text-white font-bold"><i class="fa-solid fa-cloud-arrow-up mr-2"></i>Conferma e salva prezzi</button><p id="receiptSaveStatus" class="text-sm mt-3" role="status" aria-live="polite"></p></section>
+    </div>
+
+    <!-- SCHERMATA: IMPORTA SCONTRINO -->
+    <div id="screen-receipts" class="screen p-4 max-w-3xl mx-auto">
+        <div class="flex items-center gap-3 mb-5"><button onclick="showScreen('screen-dashboard')" class="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100" aria-label="Torna alla home"><i class="fa-solid fa-arrow-left"></i></button><div><h2 class="text-xl font-bold">Carica uno scontrino</h2><p class="text-sm text-gray-500">Foto o PDF, riconoscimento testo e controllo dei prezzi.</p></div></div>
+        <div class="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 mb-4"><p class="font-semibold text-emerald-950 mb-1"><i class="fa-solid fa-shield-halved mr-2"></i>Privacy e verifica</p><p class="text-sm text-emerald-900">Il file viene elaborato nel browser. Non archiviamo la foto né il testo OCR completo: vengono salvati soltanto i prodotti e i prezzi che confermi. Controlla i dati prima di salvarli nel catalogo condiviso.</p></div>
+        <section class="bg-white border border-gray-200 rounded-2xl p-4 mb-4">
+            <label class="block text-sm font-semibold mb-1" for="receiptFile">Foto o PDF dello scontrino</label><input id="receiptFile" type="file" accept=".pdf,image/*" capture="environment" class="w-full text-sm border border-gray-300 rounded-xl p-3" onchange="processReceiptFile(this.files && this.files[0])">
+            <p id="receiptProcessingStatus" class="text-sm text-gray-600 mt-2" role="status" aria-live="polite">Scatta una foto o seleziona un'immagine o un PDF.</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+                <div><label for="receiptSupermarket" class="block text-sm font-medium mb-1">Supermercato / negozio</label><input id="receiptSupermarket" type="text" maxlength="80" class="w-full border border-gray-300 rounded-xl p-3" placeholder="Es. Coop, Lidl, Conad"></div>
+                <div><label for="receiptDate" class="block text-sm font-medium mb-1">Data acquisto</label><input id="receiptDate" type="date" class="w-full border border-gray-300 rounded-xl p-3"></div>
+                <div><label for="receiptTotal" class="block text-sm font-medium mb-1">Totale scontrino (€), facoltativo</label><input id="receiptTotal" type="text" inputmode="decimal" class="w-full border border-gray-300 rounded-xl p-3" placeholder="Es. 34,75"></div>
+            </div>
+        </section>
+        <section class="bg-white border border-gray-200 rounded-2xl p-4 mb-4"><h3 class="font-bold mb-2">Testo riconosciuto</h3><p class="text-xs text-gray-500 mb-3">Correggi eventuali errori e premi “Estrai prodotti”. Puoi anche incollare il testo manualmente.</p><textarea id="receiptExtractedText" rows="8" class="w-full border border-gray-300 rounded-xl p-3 text-sm" placeholder="Il testo dello scontrino comparirà qui."></textarea><div class="flex flex-wrap gap-2 mt-3"><button type="button" onclick="parseReceiptText()" class="px-4 py-3 rounded-xl border border-gray-300 font-semibold">Estrai prodotti</button><button type="button" onclick="addReceiptRow()" class="px-4 py-3 rounded-xl border border-gray-300 font-semibold">+ Aggiungi riga</button></div></section>
+        <section class="bg-white border border-gray-200 rounded-2xl p-4"><div class="flex items-center justify-between gap-2 mb-3"><h3 class="font-bold">Prodotti da confermare</h3><span id="receiptRowCount" class="text-xs text-gray-500">0 prodotti</span></div><div id="receiptRows" class="space-y-3"><p class="text-sm text-gray-400">Carica lo scontrino e verifica le righe riconosciute.</p></div><button type="button" id="saveReceiptButton" onclick="saveReceiptItems()" class="w-full mt-4 px-4 py-3 rounded-xl bg-green-700 text-white font-bold"><i class="fa-solid fa-cloud-arrow-up mr-2"></i>Conferma e salva prezzi</button><p id="receiptSaveStatus" class="text-sm mt-3" role="status" aria-live="polite"></p></section>
     </div>
 
     <!-- SCHERMATA: CATALOGO DA VOLANTINI -->
@@ -1224,6 +1260,10 @@
 
         let flyerParsedRows = [];
         let flyerCurrentFileName = "";
+        let receiptParsedRows = [];
+        let receiptCurrentFileName = "";
+        let receiptParsedRows = [];
+        let receiptCurrentFileName = "";
 
         window.openFlyerCatalog = () => {
             if (!currentUser) { alert("Accedi con Google per usare il catalogo condiviso."); return; }
@@ -1421,6 +1461,128 @@
                     document.getElementById("flyerFile").value = "";
                     document.getElementById("flyerProcessingStatus").textContent = "Importazione completata.";
                 }
+            }
+        };
+
+        window.openReceiptImport = () => {
+            if (!currentUser) { alert("Accedi con Google per caricare uno scontrino."); return; }
+            const date = document.getElementById("receiptDate");
+            if (date && !date.value) date.value = new Date().toISOString().slice(0, 10);
+            showScreen("screen-receipts");
+        };
+
+        window.processReceiptFile = async file => {
+            if (!file) return;
+            const status = document.getElementById("receiptProcessingStatus");
+            const textarea = document.getElementById("receiptExtractedText");
+            const isPdf = file.type === "application/pdf" || /\\.pdf$/i.test(file.name);
+            if (!isPdf && !file.type.startsWith("image/")) { status.textContent = "Seleziona una foto o un PDF."; return; }
+            if (file.size > 15 * 1024 * 1024) { status.textContent = "Il file supera 15 MB. Riducilo e riprova."; return; }
+            receiptCurrentFileName = file.name.slice(0, 160);
+            textarea.value = ""; receiptParsedRows = []; renderReceiptRows();
+            status.textContent = "Leggo lo scontrino…";
+            try {
+                let extracted = "";
+                if (isPdf) {
+                    await loadExternalScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js", "pdfjsLib");
+                    window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+                    const pdf = await window.pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+                    const pages = [];
+                    for (let n = 1; n <= Math.min(pdf.numPages, 10); n++) {
+                        const page = await pdf.getPage(n);
+                        const content = await page.getTextContent();
+                        pages.push(content.items.map(item => item.str).join(" "));
+                    }
+                    extracted = pages.join("\\n");
+                    if (!extracted.trim()) {
+                        status.textContent = "PDF scansionato: avvio OCR…";
+                        await loadExternalScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js", "Tesseract");
+                        const ocrPages = [];
+                        for (let n = 1; n <= Math.min(pdf.numPages, 4); n++) {
+                            const page = await pdf.getPage(n), viewport = page.getViewport({ scale: 1.7 });
+                            const canvas = document.createElement("canvas");
+                            canvas.width = viewport.width; canvas.height = viewport.height;
+                            await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+                            const result = await window.Tesseract.recognize(canvas, "ita+eng", { logger: m => { if (m.status === "recognizing text") status.textContent = "OCR: " + Math.round((m.progress || 0) * 100) + "%"; }});
+                            ocrPages.push(result.data.text || "");
+                        }
+                        extracted = ocrPages.join("\\n");
+                    }
+                } else {
+                    await loadExternalScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js", "Tesseract");
+                    const result = await window.Tesseract.recognize(file, "ita+eng", { logger: m => { if (m.status === "recognizing text") status.textContent = "OCR: " + Math.round((m.progress || 0) * 100) + "%"; }});
+                    extracted = result.data.text || "";
+                }
+                textarea.value = extracted;
+                status.textContent = extracted.trim() ? "Testo letto. Estrai i prodotti e verifica ogni prezzo." : "Testo non riconosciuto: puoi incollarlo o aggiungere le righe manualmente.";
+                parseReceiptText();
+            } catch (error) {
+                console.error("Lettura scontrino:", error);
+                status.textContent = "Lettura non riuscita (" + (error.message || "errore") + "). Puoi inserire il testo manualmente.";
+            }
+        };
+
+        window.parseReceiptText = () => {
+            const lines = (document.getElementById("receiptExtractedText").value || "").split(/\\r?\\n/).map(line => line.replace(/\\s+/g, " ").trim()).filter(Boolean);
+            const ignored = /\\b(totale|subtotale|importo pagato|tot\\.?\\s*doc|documento commerciale|iva|aliquota|imponibile|contanti|bancomat|mastercard|visa|pagamento|resto|sconto totale|risparmio|punti|carta fedelta|transazione|autorizzazione|partita iva|codice fiscale|www\\.|http)\\b/i;
+            const rows = [];
+            for (const line of lines) {
+                if (ignored.test(line) || /\\b(carta|credito|debito)\\b/i.test(line)) continue;
+                const matches = [...line.matchAll(/(?:€\\s*)?(\\d{1,4}[,.]\\d{2})\\s*€?/g)];
+                if (!matches.length) continue;
+                const match = matches[matches.length - 1], price = Number(match[1].replace(",", "."));
+                if (!Number.isFinite(price) || price < 0 || price > 10000) continue;
+                let name = line.slice(0, match.index).replace(/[|•·—–-]+$/g, "").trim();
+                name = name.replace(/^\\d{1,2}[xX*]\\s*/, "").trim();
+                if (name.length < 3 || !/[a-zA-ZÀ-ÿ]/.test(name) || /^\\d+[,.]?\\d*\\s*(kg|g|ml|l)?$/i.test(name)) continue;
+                rows.push({ productName: name.slice(0, 180), price: price.toFixed(2), barcode: "" });
+            }
+            const seen = new Set();
+            receiptParsedRows = rows.filter(row => { const key = normalizeProductName(row.productName) + "|" + row.price; if (seen.has(key)) return false; seen.add(key); return true; }).slice(0, 150);
+            renderReceiptRows();
+            document.getElementById("receiptSaveStatus").textContent = receiptParsedRows.length
+                ? "Trovate " + receiptParsedRows.length + " righe candidate. Verifica attentamente gli importi prima di salvare."
+                : "Nessuna riga riconosciuta. Correggi il testo o aggiungi i prodotti manualmente.";
+        };
+
+        window.addReceiptRow = () => { receiptParsedRows.push({ productName: "", price: "", barcode: "" }); renderReceiptRows(); };
+
+        function renderReceiptRows() {
+            const container = document.getElementById("receiptRows"), count = document.getElementById("receiptRowCount");
+            if (!container || !count) return;
+            count.textContent = receiptParsedRows.length + (receiptParsedRows.length === 1 ? " prodotto" : " prodotti");
+            if (!receiptParsedRows.length) { container.innerHTML = '<p class="text-sm text-gray-400">Nessuna riga pronta. Estrai il testo o aggiungi una riga manualmente.</p>'; return; }
+            container.innerHTML = receiptParsedRows.map((row, index) => '<div class="border border-gray-200 rounded-xl p-3 grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label class="block text-xs text-gray-500 mb-1">Prodotto</label><input data-receipt-field="productName" data-index="' + index + '" value="' + escapeHtml(row.productName) + '" maxlength="180" class="w-full border border-gray-300 rounded-lg p-2 text-sm"></div><div><label class="block text-xs text-gray-500 mb-1">Prezzo (€)</label><input data-receipt-field="price" data-index="' + index + '" value="' + escapeHtml(row.price) + '" inputmode="decimal" class="w-full border border-gray-300 rounded-lg p-2 text-sm"></div><button type="button" class="text-xs text-red-600 font-semibold justify-self-start" onclick="removeReceiptRow(' + index + ')">Rimuovi riga</button></div>').join("");
+            container.querySelectorAll("[data-receipt-field]").forEach(input => input.addEventListener("input", () => { const i = Number(input.dataset.index); if (receiptParsedRows[i]) receiptParsedRows[i][input.dataset.receiptField] = input.value; }));
+        }
+
+        window.removeReceiptRow = index => { receiptParsedRows.splice(index, 1); renderReceiptRows(); };
+
+        window.saveReceiptItems = async () => {
+            const status = document.getElementById("receiptSaveStatus"), button = document.getElementById("saveReceiptButton");
+            if (!currentUser) { status.textContent = "Accedi con Google prima di salvare."; return; }
+            const supermarket = document.getElementById("receiptSupermarket").value.trim();
+            const purchaseDate = document.getElementById("receiptDate").value || new Date().toISOString().slice(0, 10);
+            const totalText = document.getElementById("receiptTotal").value.trim().replace(",", ".");
+            const total = totalText ? Number(totalText) : null;
+            if (!supermarket) { status.textContent = "Inserisci il supermercato o negozio."; return; }
+            if (totalText && (!Number.isFinite(total) || total < 0 || total > 100000)) { status.textContent = "Controlla il totale dello scontrino."; return; }
+            if (!receiptParsedRows.length) { status.textContent = "Aggiungi o estrai almeno un prodotto."; return; }
+            const rows = receiptParsedRows.map(row => ({ productName: String(row.productName || "").trim(), price: Number(String(row.price || "").replace(",", ".")), barcode: String(row.barcode || "").replace(/\\D/g, "").slice(0, 14) })).filter(row => row.productName && Number.isFinite(row.price) && row.price >= 0 && row.price < 100000);
+            if (!rows.length) { status.textContent = "Nessuna riga valida. Controlla nomi e prezzi."; return; }
+            if (rows.length !== receiptParsedRows.length && !confirm("Alcune righe non sono valide. Salvare solo le " + rows.length + " righe corrette?")) return;
+            if (!confirm("Salvare " + rows.length + " prezzi nel catalogo condiviso? La foto e il testo OCR completo non verranno archiviati.")) return;
+            button.disabled = true; button.textContent = "Salvataggio…"; status.textContent = "Salvo i prezzi confermati…";
+            let saved = 0, failed = 0;
+            for (const row of rows) {
+                const record = { barcode: row.barcode, productName: row.productName, price: row.price, supermarket, origin: "unknown", priceSource: "receipt", sourceUrl: "", brand: "", category: "", ingredients: "", countryOfOrigin: "", productSource: "Scontrino: " + (receiptCurrentFileName || "inserimento manuale"), receiptName: receiptCurrentFileName || "Inserimento manuale", receiptDate: purchaseDate, receiptTotal: total, userId: currentUser.email, timestamp: new Date().toISOString() };
+                try { await addDoc(collection(db, "prices"), record); saved++; } catch (error) { failed++; console.error("Salvataggio prezzo da scontrino:", error); }
+            }
+            status.textContent = saved + " prezzi salvati nello storico." + (failed ? " " + failed + " righe non salvate: verifica connessione o regole Firebase." : "");
+            button.disabled = false; button.innerHTML = '<i class="fa-solid fa-cloud-arrow-up mr-2"></i>Conferma e salva prezzi';
+            if (saved) {
+                await loadPrices();
+                if (!failed) { receiptParsedRows = []; renderReceiptRows(); document.getElementById("receiptFile").value = ""; document.getElementById("receiptExtractedText").value = ""; document.getElementById("receiptProcessingStatus").textContent = "Importazione completata. Il file non è stato archiviato."; document.getElementById("receiptTotal").value = ""; receiptCurrentFileName = ""; }
             }
         };
 
