@@ -206,17 +206,28 @@
                     <input type="number" id="price" min="0" step="0.01" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" placeholder="1.29">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Supermercato</label>
-                    <select id="supermarket" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none bg-white">
-                        <option value="">Scegli...</option>
-                        <option value="Esselunga">Esselunga</option>
-                        <option value="Coop">Coop</option>
-                        <option value="Conad">Conad</option>
-                        <option value="Carrefour">Carrefour</option>
-                        <option value="Lidl">Lidl</option>
-                        <option value="Eurospin">Eurospin</option>
-                        <option value="MD">MD</option>
-                    </select>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Supermercato / insegna</label>
+                    <input type="text" id="supermarket" list="supermarketSuggestions" required maxlength="100" autocomplete="off" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none bg-white" placeholder="Es. Iperlando, Rossetto, negozio locale">
+                    <datalist id="supermarketSuggestions">
+                        <option value="A&O"></option><option value="Alì Supermercati"></option><option value="Aldi"></option><option value="Ard Discount"></option>
+                        <option value="Basko"></option><option value="Bennet"></option><option value="Cadoro"></option><option value="Carrefour"></option><option value="Carrefour Express"></option>
+                        <option value="Crai"></option><option value="Conad"></option><option value="Conad City"></option><option value="Conad Superstore"></option><option value="Spazio Conad"></option>
+                        <option value="Coop"></option><option value="Coop Alleanza 3.0"></option><option value="Coop.fi"></option><option value="Ipercoop"></option><option value="Nova Coop"></option><option value="Unicoop Firenze"></option>
+                        <option value="Despar"></option><option value="Eurospar"></option><option value="Interspar"></option><option value="Famila"></option><option value="Futura"></option>
+                        <option value="Decò"></option><option value="Dok"></option><option value="Eté"></option><option value="Sole 365"></option><option value="Supermercati Piccolo"></option><option value="Supermercati DOK"></option>
+                        <option value="Dem"></option><option value="Pewex"></option><option value="CTS Supermercati"></option><option value="Tigre"></option><option value="Tigre Amico"></option>
+                        <option value="Esselunga"></option><option value="Eurospin"></option><option value="Lidl"></option><option value="MD"></option><option value="Penny"></option><option value="Todis"></option>
+                        <option value="Iper La grande i"></option><option value="Iperal"></option><option value="Iperlando"></option><option value="Iper Rossetto"></option><option value="Rossetto"></option><option value="Super Rossetto"></option>
+                        <option value="Lando"></option><option value="Migross"></option><option value="Prix Quality"></option><option value="Poli"></option><option value="Orvea"></option><option value="Tigros"></option><option value="Italmark"></option>
+                        <option value="Pam"></option><option value="Pam Local"></option><option value="Panorama"></option><option value="Unes"></option><option value="U2"></option><option value="Il Viaggiator Goloso"></option>
+                        <option value="Sigma"></option><option value="Sisa"></option><option value="Maxi Di"></option><option value="Alìper"></option><option value="Supermercati Visotto"></option>
+                        <option value="Supermercati Poli"></option><option value="Supermercati Martinelli"></option><option value="Supermercati Tosano"></option><option value="Cadoro Supermercati"></option>
+                        <option value="NaturaSì"></option><option value="Ekom"></option><option value="Doro"></option><option value="Sogegross"></option><option value="Briò"></option>
+                        <option value="Conad Margherita"></option><option value="Conad Sapori & Dintorni"></option><option value="SuperConveniente"></option><option value="Paghi Poco"></option><option value="ARD"></option>
+                        <option value="Famila Superstore"></option><option value="Maxi Supermercati"></option><option value="Cedi Gros"></option><option value="Gros"></option><option value="Alfi"></option>
+                        <option value="Apulia Distribuzione"></option><option value="Megamark"></option><option value="Superemme"></option><option value="Gruppo Arena"></option><option value="Fratelli Morgese"></option>
+                    </datalist>
+                    <p class="text-xs text-gray-500 mt-1">Scegli un suggerimento oppure scrivi qualsiasi insegna o negozio locale: non sei limitato all'elenco.</p>
                 </div>
             </div>
 
@@ -340,7 +351,7 @@
     <!-- SCHERMATA: SUPERMERCATI VICINI -->
     <div id="screen-nearby" class="screen p-4 max-w-5xl mx-auto">
         <div class="flex items-center gap-3 mb-5"><button onclick="showScreen('screen-dashboard')" class="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100" aria-label="Torna alla home"><i class="fa-solid fa-arrow-left"></i></button><div><h2 class="text-xl font-bold">Supermercati vicini</h2><p class="text-sm text-gray-500">Elenco ordinato per distanza dalla tua posizione</p></div></div>
-        <section class="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 mb-4"><p class="font-semibold text-emerald-950">Cerca intorno a te</p><p class="text-sm text-emerald-900 mt-1">La posizione viene richiesta solo quando avvii la ricerca e non viene salvata nel profilo.</p><div class="flex flex-wrap gap-2 mt-3"><label class="sr-only" for="nearbyRadius">Raggio</label><select id="nearbyRadius" class="flex-1 min-w-[130px] rounded-xl border border-emerald-200 bg-white p-3 text-sm"><option value="1000">Entro 1 km</option><option value="3000" selected>Entro 3 km</option><option value="5000">Entro 5 km</option><option value="10000">Entro 10 km</option></select><button type="button" onclick="findNearbySupermarkets()" class="flex-1 min-w-[170px] px-4 py-3 rounded-xl bg-green-700 text-white font-bold"><i class="fa-solid fa-location-dot mr-2"></i>Usa la mia posizione</button></div></section>
+        <section class="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 mb-4"><p class="font-semibold text-emerald-950">Cerca intorno a te</p><p class="text-sm text-emerald-900 mt-1">La posizione viene richiesta solo quando avvii la ricerca e non viene salvata nel profilo.</p><div class="flex flex-wrap gap-2 mt-3"><label class="sr-only" for="nearbyRadius">Raggio</label><select id="nearbyRadius" class="flex-1 min-w-[130px] rounded-xl border border-emerald-200 bg-white p-3 text-sm"><option value="1000">Entro 1 km</option><option value="3000" selected>Entro 3 km</option><option value="5000">Entro 5 km</option><option value="10000">Entro 10 km</option><option value="20000">Entro 20 km</option></select><button type="button" onclick="findNearbySupermarkets()" class="flex-1 min-w-[170px] px-4 py-3 rounded-xl bg-green-700 text-white font-bold"><i class="fa-solid fa-location-dot mr-2"></i>Usa la mia posizione</button></div></section>
         <p id="nearbyStatus" class="text-sm text-gray-600 mb-3" role="status" aria-live="polite">Premi “Usa la mia posizione” per cercare supermercati vicini.</p>
         <div class="flex items-center justify-between gap-3 mb-3"><h3 class="font-bold text-gray-900">Punti vendita</h3><span id="nearbyCount" class="text-xs text-gray-500">0 risultati</span></div>
         <div id="nearbyResults" class="space-y-3"><div class="rounded-2xl border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">I punti vendita trovati compariranno qui.</div></div>
@@ -894,7 +905,7 @@
         window.findNearbySupermarkets = () => {
             const status = document.getElementById("nearbyStatus");
             const results = document.getElementById("nearbyResults");
-            const radius = Math.max(1000, Math.min(10000, Number(document.getElementById("nearbyRadius").value) || 3000));
+            const radius = Math.max(1000, Math.min(20000, Number(document.getElementById("nearbyRadius").value) || 3000));
             if (!navigator.geolocation) {
                 status.textContent = "Questo browser non supporta la geolocalizzazione. Controlla le impostazioni del browser o del dispositivo.";
                 return;
@@ -906,7 +917,7 @@
                 const lat = position.coords.latitude, lon = position.coords.longitude;
                 try {
                     status.textContent = "Posizione ottenuta. Cerco supermercati entro " + (radius / 1000) + " km…";
-                    const query = '[out:json][timeout:25];(nwr["shop"~"supermarket|convenience|grocery|greengrocer"](around:' + radius + ',' + lat + ',' + lon + ');nwr["amenity"="supermarket"](around:' + radius + ',' + lat + ',' + lon + '););out center tags;';
+                    const query = '[out:json][timeout:25];(nwr["shop"~"supermarket|hypermarket|discount|convenience|grocery|greengrocer|wholesale|general"](around:' + radius + ',' + lat + ',' + lon + ');nwr["amenity"="supermarket"](around:' + radius + ',' + lat + ',' + lon + ');nwr["shop"="department_store"]["brand"~"Iper|Coop|Conad|Carrefour",i](around:' + radius + ',' + lat + ',' + lon + '););out center tags;';
                     status.textContent = "Posizione ottenuta. Cerco i punti vendita entro " + (radius / 1000) + " km…";
                     let response = null;
                     const endpoints = [
@@ -953,7 +964,7 @@
                             id: key, name: String(tags.name || tags.brand || tags.operator || "Punto vendita senza nome"),
                             lat: pointLat, lon: pointLon, distanceKm: nearbyDistanceKm(lat, lon, pointLat, pointLon),
                             tags, address: nearbyAddress(tags),
-                            category: tags.shop === "convenience" ? "Negozio di prossimità" : tags.shop === "grocery" ? "Alimentari" : tags.shop === "greengrocer" ? "Frutta e verdura" : "Supermercato"
+                            category: tags.shop === "convenience" ? "Negozio di prossimità" : tags.shop === "grocery" || tags.shop === "general" ? "Alimentari" : tags.shop === "greengrocer" ? "Frutta e verdura" : tags.shop === "discount" ? "Discount" : tags.shop === "wholesale" ? "Ingrosso" : tags.shop === "department_store" ? "Grande magazzino con reparto alimentare" : "Supermercato"
                         });
                     });
                     nearbySupermarketResults = Array.from(unique.values()).sort((a, b) => a.distanceKm - b.distanceKm);
@@ -2100,7 +2111,7 @@
             if (selectedSource === "official") {
                 let parsedUrl;
                 try { parsedUrl = new URL(enteredSourceUrl); } catch (_) {}
-                const allowedOfficialDomains = ["esselunga.it", "conad.it", "lidl.it", "eurospin.it", "carrefour.it", "coop.it", "mdspa.it"];
+                const allowedOfficialDomains = ["esselunga.it", "conad.it", "lidl.it", "eurospin.it", "carrefour.it", "coop.it", "mdspa.it", "iperlando.it", "rossettogroup.it", "iperal.it", "ali-supermercati.it", "alisupermercati.it", "iper.it", "tigros.it", "migross.it", "naturasi.it", "pam.it", "despar.it", "despar.com", "penny.it", "aldi.it", "bennet.com", "bennet.it", "crai.it", "prixquality.com", "supermercatitosano.com", "italmark.it", "unes.it", "todis.it", "sogegross.it", "orvea.it", "gruppoarena.it", "superemme.it", "decoitalia.it"];
                 const isAllowedOfficialUrl = parsedUrl && parsedUrl.protocol === "https:" &&
                     allowedOfficialDomains.some(domain => parsedUrl.hostname === domain || parsedUrl.hostname.endsWith("." + domain));
                 if (!isAllowedOfficialUrl) {
