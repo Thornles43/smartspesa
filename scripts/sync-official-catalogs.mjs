@@ -11,7 +11,7 @@ const SOURCES = [
   { id: "rossetto", name: "Iper Rossetto / Rossetto", url: "https://rossettogroup.it/prezzi-rossetto-in-corso/", domain: "rossettogroup.it", mode: "promotions" },
   // Conad: acquisisce solo Product JSON-LD effettivamente pubblicati dalla pagina ufficiale.
   // Se il sito non espone dati strutturati leggibili, il sync segnala errore e conserva i dati precedenti.
-  { id: "conad", name: "Conad", url: "https://spesaonline.conad.it/tutti-i-prodotti", domain: "spesaonline.conad.it", mode: "jsonld" }
+  { id: "conad", name: "Conad", url: "https://spesaonline.conad.it/tutti-i-prodotti", domain: "spesaonline.conad.it", mode: "conad" }
 ];
 
 function decodeEntities(s) {
@@ -159,8 +159,79 @@ function extractHeadings(html, allowedTags) {
   }
   return headings;
 }
+function parseConadProducts(source, html) {
+  // La pagina ufficiale Conad espone le schede nel contenuto HTML, ma non sempre
+  // pubblica Product JSON-LD. Leggiamo solo titoli h3 associati a un prezzo in euro.
+  const headings = extractHeadings(html, ["h3"]);
+  const products = [];
+  const seen = new Set();
+  const ignoredTitles = /^(aggiungi quantita|filtra e ordina|vedi tutti|tutti i prodotti|home|resetta|applica)$/i;
+
+  for (let i = 0; i < headings.length; i++) {
+    const heading = headings[i];
+    const name = heading.title.trim();
+    if (name.length < 3 || name.length > 180 || ignoredTitles.test(name)) continue;
+    const segment = html.slice(heading.end, headings[i + 1]?.start ?? (heading.end + 2200));
+    const text = htmlText(segment);
+    if (!text) continue;
+
+    // Escludi prezzi unitari (€/kg, €/L): non sono il prezzo della confezione.
+    const prices = [];
+    const pricePattern = /(?:€\\s*)?(\\d{1,4}(?:\\.\\d{3})*,\\d{2})(?:\\s*€)?/g;
+    for (const match of text.matchAll(pricePattern)) {
+      const end = (match.index || 0) + match[0].length;
+      const tail = text.slice(end, end + 16);
+      const prefix = text.slice(Math.max(0, (match.index || 0) - 8), match.index || 0);
+      if (/^\\s*\\/\\s*(?:kg|l|lt|litro|litri)\\b/i.test(tail) ||
+          /\\/\\s*(?:kg|l|lt)\\s*$/i.test(prefix)) continue;
+      const value = parseMoney(match[1]);
+      if (value !== null) prices.push(value);
+    }
+    // Se una scheda contiene più prezzi di confezione, non indoviniamo quale sia corrente.
+    const uniquePrices = [...new Set(prices)];
+    if (uniquePrices.length !== 1) continue;
+    const price = uniquePrices[0];
+
+    const qty = text.match(/\\b\\d+(?:[,.]\\d+)?\\s?(?:kg|g|mg|ml|lt|l|cl)\\b/i);
+    const quantity = qty ? qty[0].replace(/\\s+/g, " ").trim() : "";
+    const key = normalize(name) + "|" + normalize(quantity);
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    products.push({
+      id: source.id + ":" + key,
+      supermarket: source.name,
+      productName: name,
+      brand: "",
+      quantity,
+      price,
+      regularPrice: null,
+      priceStatus: "official_catalog_validity_unconfirmed",
+      validUntil: null,
+      sourceUrl: source.url,
+      catalogSource: "Catalogo ufficiale Conad online",
+      retrievedAt: NOW.toISOString(),
+      sourceVerified: true
+    });
+    if (products.length >= 500) break;
+  }
+  return products;
+}
+
+// Regressione Conad: il prezzo al litro non deve essere confuso col prezzo della confezione.
+const conadFixture = '<h3>Acqua minerale naturale 1,5 l Conad</h3><div>1,5 L 0,20 € / L 0,30€</div><h3>Aggiungi quantità</h3><div>0,30€</div>';
+const conadFixtureProducts = parseConadProducts(
+  { id: "conad", name: "Conad", url: "https://spesaonline.conad.it/tutti-i-prodotti", domain: "spesaonline.conad.it" },
+  conadFixture
+);
+if (conadFixtureProducts.length !== 1 || conadFixtureProducts[0].price !== 0.30 ||
+    conadFixtureProducts[0].supermarket !== "Conad" || conadFixtureProducts[0].quantity !== "1,5 L") {
+  throw new Error("Test parser catalogo Conad non superato");
+}
+
 function parseProducts(source, html) {
   if (source.mode === "jsonld") return parseJsonLdProducts(source, html);
+  if (source.mode === "conad") return parseConadProducts(source, html);
   const allowedTags = source.id === "sole365" ? ["h2"] : ["h4"];
   const headings = extractHeadings(html, allowedTags);
   const products = [];
