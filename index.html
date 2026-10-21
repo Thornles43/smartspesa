@@ -1187,16 +1187,21 @@
                     throw new Error("Il catalogo offerte ha risposto con HTTP " + response.status + ".");
                 }
                 const payload = await response.json();
-                liveFlyerOffers = Array.isArray(payload.offers) ? payload.offers : [];
+                const providerOffers = Array.isArray(payload.offers) ? payload.offers : [];
+                // Mostra solo offerte correnti con fonte e dominio ufficiale coerenti con l'insegna.
+                liveFlyerOffers = providerOffers.filter(isVerifiedCurrentFlyerOffer);
+                const excludedOfferCount = providerOffers.length - liveFlyerOffers.length;
                 if (!liveFlyerOffers.length) {
-                    status.textContent = "Nessuna offerta trovata per questa ricerca. Prova una parola più generica o rimuovi il comune.";
+                    status.textContent = providerOffers.length
+                        ? "Il catalogo esterno ha restituito " + providerOffers.length + " risultati, ma nessuno ha superato i controlli su insegna, fonte ufficiale e scadenza. Non mostro risultati non verificati."
+                        : "Nessuna offerta trovata per questa ricerca. Prova una parola più generica o rimuovi il comune.";
                     return;
                 }
                 const updated = payload.updated_at ? new Date(payload.updated_at).toLocaleString("it-IT") : "";
-                status.textContent = liveFlyerOffers.length + " offerte trovate" +
-                    (payload.total > liveFlyerOffers.length ? " (mostrate le prime " + liveFlyerOffers.length + ")" : "") +
+                status.textContent = liveFlyerOffers.length + " offerte verificate di supermercati" +
+                    (excludedOfferCount ? "; " + excludedOfferCount + " risultati esclusi perché non verificati" : "") +
                     (updated ? ". Catalogo aggiornato: " + updated : "") +
-                    (payload.source ? ". Fonte: " + payload.source : "") + ".";
+                    (payload.source ? ". Fonte dati: " + payload.source : "") + ".";
                 results.innerHTML = liveFlyerOffers.map((offer, index) => {
                     const name = escapeHtml(offer.name || "Prodotto");
                     const store = escapeHtml(offer.store || "Supermercato");
@@ -1215,9 +1220,7 @@
                         (offer.brand ? '<p class="text-xs text-gray-500 mt-1">Marca: ' + escapeHtml(offer.brand) + '</p>' : "") +
                         '<p class="text-xs text-gray-500 mt-2">' + until + '</p>' + conditions + unit +
                         '<div class="flex flex-wrap items-center gap-y-2 mt-3">' + sourceLink + officialLink +
-                        (isVerifiedCurrentFlyerOffer(offer)
-                            ? '<span class="ml-auto px-3 py-2 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-semibold">Importazione automatica verificabile</span>'
-                            : '<span class="ml-auto px-3 py-2 rounded-lg bg-amber-50 text-amber-800 text-xs font-semibold">Non importata: fonte ufficiale o scadenza non verificabile</span>') +
+                        '<span class="ml-auto px-3 py-2 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-semibold">Fonte ufficiale e scadenza verificate</span>' +
                         '</div></article>';
                 }).join("");
                 const importResult = await autoImportVerifiedFlyerOffers(liveFlyerOffers);
