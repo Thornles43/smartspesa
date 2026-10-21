@@ -410,7 +410,7 @@
                 <div><label for="receiptTotal" class="block text-sm font-medium mb-1">Totale scontrino (€), facoltativo</label><input id="receiptTotal" type="text" inputmode="decimal" class="w-full border border-gray-300 rounded-xl p-3" placeholder="Es. 34,75"></div>
             </div>
         </section>
-        <section class="bg-white border border-gray-200 rounded-2xl p-4 mb-4"><h3 class="font-bold mb-2">Testo riconosciuto</h3><p class="text-xs text-gray-500 mb-3">I prodotti vengono estratti automaticamente dopo la lettura. Controlla e correggi nomi e prezzi prima di salvare; puoi anche incollare il testo manualmente.</p><textarea id="receiptExtractedText" rows="8" class="w-full border border-gray-300 rounded-xl p-3 text-sm" placeholder="Il testo dello scontrino comparirà qui."></textarea><div class="flex flex-wrap gap-2 mt-3"><button type="button" onclick="parseReceiptText()" class="px-4 py-3 rounded-xl border border-gray-300 font-semibold">Estrai prodotti</button><button type="button" onclick="addReceiptRow()" class="px-4 py-3 rounded-xl border border-gray-300 font-semibold">+ Aggiungi riga</button></div></section>
+        <section class="bg-white border border-gray-200 rounded-2xl p-4 mb-4"><h3 class="font-bold mb-2">Testo riconosciuto</h3><p class="text-xs text-gray-500 mb-3">I prodotti vengono estratti automaticamente dopo la lettura. Controlla e correggi nomi e prezzi prima di salvare; puoi anche incollare il testo manualmente.</p><textarea id="receiptExtractedText" rows="8" class="w-full border border-gray-300 rounded-xl p-3 text-sm" placeholder="Il testo dello scontrino comparirà qui."></textarea><p class="text-xs text-gray-500 mt-2">L’AI può correggere il testo OCR e proporre righe mancanti, ma non garantisce una lettura completa. Se attivata, invia il testo estratto al servizio AI; controlla sempre nomi e importi prima di salvare.</p><div class="flex flex-wrap gap-2 mt-3"><button type="button" onclick="parseReceiptText()" class="px-4 py-3 rounded-xl border border-gray-300 font-semibold">Estrai prodotti</button><button type="button" onclick="addReceiptRow()" class="px-4 py-3 rounded-xl border border-gray-300 font-semibold">+ Aggiungi riga</button></div></section>
         <section class="bg-white border border-gray-200 rounded-2xl p-4"><div class="flex items-center justify-between gap-2 mb-3"><h3 class="font-bold">Prodotti da confermare</h3><span id="receiptRowCount" class="text-xs text-gray-500">0 prodotti</span></div><div id="receiptRows" class="space-y-3"><p class="text-sm text-gray-400">Carica lo scontrino e verifica le righe riconosciute.</p></div><button type="button" id="saveReceiptButton" onclick="saveReceiptItems()" class="w-full mt-4 px-4 py-3 rounded-xl bg-green-700 text-white font-bold"><i class="fa-solid fa-cloud-arrow-up mr-2"></i>Conferma e salva prezzi</button><p id="receiptSaveStatus" class="text-sm mt-3" role="status" aria-live="polite"></p></section>
     </div>
 
@@ -1937,7 +1937,76 @@
             document.getElementById("receiptSaveStatus").textContent = receiptParsedRows.length
                 ? "Trovate " + receiptParsedRows.length + " righe candidate. Verifica attentamente gli importi prima di salvare."
                 : "Nessuna riga riconosciuta. Correggi il testo o aggiungi i prodotti manualmente.";
+            if (String(document.getElementById("receiptExtractedText").value || "").trim()) {
+                void refineReceiptExtractionWithAI();
+            }
         };
+
+        async function refineReceiptExtractionWithAI() {
+            const status = document.getElementById("receiptSaveStatus");
+            const extractedText = String(document.getElementById("receiptExtractedText").value || "").trim().slice(0, 12000);
+            if (!SMARTSPESA_AI_WORKER_URL || !currentUser || !extractedText) {
+                if (!SMARTSPESA_AI_WORKER_URL && status) {
+                    status.textContent += " AI non attiva: il servizio sicuro non è ancora configurato; resta disponibile la lettura locale.";
+                }
+                return;
+            }
+            const button = document.getElementById("saveReceiptButton");
+            if (button) button.disabled = true;
+            if (status) status.textContent = "Lettura locale completata. L’AI sta verificando le righe e gli importi; controlla comunque ogni campo…";
+            try {
+                const token = await currentUser.getIdToken();
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 18000);
+                let response;
+                try {
+                    response = await fetch(SMARTSPESA_AI_WORKER_URL, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": "Bearer " + token
+                        },
+                        body: JSON.stringify({
+                            task: "receipt_parse",
+                            extractedText,
+                            localRows: receiptParsedRows.slice(0, 150).map(row => ({
+                                productName: String(row.productName || "").slice(0, 180),
+                                price: String(row.price || "").slice(0, 20)
+                            }))
+                        }),
+                        signal: controller.signal
+                    });
+                } finally {
+                    clearTimeout(timeoutId);
+                }
+                if (!response.ok) throw new Error("AI HTTP " + response.status);
+                const payload = await response.json();
+                if (!Array.isArray(payload.rows) || !payload.rows.length) throw new Error("Nessuna riga AI valida");
+                const combined = new Map();
+                for (const row of receiptParsedRows) {
+                    const key = normalizeProductName(row.productName);
+                    if (key) combined.set(key, { ...row });
+                }
+                for (const row of payload.rows.slice(0, 150)) {
+                    const productName = String(row.productName || "").trim().slice(0, 180);
+                    const price = parseItalianMoney(row.price);
+                    if (productName.length < 3 || !Number.isFinite(price) || price < 0 || price > 10000) continue;
+                    const key = normalizeProductName(productName);
+                    if (!key) continue;
+                    const prior = combined.get(key) || {};
+                    combined.set(key, { ...prior, productName, price: price.toFixed(2), barcode: prior.barcode || "" });
+                }
+                if (!combined.size) throw new Error("Nessuna riga utilizzabile");
+                receiptParsedRows = Array.from(combined.values()).slice(0, 150);
+                renderReceiptRows();
+                if (status) status.textContent = "AI: " + receiptParsedRows.length + " righe candidate dopo il controllo del testo. Verifica manualmente ogni nome e importo: l’AI può sbagliare.";
+            } catch (error) {
+                console.warn("Assistenza AI per scontrini non disponibile; mantengo le righe locali.", error);
+                if (status) status.textContent = "Lettura locale mantenuta. AI non disponibile in questo momento: controlla e correggi le righe manualmente.";
+            } finally {
+                if (button) button.disabled = false;
+            }
+        }
 
         window.addReceiptRow = () => { receiptParsedRows.push({ productName: "", price: "", barcode: "" }); renderReceiptRows(); };
 
