@@ -696,46 +696,38 @@
             } else {
                 panel.classList.remove("hidden");
             }
-            status.textContent = "Ricerca del prodotto su Open Food Facts…";
+            status.textContent = "Ricerca del prodotto nei cataloghi internazionali…";
             try {
-                const fields = "code,product_name,product_name_it,brands,categories,categories_tags,ingredients_text,ingredients_text_it,origins,origins_tags,countries,countries_tags,manufacturing_places,nutriscore_grade,nutriscore_data,nova_group,ecoscore_grade,allergens,allergens_tags,additives_n,additives_tags,nutriments";
-                // Prova più endpoint/versioni: alcuni browser o reti possono fallire
-                // su un singolo host o percorso API.
-                const endpoints = [
-                    { url: "https://world.openfoodfacts.org/api/v2/product/", version: "v2" },
-                    { url: "https://world.openfoodfacts.org/api/v0/product/", version: "v0" },
-                    { url: "https://it.openfoodfacts.org/api/v2/product/", version: "v2" }
+                const fields = "code,product_name,product_name_it,brands,categories,categories_tags,ingredients_text,ingredients_text_it,origins,origins_tags,countries,countries_tags,manufacturing_places,nutriscore_grade,nutriscore_data,nova_group,ecoscore_grade,allergens,allergens_tags,additives_n,additives_tags,nutriments,quantity";
+                // Cataloghi separati per alimenti, cosmetici/igiene, prodotti generici e alimenti per animali.
+                const catalogs = [
+                    { base: "https://world.openfoodfacts.org", source: "Open Food Facts" },
+                    { base: "https://world.openbeautyfacts.org", source: "Open Beauty Facts" },
+                    { base: "https://world.openproductsfacts.org", source: "Open Products Facts" },
+                    { base: "https://world.openpetfoodfacts.org", source: "Open Pet Food Facts" }
                 ];
+                const lookups = catalogs.map(async catalog => {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 7000);
+                    try {
+                        const response = await fetch(catalog.base + "/api/v2/product/" + encodeURIComponent(barcode) + ".json?fields=" + fields, {
+                            method: "GET", headers: { "Accept": "application/json" }, cache: "no-store", signal: controller.signal
+                        });
+                        if (!response.ok) throw new Error(catalog.source + " HTTP " + response.status);
+                        const candidate = await response.json();
+                        if (!candidate || candidate.status !== 1 || !candidate.product) throw new Error(catalog.source + ": codice non presente");
+                        candidate.product.productSource = catalog.source;
+                        return candidate;
+                    } finally {
+                        clearTimeout(timeoutId);
+                    }
+                });
                 let data = null;
                 let lastLookupError = null;
-                let successfulResponse = false;
-                for (const endpoint of endpoints) {
-                    try {
-                        const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 10000);
-                        let response;
-                        const query = endpoint.version === "v2" ? "?fields=" + fields : "?fields=" + fields;
-                        try {
-                            response = await fetch(endpoint.url + encodeURIComponent(barcode) + ".json" + query, {
-                                method: "GET",
-                                headers: { "Accept": "application/json" },
-                                cache: "no-store",
-                                signal: controller.signal
-                            });
-                        } finally {
-                            clearTimeout(timeoutId);
-                        }
-                        if (!response.ok) throw new Error("HTTP " + response.status + " (" + endpoint.version + ")");
-                        const candidate = await response.json();
-                        successfulResponse = true;
-                        if (candidate && candidate.status === 1 && candidate.product) {
-                            data = candidate;
-                            break;
-                        }
-                        data = candidate;
-                    } catch (lookupError) {
-                        lastLookupError = lookupError;
-                    }
+                try {
+                    data = await Promise.any(lookups);
+                } catch (lookupError) {
+                    lastLookupError = lookupError;
                 }
                 // Seconda fonte: UPCitemdb. Si usa solo se Open Food Facts non
                 // riconosce il codice o non è raggiungibile.
@@ -822,12 +814,12 @@
                     allergens: p.allergens || allergensTags.map(cleanTag).join(", "),
                     additivesCount: Number.isFinite(Number(p.additives_n)) ? Number(p.additives_n) : "",
                     additives: additivesTags.map(cleanTag).join(", "),
-                    productSource: "Open Food Facts"
+                    productSource: p.productSource || "Catalogo prodotti collaborativo"
                 };
                 if (name) document.getElementById("productName").value = name;
                 document.getElementById("origin").value = mapOrigin(origins);
                 showProductMetadata(scannedProductMetadata);
-                status.textContent = name ? "Prodotto trovato: controlla i dati e completa prezzo e supermercato." : "Prodotto trovato, ma il nome manca: inseriscilo manualmente e completa prezzo e supermercato.";
+                status.textContent = name ? "Prodotto trovato in " + (p.productSource || "un catalogo prodotti") + ": controlla i dati e completa prezzo e supermercato." : "Codice trovato, ma il nome manca: inseriscilo manualmente e completa prezzo e supermercato.";
                 document.getElementById(name ? "price" : "productName").focus();
             } catch (error) {
                 scannedProductMetadata = null;
@@ -1847,47 +1839,66 @@
             });
 
             if (term.length >= 2) {
-                try {
-                    const url = 'https://world.openfoodfacts.org/cgi/search.pl?search_terms=' + encodeURIComponent(String(rawTerm || '').trim()) + '&search_simple=1&action=process&json=1&page_size=10&fields=code,product_name,product_name_it,brands';
-                    const catalogController = new AbortController();
-                    const catalogTimeout = setTimeout(() => catalogController.abort(), 4500);
-                    let data = null;
+                const catalogs = [
+                    { base: 'https://world.openfoodfacts.org', source: 'Open Food Facts' },
+                    { base: 'https://world.openbeautyfacts.org', source: 'Open Beauty Facts' },
+                    { base: 'https://world.openproductsfacts.org', source: 'Open Products Facts' },
+                    { base: 'https://world.openpetfoodfacts.org', source: 'Open Pet Food Facts' }
+                ];
+                const searchTerm = String(rawTerm || '').trim();
+                const searchRequests = catalogs.map(async catalog => {
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), 5500);
                     try {
-                        const response = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: catalogController.signal });
-                        if (response.ok) data = await response.json();
+                        const url = catalog.base + '/cgi/search.pl?search_terms=' + encodeURIComponent(searchTerm) +
+                            '&search_simple=1&action=process&json=1&page_size=20&fields=code,product_name,product_name_it,brands,quantity,categories';
+                        const response = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: controller.signal });
+                        if (!response.ok) throw new Error(catalog.source + ' HTTP ' + response.status);
+                        const data = await response.json();
+                        return { catalog, products: Array.isArray(data.products) ? data.products : [] };
                     } finally {
-                        clearTimeout(catalogTimeout);
+                        clearTimeout(timeout);
                     }
-                    if (data) {
-                        (data.products || []).forEach(product => {
-                            const name = String(product.product_name_it || product.product_name || '').trim();
-                            if (!name) return;
-                            const code = String(product.code || '');
-                            const knownByBarcode = code ? allKnownPrices.filter(priceItem => String(priceItem.barcode || '') === code) : [];
-                            const bestKnown = knownByBarcode
-                                .filter(priceItem => Number.isFinite(Number(priceItem.price)) && Number(priceItem.price) >= 0)
-                                .sort((a, b) => Number(a.price) - Number(b.price))[0];
-                            const key = normalizeProductName(name);
-                            const existing = matches.get(key);
-                            if (existing) {
-                                if (!existing.barcode && code) existing.barcode = code;
-                                return;
-                            }
-                            matches.set(key, {
-                                productName: name, barcode: code,
-                                price: bestKnown ? Number(bestKnown.price) : null,
-                                supermarket: bestKnown ? (bestKnown.supermarket || '') : '',
-                                priceSource: bestKnown ? (bestKnown.priceSource || 'community') : 'community',
-                                sourceUrl: bestKnown ? (bestKnown.sourceUrl || '') : '',
-                                timestamp: bestKnown ? (bestKnown.timestamp || '') : '',
-                                priceCount: bestKnown ? knownByBarcode.filter(p => Number.isFinite(Number(p.price)) && Number(p.price) >= 0).length : 0,
-                                score: productSearchScore(term, name)
-                            });
+                });
+                const catalogResults = await Promise.allSettled(searchRequests);
+                if (requestId !== shoppingSearchRequestId) return;
+                catalogResults.forEach(result => {
+                    if (result.status !== 'fulfilled') {
+                        console.warn('Ricerca catalogo prodotti non disponibile:', result.reason);
+                        return;
+                    }
+                    const { catalog, products } = result.value;
+                    products.forEach(product => {
+                        const name = String(product.product_name_it || product.product_name || '').trim();
+                        if (!name) return;
+                        const code = String(product.code || '');
+                        const brand = String(product.brands || '').trim();
+                        const quantity = String(product.quantity || '').trim();
+                        const knownByBarcode = code ? allKnownPrices.filter(priceItem => String(priceItem.barcode || '') === code) : [];
+                        const bestKnown = knownByBarcode
+                            .filter(priceItem => Number.isFinite(Number(priceItem.price)) && Number(priceItem.price) >= 0)
+                            .sort((a, b) => Number(a.price) - Number(b.price))[0];
+                        const key = code ? 'barcode:' + code : normalizeProductName(name + ' ' + brand + ' ' + quantity);
+                        const existing = matches.get(key) || matches.get(normalizeProductName(name));
+                        if (existing) {
+                            if (!existing.barcode && code) existing.barcode = code;
+                            if (!existing.brand && brand) existing.brand = brand;
+                            if (!existing.quantity && quantity) existing.quantity = quantity;
+                            if (!existing.catalogSource) existing.catalogSource = catalog.source;
+                            return;
+                        }
+                        matches.set(key, {
+                            productName: name, barcode: code, brand, quantity, catalogSource: catalog.source,
+                            price: bestKnown ? Number(bestKnown.price) : null,
+                            supermarket: bestKnown ? (bestKnown.supermarket || '') : '',
+                            priceSource: bestKnown ? (bestKnown.priceSource || 'community') : 'community',
+                            sourceUrl: bestKnown ? (bestKnown.sourceUrl || '') : '',
+                            timestamp: bestKnown ? (bestKnown.timestamp || '') : '',
+                            priceCount: bestKnown ? knownByBarcode.filter(p => Number.isFinite(Number(p.price)) && Number(p.price) >= 0).length : 0,
+                            score: productSearchScore(term, name + ' ' + brand + ' ' + quantity)
                         });
-                    }
-                } catch (error) {
-                    console.warn('Ricerca catalogo prodotti non disponibile:', error);
-                }
+                    });
+                });
             }
             if (requestId !== shoppingSearchRequestId) return;
 
@@ -1913,7 +1924,8 @@
                 const registerButton = canRegisterPrice
                     ? '<button type="button" class="shopping-secondary mt-2" onclick=\'openPriceEntryForProduct(' + safeName + ', ' + safeBarcode + ')\'><i class="fa-solid fa-tag mr-1"></i>Registra un prezzo</button>'
                     : '';
-                html += '<div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center gap-3"><div class="w-10 h-10 shrink-0 rounded-xl bg-emerald-50 flex items-center justify-center"><i class="fa-solid fa-box text-emerald-700"></i></div><div class="min-w-0 flex-1"><p class="font-semibold text-gray-900 break-words">' + escapeHtml(item.productName) + '</p><p class="text-xs text-gray-500">' + priceText + '</p>' + registerButton + '</div><button type="button" class="shopping-action shrink-0" onclick=\'addShoppingItem(' + safeName + ', ' + safeBarcode + ', ' + safePrice + ', ' + safeSupermarket + ', ' + safePriceSource + ', ' + safeSourceUrl + ', ' + safeTimestamp + ')\'><i class="fa-solid fa-plus mr-1"></i>Aggiungi</button></div>';
+                const productDetails = [item.brand, item.quantity, item.catalogSource].filter(Boolean).join(' · ');
+                html += '<div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center gap-3"><div class="w-10 h-10 shrink-0 rounded-xl bg-emerald-50 flex items-center justify-center"><i class="fa-solid fa-box text-emerald-700"></i></div><div class="min-w-0 flex-1"><p class="font-semibold text-gray-900 break-words">' + escapeHtml(item.productName) + '</p>' + (productDetails ? '<p class="text-xs text-gray-500 mt-1">' + escapeHtml(productDetails) + '</p>' : '') + '<p class="text-xs text-gray-500">' + priceText + '</p>' + registerButton + '</div><button type="button" class="shopping-action shrink-0" onclick=\'addShoppingItem(' + safeName + ', ' + safeBarcode + ', ' + safePrice + ', ' + safeSupermarket + ', ' + safePriceSource + ', ' + safeSourceUrl + ', ' + safeTimestamp + ')\'><i class="fa-solid fa-plus mr-1"></i>Aggiungi</button></div>';
             });
             const exactMatch = results.some(item => normalizeProductName(item.productName) === term);
             if (!exactMatch) {
