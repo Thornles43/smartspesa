@@ -1487,11 +1487,12 @@
             if (!file) return;
             const status = document.getElementById("receiptProcessingStatus");
             const textarea = document.getElementById("receiptExtractedText");
+            receiptCurrentFileName = "";
+            textarea.value = ""; receiptParsedRows = []; renderReceiptRows();
             const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
             if (!isPdf && !file.type.startsWith("image/")) { status.textContent = "Seleziona una foto o un PDF."; return; }
             if (file.size > 15 * 1024 * 1024) { status.textContent = "Il file supera 15 MB. Riducilo e riprova."; return; }
             receiptCurrentFileName = file.name.slice(0, 160);
-            textarea.value = ""; receiptParsedRows = []; renderReceiptRows();
             status.textContent = "Leggo lo scontrino…";
             try {
                 let extracted = "";
@@ -1572,7 +1573,7 @@
             if (totalInput && !totalInput.value.trim()) {
                 for (const line of lines) {
                     if (!/\b(totale|importo pagato|tot\.\s*doc)\b/i.test(line)) continue;
-                    const matches = [...line.matchAll(/(?:€\s*)?(\d{1,4}[,.]\d{2})\s*€?/g)];
+                    const matches = [...line.matchAll(/(?:€\s*)?((?:\d{1,3}(?:\.\d{3})+|\d{1,6})[,.]\d{2})\s*€?/g)];
                     if (matches.length) { totalInput.value = matches[matches.length - 1][1].replace(".", ","); break; }
                 }
             }
@@ -1584,7 +1585,7 @@
             const rows = [];
             for (const line of lines) {
                 if (ignored.test(line) || /\b(carta|credito|debito)\b/i.test(line)) continue;
-                const matches = [...line.matchAll(/(?:€\s*)?(\d{1,4}[,.]\d{2})\s*€?/g)];
+                const matches = [...line.matchAll(/(?:€\s*)?((?:\d{1,3}(?:\.\d{3})+|\d{1,6})[,.]\d{2})\s*€?/g)];
                 if (!matches.length) continue;
                 const match = matches[matches.length - 1], price = parseItalianMoney(match[1]);
                 if (!Number.isFinite(price) || price < 0 || price > 10000) continue;
@@ -1619,7 +1620,7 @@
             if (!currentUser) { status.textContent = "Accedi con Google prima di salvare."; return; }
             const supermarket = document.getElementById("receiptSupermarket").value.trim();
             const purchaseDate = document.getElementById("receiptDate").value || getLocalDateISO();
-            const totalText = document.getElementById("receiptTotal").value.trim().replace(",", ".");
+            const totalText = document.getElementById("receiptTotal").value.trim();
             const total = totalText ? parseItalianMoney(totalText) : null;
             if (!supermarket) { status.textContent = "Inserisci il supermercato o negozio."; return; }
             if (totalText && (!Number.isFinite(total) || total < 0 || total > 100000)) { status.textContent = "Controlla il totale dello scontrino."; return; }
