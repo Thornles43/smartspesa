@@ -33,10 +33,21 @@ function normalize(s) {
     .toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
 }
 function parseMoney(s) {
-  if (!s) return null;
-  const cleaned = String(s).replace(/\./g, "").replace(",", ".");
+  if (s === null || s === undefined || String(s).trim() === "") return null;
+  const raw = String(s).trim().replace(/\s|€/g, "");
+  // I cataloghi italiani usano sia 1.234,56 sia 1.23.
+  // Rimuovi i separatori delle migliaia solo quando è presente la virgola decimale;
+  // altrimenti il punto è il separatore decimale e non va eliminato.
+  const cleaned = raw.includes(",")
+    ? raw.replace(/\./g, "").replace(",", ".")
+    : raw;
   const n = Number(cleaned);
-  return Number.isFinite(n) && n >= 0 && n <= 100000 ? n : null;
+  return Number.isFinite(n) && n >= 0 && n <= 100000 ? Math.round(n * 100) / 100 : null;
+}
+
+// Guardie di regressione per il parsing dei prezzi italiani e internazionali.
+for (const [input, expected] of [["1,99", 1.99], ["1.234,56", 1234.56], ["1.99", 1.99], ["0.55", 0.55]]) {
+  if (parseMoney(input) !== expected) throw new Error("Parsing prezzo non valido: " + input);
 }
 function parseExpiry(text) {
   const m = String(text || "").match(/(?:fino\s+al|valido\s+fino\s+al)\s+(\d{1,2})\s+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:\s+(20\d{2}))?/i);
