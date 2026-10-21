@@ -410,7 +410,7 @@
                 <div><label for="receiptTotal" class="block text-sm font-medium mb-1">Totale scontrino (€), facoltativo</label><input id="receiptTotal" type="text" inputmode="decimal" class="w-full border border-gray-300 rounded-xl p-3" placeholder="Es. 34,75"></div>
             </div>
         </section>
-        <section class="bg-white border border-gray-200 rounded-2xl p-4 mb-4"><h3 class="font-bold mb-2">Testo riconosciuto</h3><p class="text-xs text-gray-500 mb-3">Correggi eventuali errori e premi “Estrai prodotti”. Puoi anche incollare il testo manualmente.</p><textarea id="receiptExtractedText" rows="8" class="w-full border border-gray-300 rounded-xl p-3 text-sm" placeholder="Il testo dello scontrino comparirà qui."></textarea><div class="flex flex-wrap gap-2 mt-3"><button type="button" onclick="parseReceiptText()" class="px-4 py-3 rounded-xl border border-gray-300 font-semibold">Estrai prodotti</button><button type="button" onclick="addReceiptRow()" class="px-4 py-3 rounded-xl border border-gray-300 font-semibold">+ Aggiungi riga</button></div></section>
+        <section class="bg-white border border-gray-200 rounded-2xl p-4 mb-4"><h3 class="font-bold mb-2">Testo riconosciuto</h3><p class="text-xs text-gray-500 mb-3">I prodotti vengono estratti automaticamente dopo la lettura. Controlla e correggi nomi e prezzi prima di salvare; puoi anche incollare il testo manualmente.</p><textarea id="receiptExtractedText" rows="8" class="w-full border border-gray-300 rounded-xl p-3 text-sm" placeholder="Il testo dello scontrino comparirà qui."></textarea><div class="flex flex-wrap gap-2 mt-3"><button type="button" onclick="parseReceiptText()" class="px-4 py-3 rounded-xl border border-gray-300 font-semibold">Estrai prodotti</button><button type="button" onclick="addReceiptRow()" class="px-4 py-3 rounded-xl border border-gray-300 font-semibold">+ Aggiungi riga</button></div></section>
         <section class="bg-white border border-gray-200 rounded-2xl p-4"><div class="flex items-center justify-between gap-2 mb-3"><h3 class="font-bold">Prodotti da confermare</h3><span id="receiptRowCount" class="text-xs text-gray-500">0 prodotti</span></div><div id="receiptRows" class="space-y-3"><p class="text-sm text-gray-400">Carica lo scontrino e verifica le righe riconosciute.</p></div><button type="button" id="saveReceiptButton" onclick="saveReceiptItems()" class="w-full mt-4 px-4 py-3 rounded-xl bg-green-700 text-white font-bold"><i class="fa-solid fa-cloud-arrow-up mr-2"></i>Conferma e salva prezzi</button><p id="receiptSaveStatus" class="text-sm mt-3" role="status" aria-live="polite"></p></section>
     </div>
 
@@ -1684,7 +1684,7 @@
                 parseReceiptText();
                 status.textContent = warnings.length
                     ? "Ho letto parte dello scontrino, ma " + warnings.join(" ") + " Verifica il testo e carica una foto più nitida se mancano prodotti."
-                    : "Testo letto da " + files.length + (files.length === 1 ? " file." : " immagini.") + " Estrai i prodotti e controlla ogni prezzo prima di salvare.";
+                    : "Testo letto da " + files.length + (files.length === 1 ? " file." : " immagini.") + " Ho estratto automaticamente le righe: controlla ogni prezzo prima di salvare.";
             } catch (error) {
                 console.error("Lettura scontrino:", error);
                 status.textContent = "ERRORE di lettura: " + (error.message || "problema nel file o nell'OCR") + ". Prova con una foto più nitida o un PDF leggibile.";
@@ -1782,7 +1782,7 @@
                 const score = productSearchScore(queryText, [name, brand, quantity].filter(Boolean).join(" "));
                 if (score < 0.6) continue;
                 const identity = (String(item.barcode || "").trim() || normalizeProductName(name)) + "::" + normalizeProductName(supermarket);
-                const timestamp = String(item.timestamp || item.createdAt || item.receiptDate || "");
+                const timestamp = String(item.receiptDate || item.timestamp || item.createdAt || "");
                 const current = candidates.get(identity);
                 const time = Date.parse(timestamp);
                 const currentTime = current ? Date.parse(current.timestamp || "") : Number.NaN;
@@ -2277,11 +2277,7 @@
                 html += '<div data-ai-product-id="' + resultIndex + '" class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center gap-3"><div class="w-10 h-10 shrink-0 rounded-xl bg-emerald-50 flex items-center justify-center"><i class="fa-solid fa-box text-emerald-700"></i></div><div class="min-w-0 flex-1"><p class="font-semibold text-gray-900 break-words">' + escapeHtml(item.productName) + '</p>' + (productDetails ? '<p class="text-xs text-gray-500 mt-1">' + escapeHtml(productDetails) + '</p>' : '') + '<p class="text-xs text-gray-500">' + priceText + '</p>' + registerButton + '</div><button type="button" class="shopping-action shrink-0" onclick=\'addShoppingItem(' + safeName + ', ' + safeBarcode + ', ' + safePrice + ', ' + safeSupermarket + ', ' + safePriceSource + ', ' + safeSourceUrl + ', ' + safeTimestamp + ')\'><i class="fa-solid fa-plus mr-1"></i>Aggiungi</button></div>';
             });
             html += '</div>';
-            const exactMatch = results.some(item => normalizeProductName(item.productName) === term);
-            if (!exactMatch) {
-                const safeTerm = JSON.stringify(String(rawTerm || '').trim()).replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
-                html += '<div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex items-center gap-3"><div class="min-w-0 flex-1"><p class="font-semibold text-emerald-950">Aggiungi “' + escapeHtml(String(rawTerm || '').trim()) + '”</p><p class="text-xs text-emerald-800">Voce personalizzata nella tua lista, senza prezzo associato</p></div><button type="button" class="shopping-action shrink-0" onclick=\'addShoppingItem(' + safeTerm + ', "")\'><i class="fa-solid fa-plus mr-1"></i>Aggiungi</button></div>';
-            }
+            // La ricerca del catalogo non deve spacciare una voce libera per un prodotto venduto da un supermercato.
             // Collegamenti esclusivamente a fonti ufficiali verificate.
             // Non importiamo automaticamente prodotti da queste pagine: la disponibilità e i prezzi possono dipendere da CAP/negozio.
             const officialCatalogs = [
@@ -2332,9 +2328,13 @@
                 '<a class="inline-flex items-center gap-2 text-sm underline text-emerald-700" href="' + escapeHtml("https://www.google.com/search?q=" + encodeURIComponent("site:" + catalog.domain + " " + String(rawTerm || "").trim())) + '" target="_blank" rel="noopener noreferrer">Cerca “' + escapeHtml(String(rawTerm || "").trim()) + '” sul dominio ufficiale <i class="fa-solid fa-arrow-up-right-from-square"></i></a></div>' +
                 '<p class="text-xs text-gray-500 mt-1">' + escapeHtml(catalog.note) + '</p></div>'
             ).join('');
-            container.innerHTML = (html || '<p class="text-sm text-gray-500 text-center py-4">Nessun prodotto trovato. Puoi aggiungerlo come voce personalizzata.</p>') +
+            const noCatalogResults = results.length === 0;
+            const catalogEmptyState = noCatalogResults
+                ? '<p class="text-sm text-gray-600 text-center py-4">Nessun prodotto di supermercato trovato nei dati SmartSpesa per questa ricerca. Consulta il catalogo ufficiale dell’insegna qui sotto oppure importa un volantino/scontrino verificato.</p>'
+                : html;
+            container.innerHTML = catalogEmptyState +
                 '<details class="bg-white border border-emerald-100 rounded-2xl p-4 mt-4"><summary class="font-semibold text-gray-800 cursor-pointer">Consulta i cataloghi ufficiali dei supermercati</summary>' +
-                '<p class="text-xs text-gray-500 mt-2 mb-3">I risultati interni provengono solo da prodotti già associati a un supermercato nei dati SmartSpesa. Per ampliare la ricerca, puoi aprire il catalogo ufficiale o cercare il termine nel solo dominio dell’insegna. I risultati esterni non vengono importati automaticamente e non dimostrano la disponibilità nel tuo punto vendita.</p>' +
+                '<p class="text-xs text-gray-500 mt-2 mb-3">I risultati interni provengono solo da prodotti già associati a un supermercato nei dati SmartSpesa. Se non trovi il prodotto, apri il catalogo ufficiale o cerca il termine nel dominio dell’insegna. I risultati esterni non vengono importati automaticamente e non dimostrano la disponibilità nel tuo punto vendita.</p>' +
                 '<div class="space-y-3 mt-3">' + officialSearchHtml + '</div></details>';
         };
 
