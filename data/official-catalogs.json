@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": null,
+  "products": [],
+  "sources": [
+    {
+      "id": "sole365",
+      "name": "Sole 365",
+      "url": "https://catalogo.sole365.it/",
+      "lastFetched": null,
+      "status": "pending",
+      "productCount": 0
+    },
+    {
+      "id": "rossetto",
+      "name": "Iper Rossetto / Rossetto",
+      "url": "https://rossettogroup.it/prezzi-rossetto-in-corso/",
+      "lastFetched": null,
+      "status": "pending",
+      "productCount": 0
+    }
+  ]
+}
