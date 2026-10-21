@@ -221,7 +221,7 @@ function parseEurospinProducts(source, html) {
   // Le offerte Eurospin pubblicano un periodo globale e, per ogni scheda,
   // prezzo precedente, prezzo ribassato e formato. Non stimiamo scadenze mancanti.
   const pageText = htmlText(html);
-  const period = pageText.match(/offerte\\s+valide\\s+dal\\s+(\\d{1,2})\\s+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\\s+al\\s+(\\d{1,2})\\s+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\\s+(20\\d{2})/i);
+  const period = pageText.match(/offerte\s+valide\s+dal\s+(\d{1,2})\s+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\s+al\s+(\d{1,2})\s+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\s+(20\d{2})/i);
   if (!period) return [];
   const from = new Date(Date.UTC(Number(period[5]), MONTHS[period[2].toLowerCase()] - 1, Number(period[1])));
   const until = new Date(Date.UTC(Number(period[5]), MONTHS[period[4].toLowerCase()] - 1, Number(period[3])));
@@ -232,7 +232,7 @@ function parseEurospinProducts(source, html) {
   const headings = extractHeadings(html, ["h2", "h3"]);
   const products = [];
   const seen = new Set();
-  const pricePattern = /(?:€\\s*)?(\\d{1,4}(?:\\.\\d{3})*,\\d{2})(?:\\s*€)?/g;
+  const pricePattern = /(?:€\s*)?(\d{1,4}(?:\.\d{3})*,\d{2})(?:\s*€)?/g;
   for (let i = 0; i < headings.length; i++) {
     const heading = headings[i];
     const name = heading.title.trim();
@@ -240,14 +240,14 @@ function parseEurospinProducts(source, html) {
     if (name.length < 3 || name.length > 180 ||
         /^(ribassati|scopri tutti i prodotti ribassati di eurospin|offerte valide dal|home|vedi prodotto)$/i.test(normalizedName)) continue;
     const segment = html.slice(heading.end, headings[i + 1]?.start ?? (heading.end + 2400))
-      .replace(/<(del|s)\\b[^>]*>[\\s\\S]*?<\\/\\1\\s*>/gi, " ");
+      .replace(/<(del|s)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, " ");
     const text = htmlText(segment);
     if (!text) continue;
     const prices = [];
     for (const match of text.matchAll(pricePattern)) {
       const end = (match.index || 0) + match[0].length;
       const tail = text.slice(end, end + 16);
-      if (/^\\s*\\/\\s*(?:kg|l|lt|litro|litri)\\b/i.test(tail)) continue;
+      if (/^\s*\/\s*(?:kg|l|lt|litro|litri)\b/i.test(tail)) continue;
       const value = parseMoney(match[1]);
       if (value !== null) prices.push(value);
     }
@@ -255,9 +255,9 @@ function parseEurospinProducts(source, html) {
     if (!distinct.length) continue;
     const price = distinct[distinct.length - 1];
     const regularPrice = distinct.length > 1 && distinct[0] > price ? distinct[0] : null;
-    const qty = text.match(/\\b\\d+\\s*x\\s*\\d+(?:[,.]\\d+)?\\s?(?:kg|g|mg|ml|lt|l|cl)\\b/i) ||
-      text.match(/\\b\\d+(?:[,.]\\d+)?\\s?(?:kg|g|mg|ml|lt|l|cl)\\b/i);
-    const quantity = qty ? qty[0].replace(/\\s+/g, " ").trim() : "";
+    const qty = text.match(/\b\d+\s*x\s*\d+(?:[,.]\d+)?\s?(?:kg|g|mg|ml|lt|l|cl)\b/i) ||
+      text.match(/\b\d+(?:[,.]\d+)?\s?(?:kg|g|mg|ml|lt|l|cl)\b/i);
+    const quantity = qty ? qty[0].replace(/\s+/g, " ").trim() : "";
     const key = normalize(name) + "|" + normalize(quantity);
     if (seen.has(key)) continue;
     seen.add(key);
