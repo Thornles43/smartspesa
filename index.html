@@ -12,10 +12,10 @@
         :root { color-scheme: light; --ss-green: #087f5b; --ss-ink: #17211d; --ss-line: #e4eae6; }
         html { background: #f5f7f5; }
         body { font-family: Inter, 'Segoe UI', system-ui, sans-serif; background: #f5f7f5 !important; color: var(--ss-ink); -webkit-tap-highlight-color: transparent; }
-        .screen { display: none !important; padding: 18px 16px calc(176px + env(safe-area-inset-bottom)); scroll-padding-bottom: calc(176px + env(safe-area-inset-bottom)); animation: fadeIn 0.22s ease-out; }
+        .screen { display: none !important; box-sizing: border-box; padding: 18px 16px calc(var(--bottom-nav-clearance, 190px) + env(safe-area-inset-bottom)) !important; scroll-padding-bottom: calc(var(--bottom-nav-clearance, 190px) + env(safe-area-inset-bottom)); animation: fadeIn 0.22s ease-out; }
         .screen.active { display: block !important; }
         #screen-login.active { display: flex !important; }
-        #screen-login { min-height: 100dvh; height: auto !important; background: radial-gradient(circle at 50% 25%, #e2f5e9 0, #f5f7f5 52%) !important; }
+        #screen-login { min-height: 100dvh; height: auto !important; padding-bottom: 24px !important; background: radial-gradient(circle at 50% 25%, #e2f5e9 0, #f5f7f5 52%) !important; }
         #screen-login .w-20 { background: var(--ss-green) !important; box-shadow: 0 12px 30px #087f5b22; }
         #screen-login .fa-cart-shopping { color: white !important; }
         #screen-login h1 { letter-spacing: -0.04em; }
@@ -1723,6 +1723,16 @@
             loadPrices();
         }
 
+        window.updateBottomNavClearance = () => {
+            const nav = document.getElementById('bottomNav');
+            const visible = nav && !nav.classList.contains('hidden');
+            const navHeight = visible ? Math.ceil(nav.getBoundingClientRect().height) : 0;
+            // Mantiene un margine reale sopra la barra fissa, anche su telefoni con viewport ridotto.
+            const clearance = visible ? Math.max(190, navHeight + 40) : 0;
+            document.documentElement.style.setProperty('--bottom-nav-clearance', clearance + 'px');
+        };
+        window.addEventListener('resize', () => window.updateBottomNavClearance());
+
         window.showScreen = (screenId) => {
             const target = document.getElementById(screenId);
             if (!target) return;
@@ -1737,6 +1747,11 @@
             target.classList.add('active');
             target.style.setProperty('display', screenId === 'screen-login' ? 'flex' : 'block', 'important');
             target.setAttribute('aria-hidden', 'false');
+
+            // Ogni schermata condivide lo scroll della pagina: torna in cima al cambio
+            // e ricalcola lo spazio necessario per non coprire l'ultimo pulsante.
+            window.updateBottomNavClearance();
+            window.scrollTo(0, 0);
 
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             if (screenId === 'screen-dashboard') document.getElementById('nav-dashboard').classList.add('active');
