@@ -1815,25 +1815,25 @@
 
         function marketMatchesSelected(supermarketName, selectedMarket) {
             if (!selectedMarket) return true;
-            const store = normalizeProductName(supermarketName).replace(/\\s+/g, '');
-            const selected = normalizeProductName(selectedMarket).replace(/\\s+/g, '');
+            const store = normalizeProductName(supermarketName).replace(/\s+/g, '');
+            const selected = normalizeProductName(selectedMarket).replace(/\s+/g, '');
             const aliases = {
-                'sol e365': ['sole365', 'sole365', 'sole'],
-                'iper rossetto': ['iperrossetto', 'iperalimentarerossetto', 'superrossetto', 'rossetto'],
-                'iperlando': ['iperlando', 'lando'],
-                'conad': ['conad'],
-                'coop': ['coop', 'ipercoop', 'nova coop', 'unicoopfirenze'],
-                'despar': ['despar', 'eurospar', 'interspar'],
-                'pam': ['pam', 'panorama'],
-                'iperlagrandei': ['iperlagrandei', 'iper'],
-                'alì supermercati': ['alisupermercati', 'alìsupermercati', 'aliper'],
-                'gruppo arena': ['gruppoarena', 'tigre', 'supermercatipan'],
-                'decò': ['deco', 'decò'],
-                'dok': ['dok'],
-                'eté': ['ete', 'eté']
+                sole365: ['sole365', 'sole'],
+                iperrossetto: ['iperrossetto', 'iperalimentarerossetto', 'superrossetto', 'rossetto'],
+                iperlando: ['iperlando', 'lando'],
+                conad: ['conad'],
+                coop: ['coop', 'ipercoop', 'novacoop', 'unicoopfirenze'],
+                despar: ['despar', 'eurospar', 'interspar'],
+                pam: ['pam', 'panorama'],
+                iperlagrandei: ['iperlagrandei', 'iper'],
+                alisupermercati: ['alisupermercati', 'aliper'],
+                gruppoarena: ['gruppoarena', 'tigre', 'supermercatipan'],
+                deco: ['deco'],
+                dok: ['dok'],
+                ete: ['ete']
             };
-            const candidates = aliases[selectedMarket] || aliases[selected] || [selected];
-            return candidates.some(alias => store.includes(normalizeProductName(alias).replace(/\\s+/g, '')));
+            const candidates = aliases[selected] || [selected];
+            return candidates.some(alias => store.includes(normalizeProductName(alias).replace(/\s+/g, '')));
         }
 
         window.openPriceEntryForProduct = async (productName, barcode = '') => {
