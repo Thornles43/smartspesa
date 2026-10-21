@@ -24,6 +24,16 @@
 | MD | https://www.mdspa.it/ | Sito ufficiale, marchi e volantini | Non è stato verificato un catalogo pubblico completo di tutti i prodotti e prezzi. Volantini e prodotti a marchio non dimostrano la disponibilità dell'intero assortimento. |
 | Iper La grande i | https://volantini.iper.it/ | Volantini ufficiali selezionabili per città/punto vendita, con date | È una fonte promozionale; non va trattata come catalogo completo. Da non confondere con Iper Rossetto. |
 
+
+| Bennet | https://www.bennet.com/ | Spesa online con categorie, prodotti e prezzi mostrati | Il sito richiede selezione del punto vendita e può segnalare articoli non acquistabili online; non equivale alla disponibilità in tutti i negozi. |
+| Pam / Panorama | https://pamacasa.pampanorama.it/ | Spesa online e ricerca prodotto | Richiede verifica CAP/zona; assortimento e consegna non sono nazionali in modo uniforme. |
+| Iperal | https://www.iperal.it/I-MARCHI/Iperal/ | Schede della linea a marchio Iperal | Solo prodotti a marchio in questa sezione; il sito rimanda alla spesa online per l'acquisto. |
+| CRAI | https://crai.it/prodotti-crai/prodotti-a-marchio-crai | Catalogo e descrizioni dei prodotti a marchio CRAI | Non fornisce in questa pagina un listino completo di prezzi per ogni punto vendita. |
+| Despar | https://www.despar.it/it/sbudget/ | Prodotti della linea S-Budget e collegamenti ai volantini locali | La pagina non rappresenta tutto l'assortimento Despar; i volantini hanno validità e copertura territoriale. |
+| NaturaSì | https://www.naturasi.it/ | E-commerce e catalogo navigabile per categorie | Verificare zona di consegna e disponibilità; i prodotti online non provano la disponibilità nel singolo negozio fisico. |
+| Migross | https://www.migross.it/ | Promozioni, volantini e accesso ai servizi online | La pagina mostra selezione del punto vendita; le promozioni hanno intervalli temporali e copertura specifica. |
+| Bennet | https://www.bennet.com/ | Catalogo di spesa online con prodotti, formati, prezzi e indicazioni di disponibilità | La disponibilità può essere specifica del punto vendita e l'accesso può dipendere dalla selezione del negozio. |
+
 ## Stato nell'app
 
 - La ricerca interna di SmartSpesa mostra prodotti già associati a un'insegna nei dati/prezzi registrati nell'app; i cataloghi generalisti esterni non vengono usati per popolare automaticamente i risultati interni.
