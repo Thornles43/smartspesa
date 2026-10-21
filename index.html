@@ -1454,10 +1454,32 @@
             }
         };
 
+        function getLocalDateISO() {
+            const now = new Date();
+            return now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
+        }
+
+        function parseItalianMoney(value) {
+            let normalized = String(value ?? "").trim().replace(/[€\s]/g, "").replace(/[^\d,.-]/g, "");
+            if (!normalized) return NaN;
+            if (normalized.includes(",") && normalized.includes(".")) {
+                normalized = normalized.replace(/\./g, "").replace(",", ".");
+            } else if (normalized.includes(",")) {
+                normalized = normalized.replace(",", ".");
+            }
+            return Number(normalized);
+        }
+
+        function receiptTextHasPriceRows(text) {
+            return String(text || "").split(/\r?\n/).some(line =>
+                /[a-zA-ZÀ-ÿ]{3}/.test(line) && /(?:\d{1,3}(?:\.\d{3})+|\d{1,6})[,.]\d{2}/.test(line)
+            );
+        }
+
         window.openReceiptImport = () => {
             if (!currentUser) { alert("Accedi con Google per caricare uno scontrino."); return; }
             const date = document.getElementById("receiptDate");
-            if (date && !date.value) date.value = new Date().toISOString().slice(0, 10);
+            if (date && !date.value) date.value = getLocalDateISO();
             showScreen("screen-receipts");
         };
 
@@ -1481,11 +1503,23 @@
                     for (let n = 1; n <= Math.min(pdf.numPages, 10); n++) {
                         const page = await pdf.getPage(n);
                         const content = await page.getTextContent();
-                        pages.push(content.items.map(item => item.str).join(" "));
+                        const lineMap = new Map();
+                        content.items.forEach(item => {
+                            const value = String(item.str || "").trim();
+                            if (!value) return;
+                            const y = Math.round(Number(item.transform?.[5]) || 0);
+                            if (!lineMap.has(y)) lineMap.set(y, []);
+                            lineMap.get(y).push({ x: Number(item.transform?.[4]) || 0, text: value });
+                        });
+                        pages.push(Array.from(lineMap.entries()).sort((a, b) => b[0] - a[0])
+                            .map(([, items]) => items.sort((a, b) => a.x - b.x).map(item => item.text).join(" "))
+                            .join("\n"));
                     }
                     extracted = pages.join("\n");
-                    if (!extracted.trim()) {
-                        status.textContent = "PDF scansionato: avvio OCR…";
+                    // Alcuni PDF contengono solo intestazioni testuali ma i prodotti sono immagini.
+                    // In quel caso prova l'OCR anche se il PDF non è completamente vuoto.
+                    if (!receiptTextHasPriceRows(extracted)) {
+                        status.textContent = "Non trovo righe prodotto con prezzo nel testo PDF: provo l'OCR…";
                         await loadExternalScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js", "Tesseract");
                         const ocrPages = [];
                         for (let n = 1; n <= Math.min(pdf.numPages, 4); n++) {
@@ -1496,7 +1530,8 @@
                             const result = await window.Tesseract.recognize(canvas, "ita+eng", { logger: m => { if (m.status === "recognizing text") status.textContent = "OCR: " + Math.round((m.progress || 0) * 100) + "%"; }});
                             ocrPages.push(result.data.text || "");
                         }
-                        extracted = ocrPages.join("\n");
+                        const ocrText = ocrPages.join("\n");
+                        if (ocrText.trim()) extracted = ocrText;
                     }
                 } else {
                     await loadExternalScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js", "Tesseract");
@@ -1551,7 +1586,7 @@
                 if (ignored.test(line) || /\b(carta|credito|debito)\b/i.test(line)) continue;
                 const matches = [...line.matchAll(/(?:€\s*)?(\d{1,4}[,.]\d{2})\s*€?/g)];
                 if (!matches.length) continue;
-                const match = matches[matches.length - 1], price = Number(match[1].replace(",", "."));
+                const match = matches[matches.length - 1], price = parseItalianMoney(match[1]);
                 if (!Number.isFinite(price) || price < 0 || price > 10000) continue;
                 let name = line.slice(0, match.index).replace(/[|•·—–-]+$/g, "").trim();
                 name = name.replace(/^\d{1,2}[xX*]\s*/, "").trim();
@@ -1583,9 +1618,9 @@
             const status = document.getElementById("receiptSaveStatus"), button = document.getElementById("saveReceiptButton");
             if (!currentUser) { status.textContent = "Accedi con Google prima di salvare."; return; }
             const supermarket = document.getElementById("receiptSupermarket").value.trim();
-            const purchaseDate = document.getElementById("receiptDate").value || new Date().toISOString().slice(0, 10);
+            const purchaseDate = document.getElementById("receiptDate").value || getLocalDateISO();
             const totalText = document.getElementById("receiptTotal").value.trim().replace(",", ".");
-            const total = totalText ? Number(totalText) : null;
+            const total = totalText ? parseItalianMoney(totalText) : null;
             if (!supermarket) { status.textContent = "Inserisci il supermercato o negozio."; return; }
             if (totalText && (!Number.isFinite(total) || total < 0 || total > 100000)) { status.textContent = "Controlla il totale dello scontrino."; return; }
             if (!receiptParsedRows.length) { status.textContent = "Aggiungi o estrai almeno un prodotto."; return; }
