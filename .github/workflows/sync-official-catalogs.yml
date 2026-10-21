@@ -38,7 +38,8 @@ jobs:
           if (!Array.isArray(d.products) || !Array.isArray(d.sources)) throw new Error("Schema catalogo non valido");
           const allowed = {
             "Sole 365": ["sole365.it"],
-            "Iper Rossetto / Rossetto": ["rossettogroup.it"]
+            "Iper Rossetto / Rossetto": ["rossettogroup.it"],
+            "Conad": ["spesaonline.conad.it"]
           };
           const seen = new Set();
           const today = new Date().toISOString().slice(0, 10);
