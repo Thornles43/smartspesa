@@ -1475,7 +1475,7 @@
             if (!file) return;
             const status = document.getElementById("receiptProcessingStatus");
             const textarea = document.getElementById("receiptExtractedText");
-            const isPdf = file.type === "application/pdf" || /\\.pdf$/i.test(file.name);
+            const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
             if (!isPdf && !file.type.startsWith("image/")) { status.textContent = "Seleziona una foto o un PDF."; return; }
             if (file.size > 15 * 1024 * 1024) { status.textContent = "Il file supera 15 MB. Riducilo e riprova."; return; }
             receiptCurrentFileName = file.name.slice(0, 160);
@@ -1493,7 +1493,7 @@
                         const content = await page.getTextContent();
                         pages.push(content.items.map(item => item.str).join(" "));
                     }
-                    extracted = pages.join("\\n");
+                    extracted = pages.join("\n");
                     if (!extracted.trim()) {
                         status.textContent = "PDF scansionato: avvio OCR…";
                         await loadExternalScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js", "Tesseract");
@@ -1506,7 +1506,7 @@
                             const result = await window.Tesseract.recognize(canvas, "ita+eng", { logger: m => { if (m.status === "recognizing text") status.textContent = "OCR: " + Math.round((m.progress || 0) * 100) + "%"; }});
                             ocrPages.push(result.data.text || "");
                         }
-                        extracted = ocrPages.join("\\n");
+                        extracted = ocrPages.join("\n");
                     }
                 } else {
                     await loadExternalScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js", "Tesseract");
@@ -1523,18 +1523,18 @@
         };
 
         window.parseReceiptText = () => {
-            const lines = (document.getElementById("receiptExtractedText").value || "").split(/\\r?\\n/).map(line => line.replace(/\\s+/g, " ").trim()).filter(Boolean);
-            const ignored = /\\b(totale|subtotale|importo pagato|tot\\.?\\s*doc|documento commerciale|iva|aliquota|imponibile|contanti|bancomat|mastercard|visa|pagamento|resto|sconto totale|risparmio|punti|carta fedelta|transazione|autorizzazione|partita iva|codice fiscale|www\\.|http)\\b/i;
+            const lines = (document.getElementById("receiptExtractedText").value || "").split(/\r?\n/).map(line => line.replace(/\s+/g, " ").trim()).filter(Boolean);
+            const ignored = /\b(totale|subtotale|importo pagato|tot\.?\s*doc|documento commerciale|iva|aliquota|imponibile|contanti|bancomat|mastercard|visa|pagamento|resto|sconto totale|risparmio|punti|carta fedelta|transazione|autorizzazione|partita iva|codice fiscale|www\.|http)\b/i;
             const rows = [];
             for (const line of lines) {
-                if (ignored.test(line) || /\\b(carta|credito|debito)\\b/i.test(line)) continue;
-                const matches = [...line.matchAll(/(?:€\\s*)?(\\d{1,4}[,.]\\d{2})\\s*€?/g)];
+                if (ignored.test(line) || /\b(carta|credito|debito)\b/i.test(line)) continue;
+                const matches = [...line.matchAll(/(?:€\s*)?(\d{1,4}[,.]\d{2})\s*€?/g)];
                 if (!matches.length) continue;
                 const match = matches[matches.length - 1], price = Number(match[1].replace(",", "."));
                 if (!Number.isFinite(price) || price < 0 || price > 10000) continue;
                 let name = line.slice(0, match.index).replace(/[|•·—–-]+$/g, "").trim();
-                name = name.replace(/^\\d{1,2}[xX*]\\s*/, "").trim();
-                if (name.length < 3 || !/[a-zA-ZÀ-ÿ]/.test(name) || /^\\d+[,.]?\\d*\\s*(kg|g|ml|l)?$/i.test(name)) continue;
+                name = name.replace(/^\d{1,2}[xX*]\s*/, "").trim();
+                if (name.length < 3 || !/[a-zA-ZÀ-ÿ]/.test(name) || /^\d+[,.]?\d*\s*(kg|g|ml|l)?$/i.test(name)) continue;
                 rows.push({ productName: name.slice(0, 180), price: price.toFixed(2), barcode: "" });
             }
             const seen = new Set();
@@ -1568,7 +1568,7 @@
             if (!supermarket) { status.textContent = "Inserisci il supermercato o negozio."; return; }
             if (totalText && (!Number.isFinite(total) || total < 0 || total > 100000)) { status.textContent = "Controlla il totale dello scontrino."; return; }
             if (!receiptParsedRows.length) { status.textContent = "Aggiungi o estrai almeno un prodotto."; return; }
-            const rows = receiptParsedRows.map(row => ({ productName: String(row.productName || "").trim(), price: Number(String(row.price || "").replace(",", ".")), barcode: String(row.barcode || "").replace(/\\D/g, "").slice(0, 14) })).filter(row => row.productName && Number.isFinite(row.price) && row.price >= 0 && row.price < 100000);
+            const rows = receiptParsedRows.map(row => ({ productName: String(row.productName || "").trim(), price: Number(String(row.price || "").replace(",", ".")), barcode: String(row.barcode || "").replace(/\D/g, "").slice(0, 14) })).filter(row => row.productName && Number.isFinite(row.price) && row.price >= 0 && row.price < 100000);
             if (!rows.length) { status.textContent = "Nessuna riga valida. Controlla nomi e prezzi."; return; }
             if (rows.length !== receiptParsedRows.length && !confirm("Alcune righe non sono valide. Salvare solo le " + rows.length + " righe corrette?")) return;
             if (!confirm("Salvare " + rows.length + " prezzi nel catalogo condiviso? La foto e il testo OCR completo non verranno archiviati.")) return;
