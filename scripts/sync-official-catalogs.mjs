@@ -170,7 +170,7 @@ function parseConadProducts(source, html) {
   for (let i = 0; i < headings.length; i++) {
     const heading = headings[i];
     const name = heading.title.trim();
-    if (name.length < 3 || name.length > 180 || ignoredTitles.test(name)) continue;
+    if (name.length < 3 || name.length > 180 || ignoredTitles.test(normalize(name))) continue;
     const segment = html.slice(heading.end, headings[i + 1]?.start ?? (heading.end + 2200));
     const text = htmlText(segment);
     if (!text) continue;
