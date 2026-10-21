@@ -373,7 +373,7 @@
             <input id="offerSearchCity" type="text" maxlength="60" placeholder="Es. Bologna" class="w-full border border-gray-300 rounded-xl p-3 mb-3" onkeydown="if(event.key==='Enter'){event.preventDefault();searchFlyerOffers();}">
             <div class="flex flex-wrap gap-2">
                 <button type="button" onclick="searchFlyerOffers()" class="flex-1 min-w-[140px] px-4 py-3 rounded-xl bg-green-700 text-white font-bold"><i class="fa-solid fa-magnifying-glass mr-2"></i>Cerca offerte</button>
-                <button type="button" onclick="openAmazonSearch()" class="flex-1 min-w-[140px] px-4 py-3 rounded-xl border border-gray-300 font-semibold"><i class="fa-brands fa-amazon mr-2"></i>Cerca su Amazon</button>
+                <button type="button" onclick="searchFlyerOffers()" class="flex-1 min-w-[140px] px-4 py-3 rounded-xl border border-gray-300 font-semibold"><i class="fa-solid fa-rotate mr-2"></i>Aggiorna offerte</button>
             </div>
             <p class="text-xs text-gray-500 mt-3">Il comune serve a filtrare le offerte dei volantini per zona. Amazon si apre in una ricerca separata: il prezzo live Amazon non viene mostrato finché non viene configurata la sua API ufficiale.</p>
         </section>
@@ -402,7 +402,7 @@
         <div class="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 mb-4"><p class="font-semibold text-emerald-950 mb-1"><i class="fa-solid fa-shield-halved mr-2"></i>Privacy e verifica</p><p class="text-sm text-emerald-900">Il file viene elaborato nel browser. Non archiviamo la foto né il testo OCR completo: vengono salvati soltanto i prodotti e i prezzi che confermi. Controlla i dati prima di salvarli nel catalogo condiviso.</p></div>
         <section class="bg-white border border-gray-200 rounded-2xl p-4 mb-4">
             <label class="block text-sm font-semibold mb-1" for="receiptFile">Foto o PDF dello scontrino</label><input id="receiptFile" type="file" accept=".pdf,application/pdf,image/*" multiple class="w-full text-sm border border-gray-300 rounded-xl p-3" onchange="processReceiptFiles(this.files)">
-            <p class="text-xs text-gray-500 mt-2">Carica 1 foto per uno scontrino corto oppure 2 foto per uno lungo: inquadra le parti una dopo l’altra, con buona luce e testo a fuoco. Puoi anche caricare un PDF multipagina.</p>
+            <p class="text-xs text-gray-500 mt-2">Carica 1 foto per uno scontrino corto oppure 2 foto per uno lungo: inquadra le parti una dopo l’altra, con buona luce e testo a fuoco. Puoi anche caricare un PDF multipagina. Dopo la lettura, ogni riga viene confrontata con lo storico dei prodotti associati ai supermercati; le corrispondenze sono suggerimenti e vanno verificate prima del salvataggio.</p>
             <p id="receiptProcessingStatus" class="text-sm text-gray-600 mt-2" role="status" aria-live="polite">Se la foto è sfocata o il testo non è leggibile, ti chiederò di rifarla.</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
                 <div><label for="receiptSupermarket" class="block text-sm font-medium mb-1">Supermercato / negozio</label><input id="receiptSupermarket" type="text" maxlength="80" class="w-full border border-gray-300 rounded-xl p-3" placeholder="Es. Coop, Lidl, Conad"></div>
@@ -977,12 +977,6 @@
             showScreen("screen-offers");
         };
 
-        window.openAmazonSearch = () => {
-            const queryText = (document.getElementById("offerSearchQuery").value || "").trim();
-            if (!queryText) { alert("Scrivi prima il nome di un prodotto."); return; }
-            window.open("https://www.amazon.it/s?k=" + encodeURIComponent(queryText), "_blank", "noopener,noreferrer");
-        };
-
         window.searchFlyerOffers = async () => {
             const queryText = (document.getElementById("offerSearchQuery").value || "").trim();
             const city = (document.getElementById("offerSearchCity").value || "").trim();
@@ -1526,6 +1520,57 @@
             }
         }
 
+        // Confronta le righe OCR soltanto con prodotti già associati a un supermercato in SmartSpesa.
+        // I prezzi storici servono come riferimento, non come prova di prezzo corrente o disponibilità.
+        function getReceiptProductMatches(row) {
+            const queryText = normalizeProductName(row && row.productName || "");
+            if (queryText.length < 3 || !Array.isArray(allKnownPrices) || !allKnownPrices.length) return [];
+            const candidates = new Map();
+            for (const item of allKnownPrices) {
+                const name = String(item.productName || "").trim();
+                const supermarket = String(item.supermarket || "").trim();
+                if (!name || !supermarket) continue;
+                const brand = String(item.brand || item.productBrand || "").trim();
+                const quantity = String(item.quantity || item.format || item.productQuantity || "").trim();
+                const score = productSearchScore(queryText, [name, brand, quantity].filter(Boolean).join(" "));
+                if (score < 0.6) continue;
+                const identity = (String(item.barcode || "").trim() || normalizeProductName(name)) + "::" + normalizeProductName(supermarket);
+                const timestamp = String(item.timestamp || item.createdAt || item.receiptDate || "");
+                const current = candidates.get(identity);
+                const time = Date.parse(timestamp);
+                const currentTime = current ? Date.parse(current.timestamp || "") : Number.NaN;
+                if (!current || score > current.score || (score === current.score && Number.isFinite(time) && (!Number.isFinite(currentTime) || time > currentTime))) {
+                    candidates.set(identity, { name, supermarket, price: item.price, timestamp, score, source: item.priceSource || item.catalogSource || "storico SmartSpesa" });
+                }
+            }
+            return Array.from(candidates.values())
+                .sort((a, b) => (b.score - a.score) || ((Date.parse(b.timestamp || "") || 0) - (Date.parse(a.timestamp || "") || 0)))
+                .slice(0, 3);
+        }
+
+        function receiptMatchHtml(row) {
+            const matches = getReceiptProductMatches(row);
+            if (!matches.length) return '<p class="text-xs text-gray-500 mt-2">Nessuna corrispondenza sufficientemente affidabile nello storico SmartSpesa. La riga non verrà associata automaticamente ad altri prodotti.</p>';
+            const receiptPrice = parseItalianMoney(row.price);
+            return '<div class="mt-2 rounded-lg bg-blue-50 border border-blue-100 p-2">' +
+                '<p class="text-xs font-semibold text-blue-900 mb-1">Possibili corrispondenze nello storico SmartSpesa</p>' +
+                matches.map(match => {
+                    const historicPrice = match.price !== null && match.price !== undefined && match.price !== "" && Number.isFinite(Number(match.price)) ? Number(match.price) : null;
+                    const date = match.timestamp ? new Date(match.timestamp) : null;
+                    const dateText = date && Number.isFinite(date.getTime()) ? date.toLocaleDateString("it-IT") : "data non disponibile";
+                    let comparison = "Prezzo storico non disponibile";
+                    if (historicPrice !== null) {
+                        comparison = "ultimo prezzo registrato " + historicPrice.toLocaleString("it-IT", { style: "currency", currency: "EUR" }) + " (" + dateText + ")";
+                        if (Number.isFinite(receiptPrice) && receiptPrice >= 0) {
+                            const delta = receiptPrice - historicPrice;
+                            comparison += " · differenza scontrino " + (delta > 0 ? "+" : "") + delta.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
+                        }
+                    }
+                    return '<p class="text-xs text-blue-900 mt-1"><strong>' + escapeHtml(match.name) + '</strong> · ' + escapeHtml(match.supermarket) + '<br>' + escapeHtml(comparison) + '</p>';
+                }).join("") +
+                '<p class="text-[11px] text-blue-800 mt-2">Confronto indicativo: nomi abbreviati o simili possono riferirsi a formati diversi. Il prezzo dello scontrino è una rilevazione di acquisto; lo storico non è un prezzo corrente.</p></div>';
+        }
+
         window.parseReceiptText = () => {
             const lines = (document.getElementById("receiptExtractedText").value || "").split(/\r?\n/).map(line => line.replace(/\s+/g, " ").trim()).filter(Boolean);
             const ignored = /\b(totale|subtotale|importo pagato|tot\.?\s*doc|documento commerciale|iva|aliquota|imponibile|contanti|bancomat|mastercard|visa|pagamento|resto|sconto totale|risparmio|punti|carta fedelta|transazione|autorizzazione|partita iva|codice fiscale|www\.|http)\b/i;
@@ -1556,8 +1601,17 @@
             if (!container || !count) return;
             count.textContent = receiptParsedRows.length + (receiptParsedRows.length === 1 ? " prodotto" : " prodotti");
             if (!receiptParsedRows.length) { container.innerHTML = '<p class="text-sm text-gray-400">Nessuna riga pronta. Estrai il testo o aggiungi una riga manualmente.</p>'; return; }
-            container.innerHTML = receiptParsedRows.map((row, index) => '<div class="border border-gray-200 rounded-xl p-3 grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label class="block text-xs text-gray-500 mb-1">Prodotto</label><input data-receipt-field="productName" data-index="' + index + '" value="' + escapeHtml(row.productName) + '" maxlength="180" class="w-full border border-gray-300 rounded-lg p-2 text-sm"></div><div><label class="block text-xs text-gray-500 mb-1">Prezzo (€)</label><input data-receipt-field="price" data-index="' + index + '" value="' + escapeHtml(row.price) + '" inputmode="decimal" class="w-full border border-gray-300 rounded-lg p-2 text-sm"></div><button type="button" class="text-xs text-red-600 font-semibold justify-self-start" onclick="removeReceiptRow(' + index + ')">Rimuovi riga</button></div>').join("");
-            container.querySelectorAll("[data-receipt-field]").forEach(input => input.addEventListener("input", () => { const i = Number(input.dataset.index); if (receiptParsedRows[i]) receiptParsedRows[i][input.dataset.receiptField] = input.value; }));
+            container.innerHTML = receiptParsedRows.map((row, index) => '<div class="border border-gray-200 rounded-xl p-3 grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label class="block text-xs text-gray-500 mb-1">Prodotto</label><input data-receipt-field="productName" data-index="' + index + '" value="' + escapeHtml(row.productName) + '" maxlength="180" class="w-full border border-gray-300 rounded-lg p-2 text-sm"></div><div><label class="block text-xs text-gray-500 mb-1">Prezzo (€)</label><input data-receipt-field="price" data-index="' + index + '" value="' + escapeHtml(row.price) + '" inputmode="decimal" class="w-full border border-gray-300 rounded-lg p-2 text-sm"></div><div class="sm:col-span-2" data-receipt-match="' + index + '">' + receiptMatchHtml(row) + '</div><button type="button" class="text-xs text-red-600 font-semibold justify-self-start" onclick="removeReceiptRow(' + index + ')">Rimuovi riga</button></div>').join("");
+            container.querySelectorAll("[data-receipt-field]").forEach(input => input.addEventListener("input", () => {
+                const i = Number(input.dataset.index);
+                if (receiptParsedRows[i]) {
+                    receiptParsedRows[i][input.dataset.receiptField] = input.value;
+                    if (input.dataset.receiptField === "productName") {
+                        const matchPanel = container.querySelector('[data-receipt-match="' + i + '"]');
+                        if (matchPanel) matchPanel.innerHTML = receiptMatchHtml(receiptParsedRows[i]);
+                    }
+                }
+            }));
         }
 
         window.removeReceiptRow = index => { receiptParsedRows.splice(index, 1); renderReceiptRows(); };
@@ -1980,7 +2034,7 @@
             // Collegamenti esclusivamente a fonti ufficiali verificate.
             // Non importiamo automaticamente prodotti da queste pagine: la disponibilità e i prezzi possono dipendere da CAP/negozio.
             const officialCatalogs = [
-                { name: 'Sole 365', url: 'https://www.cosicomodo.it/sole365/ricerca?q=' + encodeURIComponent(String(rawTerm || '').trim()), label: 'Cerca nel catalogo online', note: 'Richiede selezione della zona o del negozio; prezzo e assortimento locali.' },
+                { name: 'Sole 365', url: 'https://catalogo.sole365.it/', label: 'Apri catalogo ufficiale', note: 'Catalogo online con prezzi/formati pubblicati; verifica le condizioni e la zona prima di considerare il prezzo valido.' },
                 { name: 'Iper Rossetto / Rossetto', url: 'https://rossettogroup.it/prezzi-rossetto-in-corso/', label: 'Prezzi e prodotti pubblicati', note: 'Controlla la data di scadenza indicata per ogni articolo.' },
                 { name: 'Iperlando', url: 'https://www.iperlando.it/', label: 'Sito ufficiale', note: 'Non è stato verificato un catalogo completo interrogabile.' },
                 { name: 'Conad', url: 'https://spesaonline.conad.it/tutti-i-prodotti', label: 'Catalogo e spesa online', note: 'Richiede la verifica della zona e del negozio.' },
