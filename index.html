@@ -306,7 +306,7 @@
         <div class="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 mb-5">
             <label for="shoppingSearch" class="block text-sm font-semibold text-gray-700 mb-2">Cerca un prodotto</label>
             <div class="relative"><i class="fa-solid fa-magnifying-glass absolute left-4 top-4 text-gray-400"></i><input id="shoppingSearch" type="search" autocomplete="off" placeholder="Es. latte, pasta, mele..." class="w-full pl-11 pr-4 py-3 outline-none" oninput="searchShoppingProducts(this.value)"></div>
-            <p class="text-xs text-gray-500 mt-2">Cerchiamo nel catalogo prodotti e nei prezzi già presenti su SmartSpesa. I prodotti del catalogo esterno non hanno un prezzo associato: puoi aggiungerli comunque alla lista.</p>
+            <p class="text-xs text-gray-500 mt-2">Mostriamo solo prodotti già registrati con un supermercato su SmartSpesa. Per cercare articoli non ancora registrati, apri il catalogo o il sito ufficiale dell’insegna.</p>
         </div>
         <div id="shoppingSearchResults" class="space-y-3 mb-6"><p class="text-sm text-gray-400 text-center py-4">Scrivi il nome di un prodotto per iniziare.</p></div>
         <div class="bg-white border border-gray-100 rounded-2xl p-4 mb-4">
@@ -1809,7 +1809,8 @@
             const matches = new Map();
             allKnownPrices.forEach(item => {
                 const name = String(item.productName || '').trim();
-                if (!name) return;
+                const supermarketName = String(item.supermarket || '').trim();
+                if (!name || !supermarketName) return;
                 const score = productSearchScore(term, name);
                 if (score < 0.5) return;
                 const key = normalizeProductName(name);
@@ -1838,68 +1839,8 @@
                 if (!current.barcode && item.barcode) current.barcode = item.barcode;
             });
 
-            if (term.length >= 2) {
-                const catalogs = [
-                    { base: 'https://world.openfoodfacts.org', source: 'Open Food Facts' },
-                    { base: 'https://world.openbeautyfacts.org', source: 'Open Beauty Facts' },
-                    { base: 'https://world.openproductsfacts.org', source: 'Open Products Facts' },
-                    { base: 'https://world.openpetfoodfacts.org', source: 'Open Pet Food Facts' }
-                ];
-                const searchTerm = String(rawTerm || '').trim();
-                const searchRequests = catalogs.map(async catalog => {
-                    const controller = new AbortController();
-                    const timeout = setTimeout(() => controller.abort(), 5500);
-                    try {
-                        const url = catalog.base + '/cgi/search.pl?search_terms=' + encodeURIComponent(searchTerm) +
-                            '&search_simple=1&action=process&json=1&page_size=20&fields=code,product_name,product_name_it,brands,quantity,categories';
-                        const response = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: controller.signal });
-                        if (!response.ok) throw new Error(catalog.source + ' HTTP ' + response.status);
-                        const data = await response.json();
-                        return { catalog, products: Array.isArray(data.products) ? data.products : [] };
-                    } finally {
-                        clearTimeout(timeout);
-                    }
-                });
-                const catalogResults = await Promise.allSettled(searchRequests);
-                if (requestId !== shoppingSearchRequestId) return;
-                catalogResults.forEach(result => {
-                    if (result.status !== 'fulfilled') {
-                        console.warn('Ricerca catalogo prodotti non disponibile:', result.reason);
-                        return;
-                    }
-                    const { catalog, products } = result.value;
-                    products.forEach(product => {
-                        const name = String(product.product_name_it || product.product_name || '').trim();
-                        if (!name) return;
-                        const code = String(product.code || '');
-                        const brand = String(product.brands || '').trim();
-                        const quantity = String(product.quantity || '').trim();
-                        const knownByBarcode = code ? allKnownPrices.filter(priceItem => String(priceItem.barcode || '') === code) : [];
-                        const bestKnown = knownByBarcode
-                            .filter(priceItem => Number.isFinite(Number(priceItem.price)) && Number(priceItem.price) >= 0)
-                            .sort((a, b) => Number(a.price) - Number(b.price))[0];
-                        const key = code ? 'barcode:' + code : normalizeProductName(name + ' ' + brand + ' ' + quantity);
-                        const existing = matches.get(key) || matches.get(normalizeProductName(name));
-                        if (existing) {
-                            if (!existing.barcode && code) existing.barcode = code;
-                            if (!existing.brand && brand) existing.brand = brand;
-                            if (!existing.quantity && quantity) existing.quantity = quantity;
-                            if (!existing.catalogSource) existing.catalogSource = catalog.source;
-                            return;
-                        }
-                        matches.set(key, {
-                            productName: name, barcode: code, brand, quantity, catalogSource: catalog.source,
-                            price: bestKnown ? Number(bestKnown.price) : null,
-                            supermarket: bestKnown ? (bestKnown.supermarket || '') : '',
-                            priceSource: bestKnown ? (bestKnown.priceSource || 'community') : 'community',
-                            sourceUrl: bestKnown ? (bestKnown.sourceUrl || '') : '',
-                            timestamp: bestKnown ? (bestKnown.timestamp || '') : '',
-                            priceCount: bestKnown ? knownByBarcode.filter(p => Number.isFinite(Number(p.price)) && Number(p.price) >= 0).length : 0,
-                            score: productSearchScore(term, name + ' ' + brand + ' ' + quantity)
-                        });
-                    });
-                });
-            }
+            // Mostra solo prodotti già associati a un supermercato nei prezzi registrati su SmartSpesa.
+            // I cataloghi generalisti esterni non vengono usati per popolare i risultati interni.
             if (requestId !== shoppingSearchRequestId) return;
 
             const results = Array.from(matches.values())
@@ -1935,6 +1876,7 @@
             const retailerSearches = [
                 { name: 'Sole 365', query: 'site:catalogo.sole365.it OR site:cosicomodo.it/sole365' },
                 { name: 'Iper Rossetto / Rossetto', query: 'site:rossettogroup.it' },
+                { name: 'Iperlando', query: 'site:iperlando.it' },
                 { name: 'Iper La grande i', query: 'site:iper.it' },
                 { name: 'Conad', query: 'site:conad.it' },
                 { name: 'Coop', query: 'site:coop.it' },
@@ -1962,7 +1904,7 @@
             }).join('');
             container.innerHTML = (html || '<p class="text-sm text-gray-500 text-center py-4">Nessun prodotto trovato. Puoi aggiungerlo come voce personalizzata.</p>') +
                 '<details class="bg-white border border-emerald-100 rounded-2xl p-4 mt-4"><summary class="font-semibold text-gray-800 cursor-pointer">Cerca “' + escapeHtml(String(rawTerm || '').trim()) + '” sui siti dei supermercati</summary>' +
-                '<p class="text-xs text-gray-500 mt-2 mb-3">Ricerca mirata sui siti ufficiali e sui cataloghi pubblicati online. Si apre una ricerca web esterna: non equivale a un catalogo completo né garantisce disponibilità o prezzo nel tuo punto vendita.</p>' +
+                '<p class="text-xs text-gray-500 mt-2 mb-3">I risultati interni provengono solo da prezzi associati a un supermercato. Per articoli non ancora registrati, scegli l’insegna e consulta il suo sito o volantino ufficiale; la disponibilità può variare per punto vendita.</p>' +
                 '<div class="flex flex-wrap gap-2">' + officialSearchHtml + '</div></details>';
         };
 
