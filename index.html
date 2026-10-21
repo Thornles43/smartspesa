@@ -1932,7 +1932,38 @@
                 const safeTerm = JSON.stringify(String(rawTerm || '').trim()).replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
                 html += '<div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex items-center gap-3"><div class="min-w-0 flex-1"><p class="font-semibold text-emerald-950">Aggiungi “' + escapeHtml(String(rawTerm || '').trim()) + '”</p><p class="text-xs text-emerald-800">Voce personalizzata nella tua lista, senza prezzo associato</p></div><button type="button" class="shopping-action shrink-0" onclick=\'addShoppingItem(' + safeTerm + ', "")\'><i class="fa-solid fa-plus mr-1"></i>Aggiungi</button></div>';
             }
-            container.innerHTML = html || '<p class="text-sm text-gray-500 text-center py-4">Nessun prodotto trovato. Puoi aggiungerlo come voce personalizzata.</p>';
+            const retailerSearches = [
+                { name: 'Sole 365', query: 'site:catalogo.sole365.it OR site:cosicomodo.it/sole365' },
+                { name: 'Iper Rossetto / Rossetto', query: 'site:rossettogroup.it' },
+                { name: 'Iper La grande i', query: 'site:iper.it' },
+                { name: 'Conad', query: 'site:conad.it' },
+                { name: 'Coop', query: 'site:coop.it' },
+                { name: 'Esselunga', query: 'site:esselunga.it' },
+                { name: 'Lidl', query: 'site:lidl.it' },
+                { name: 'Eurospin', query: 'site:eurospin.it' },
+                { name: 'MD', query: 'site:mdspa.it' },
+                { name: 'Carrefour', query: 'site:carrefour.it' },
+                { name: 'Pam Panorama', query: 'site:pampanorama.it OR site:pam.it' },
+                { name: 'Tigros', query: 'site:tigros.it' },
+                { name: 'Iperal', query: 'site:iperal.it OR site:iperalspesaonline.it' },
+                { name: 'Aldi', query: 'site:aldi.it' },
+                { name: 'Bennet', query: 'site:bennet.com OR site:bennet.it' },
+                { name: 'Despar', query: 'site:despar.it OR site:despar.com' },
+                { name: 'Crai', query: 'site:crai.it' },
+                { name: 'NaturaSì', query: 'site:naturasi.it' },
+                { name: 'Migross', query: 'site:migross.it' },
+                { name: 'Prix Quality', query: 'site:prixquality.com' },
+                { name: 'Todis', query: 'site:todis.it' },
+                { name: 'Italmark', query: 'site:italmark.it' }
+            ];
+            const officialSearchHtml = retailerSearches.map(retailer => {
+                const searchUrl = 'https://www.google.com/search?q=' + encodeURIComponent(retailer.query + ' ' + String(rawTerm || '').trim());
+                return '<a class="shopping-secondary inline-flex items-center gap-2" href="' + searchUrl + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(retailer.name) + ' <i class="fa-solid fa-arrow-up-right-from-square"></i></a>';
+            }).join('');
+            container.innerHTML = (html || '<p class="text-sm text-gray-500 text-center py-4">Nessun prodotto trovato. Puoi aggiungerlo come voce personalizzata.</p>') +
+                '<details class="bg-white border border-emerald-100 rounded-2xl p-4 mt-4"><summary class="font-semibold text-gray-800 cursor-pointer">Cerca “' + escapeHtml(String(rawTerm || '').trim()) + '” sui siti dei supermercati</summary>' +
+                '<p class="text-xs text-gray-500 mt-2 mb-3">Ricerca mirata sui siti ufficiali e sui cataloghi pubblicati online. Si apre una ricerca web esterna: non equivale a un catalogo completo né garantisce disponibilità o prezzo nel tuo punto vendita.</p>' +
+                '<div class="flex flex-wrap gap-2">' + officialSearchHtml + '</div></details>';
         };
 
         window.addShoppingItem = async (productName, barcode = '', unitPrice = null, supermarket = '', priceSource = '', sourceUrl = '', priceTimestamp = '') => {
