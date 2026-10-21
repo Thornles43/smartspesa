@@ -11,7 +11,8 @@ const SOURCES = [
   { id: "rossetto", name: "Iper Rossetto / Rossetto", url: "https://rossettogroup.it/prezzi-rossetto-in-corso/", domain: "rossettogroup.it", mode: "promotions" },
   // Conad: acquisisce solo Product JSON-LD effettivamente pubblicati dalla pagina ufficiale.
   // Se il sito non espone dati strutturati leggibili, il sync segnala errore e conserva i dati precedenti.
-  { id: "conad", name: "Conad", url: "https://spesaonline.conad.it/tutti-i-prodotti", domain: "spesaonline.conad.it", mode: "conad" }
+  { id: "conad", name: "Conad", url: "https://spesaonline.conad.it/tutti-i-prodotti", domain: "spesaonline.conad.it", mode: "conad" },
+  { id: "eurospin", name: "Eurospin", url: "https://www.eurospin.it/ribassati/", domain: "eurospin.it", mode: "eurospin" }
 ];
 
 function decodeEntities(s) {
@@ -216,6 +217,71 @@ function parseConadProducts(source, html) {
   return products;
 }
 
+function parseEurospinProducts(source, html) {
+  // Le offerte Eurospin pubblicano un periodo globale e, per ogni scheda,
+  // prezzo precedente, prezzo ribassato e formato. Non stimiamo scadenze mancanti.
+  const pageText = htmlText(html);
+  const period = pageText.match(/offerte\\s+valide\\s+dal\\s+(\\d{1,2})\\s+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\\s+al\\s+(\\d{1,2})\\s+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\\s+(20\\d{2})/i);
+  if (!period) return [];
+  const from = new Date(Date.UTC(Number(period[5]), MONTHS[period[2].toLowerCase()] - 1, Number(period[1])));
+  const until = new Date(Date.UTC(Number(period[5]), MONTHS[period[4].toLowerCase()] - 1, Number(period[3])));
+  if (from.toISOString().slice(0, 10) > until.toISOString().slice(0, 10) ||
+      until.toISOString().slice(0, 10) < TODAY) return [];
+  const validFrom = from.toISOString().slice(0, 10);
+  const validUntil = until.toISOString().slice(0, 10);
+  const headings = extractHeadings(html, ["h2", "h3"]);
+  const products = [];
+  const seen = new Set();
+  const pricePattern = /(?:€\\s*)?(\\d{1,4}(?:\\.\\d{3})*,\\d{2})(?:\\s*€)?/g;
+  for (let i = 0; i < headings.length; i++) {
+    const heading = headings[i];
+    const name = heading.title.trim();
+    const normalizedName = normalize(name);
+    if (name.length < 3 || name.length > 180 ||
+        /^(ribassati|scopri tutti i prodotti ribassati di eurospin|offerte valide dal|home|vedi prodotto)$/i.test(normalizedName)) continue;
+    const segment = html.slice(heading.end, headings[i + 1]?.start ?? (heading.end + 2400))
+      .replace(/<(del|s)\\b[^>]*>[\\s\\S]*?<\\/\\1\\s*>/gi, " ");
+    const text = htmlText(segment);
+    if (!text) continue;
+    const prices = [];
+    for (const match of text.matchAll(pricePattern)) {
+      const end = (match.index || 0) + match[0].length;
+      const tail = text.slice(end, end + 16);
+      if (/^\\s*\\/\\s*(?:kg|l|lt|litro|litri)\\b/i.test(tail)) continue;
+      const value = parseMoney(match[1]);
+      if (value !== null) prices.push(value);
+    }
+    const distinct = [...new Set(prices)];
+    if (!distinct.length) continue;
+    const price = distinct[distinct.length - 1];
+    const regularPrice = distinct.length > 1 && distinct[0] > price ? distinct[0] : null;
+    const qty = text.match(/\\b\\d+\\s*x\\s*\\d+(?:[,.]\\d+)?\\s?(?:kg|g|mg|ml|lt|l|cl)\\b/i) ||
+      text.match(/\\b\\d+(?:[,.]\\d+)?\\s?(?:kg|g|mg|ml|lt|l|cl)\\b/i);
+    const quantity = qty ? qty[0].replace(/\\s+/g, " ").trim() : "";
+    const key = normalize(name) + "|" + normalize(quantity);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    products.push({
+      id: source.id + ":" + key,
+      supermarket: source.name,
+      productName: name,
+      brand: "",
+      quantity,
+      price,
+      regularPrice,
+      priceStatus: "official_promotion_with_expiry",
+      validFrom,
+      validUntil,
+      sourceUrl: source.url,
+      catalogSource: "Offerte ribassate ufficiali Eurospin",
+      retrievedAt: NOW.toISOString(),
+      sourceVerified: true
+    });
+    if (products.length >= 250) break;
+  }
+  return products;
+}
+
 // Regressione Conad: il prezzo al litro non deve essere confuso col prezzo della confezione.
 const conadFixture = '<h3>Acqua minerale naturale 1,5 l Conad</h3><div>1,5 L 0,20 € / L 0,30€</div><h3>Aggiungi quantità</h3><div>0,30€</div>';
 const conadFixtureProducts = parseConadProducts(
@@ -225,6 +291,17 @@ const conadFixtureProducts = parseConadProducts(
 if (conadFixtureProducts.length !== 1 || conadFixtureProducts[0].price !== 0.30 ||
     conadFixtureProducts[0].supermarket !== "Conad" || conadFixtureProducts[0].quantity !== "1,5 L") {
   throw new Error("Test parser catalogo Conad non superato");
+}
+
+// Regressione Eurospin: usa il prezzo ribassato, conserva il prezzo precedente e applica la scadenza ufficiale.
+const eurospinFixture = '<h2>Offerte valide dal 1 ottobre al 31 ottobre 2026</h2><h3>TRANCIO DI SPALLA COTTA</h3><div>LA BOTTEGA DEL GUSTO 2,99 2,69 € 500 g - 5,38 €/kg</div>';
+const eurospinFixtureProducts = parseEurospinProducts(
+  { id: "eurospin", name: "Eurospin", url: "https://www.eurospin.it/ribassati/", domain: "eurospin.it" },
+  eurospinFixture
+);
+if (eurospinFixtureProducts.length !== 1 || eurospinFixtureProducts[0].price !== 2.69 ||
+    eurospinFixtureProducts[0].regularPrice !== 2.99 || eurospinFixtureProducts[0].validUntil !== "2026-10-31") {
+  throw new Error("Test parser catalogo Eurospin non superato: " + JSON.stringify(eurospinFixtureProducts));
 }
 
 function parseProducts(source, html) {
