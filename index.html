@@ -2228,21 +2228,78 @@
                 if (!current.barcode && item.barcode) current.barcode = item.barcode;
             });
 
-            // Mostra solo prodotti già associati a un supermercato nei prezzi registrati su SmartSpesa.
-            // I cataloghi generalisti esterni non vengono usati per popolare i risultati interni.
+            // Aggiunge offerte attuali soltanto se la fonte del volantino e il collegamento ufficiale
+            // sono coerenti con l'insegna. Non importa in blocco i cataloghi e non presume disponibilità in negozio.
+            let flyerLookupFailed = false;
+            try {
+                const params = new URLSearchParams({ query: String(rawTerm || '').trim().slice(0, 80), limit: '15', sort: 'price' });
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 7500);
+                try {
+                    const response = await fetch('https://www.prezzinvista.it/api/v1/offers?' + params.toString(), {
+                        method: 'GET',
+                        headers: { Accept: 'application/json' },
+                        cache: 'no-store',
+                        signal: controller.signal
+                    });
+                    if (!response.ok) throw new Error('Catalogo offerte HTTP ' + response.status);
+                    const payload = await response.json();
+                    const offers = Array.isArray(payload.offers) ? payload.offers : [];
+                    for (const offer of offers) {
+                        if (!isVerifiedCurrentFlyerOffer(offer)) continue;
+                        if (!marketMatchesSelected(offer.store, selectedMarket)) continue;
+                        const name = String(offer.name || '').trim();
+                        const store = String(offer.store || '').trim();
+                        const size = String(offer.size || '').trim();
+                        const score = productSearchScore(term, [name, offer.brand || '', size].filter(Boolean).join(' '));
+                        if (!name || score < 0.5) continue;
+                        const officialUrl = String(offer.official_flyer_url || '');
+                        const providerUrl = String(offer.url || '');
+                        const key = 'flyer::' + normalizeProductName(name + ' ' + size) + '::' + normalizeProductName(store) + '::' + normalizeProductName(officialUrl);
+                        const price = Number(offer.price_eur);
+                        matches.set(key, {
+                            productName: name,
+                            barcode: '',
+                            price,
+                            supermarket: store,
+                            priceSource: 'official_flyer',
+                            sourceUrl: officialUrl,
+                            dataProviderUrl: providerUrl,
+                            officialSourceUrl: officialUrl,
+                            timestamp: payload.updated_at || '',
+                            brand: String(offer.brand || '').trim(),
+                            quantity: size,
+                            catalogSource: 'Volantino ufficiale · Prezzi in Vista',
+                            offerValidUntil: normalizeOfferDate(offer.valid_until),
+                            offerConditions: String(offer.conditions || '').trim(),
+                            unitPrice: Number.isFinite(Number(offer.unit_price_eur)) ? Number(offer.unit_price_eur) : null,
+                            unitPricePer: String(offer.unit_price_per || ''),
+                            isFlyerOffer: true,
+                            score,
+                            priceCount: 1
+                        });
+                    }
+                } finally {
+                    clearTimeout(timeoutId);
+                }
+            } catch (error) {
+                flyerLookupFailed = true;
+                console.warn('Ricerca offerte nei volantini non disponibile:', error);
+            }
+
             if (requestId !== shoppingSearchRequestId) return;
 
             const results = Array.from(matches.values())
                 .filter(item => item.score >= 0.5)
                 .sort((a, b) => (b.score - a.score) || ((a.price ?? Number.POSITIVE_INFINITY) - (b.price ?? Number.POSITIVE_INFINITY)))
-                .slice(0, 8);
+                .slice(0, 15);
             lastShoppingSearchResults = results;
             lastShoppingSearchTerm = term;
             lastShoppingSearchMarket = selectedMarket;
             const aiButton = document.getElementById("shoppingAiButton");
             if (aiButton) aiButton.classList.toggle("hidden", !SMARTSPESA_AI_WORKER_URL || results.length < 2);
             const aiStatus = document.getElementById("shoppingAiStatus");
-            if (aiStatus) aiStatus.textContent = SMARTSPESA_AI_WORKER_URL ? "Ricerca normale attiva; puoi chiedere all'IA di riordinare i risultati." : "";
+            if (aiStatus) aiStatus.textContent = (flyerLookupFailed ? "Catalogo offerte temporaneamente non raggiungibile: mostro i prodotti registrati in SmartSpesa." : "Ricerca nei prodotti registrati e nelle offerte correnti dei volantini verificati.") + (SMARTSPESA_AI_WORKER_URL && results.length >= 2 ? " Puoi anche chiedere all'IA di riordinare i risultati." : "");
             let html = '<div id="shoppingAiProductResults" class="space-y-3">';
             results.forEach((item, resultIndex) => {
                 const safeName = JSON.stringify(item.productName).replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
@@ -2259,9 +2316,16 @@
                 const providerLinkHtml = safeProviderLink
                     ? ' · <a class="underline text-emerald-700" href="' + escapeHtml(safeProviderLink) + '" target="_blank" rel="noopener noreferrer">Prezzi in Vista</a>'
                     : '';
+                const flyerExpiryText = item.isFlyerOffer
+                    ? (item.offerValidUntil ? ' · offerta valida fino al ' + escapeHtml(item.offerValidUntil) : ' · scadenza non disponibile') +
+                      (item.offerConditions ? ' · ' + escapeHtml(item.offerConditions) : '') +
+                      (item.unitPrice !== null && Number.isFinite(Number(item.unitPrice)) && item.unitPricePer ? ' · ' + Number(item.unitPrice).toLocaleString('it-IT', { style: 'currency', currency: 'EUR' }) + ' / ' + escapeHtml(item.unitPricePer) : '')
+                    : '';
                 const priceText = item.price !== null
-                    ? 'Ultimo prezzo registrato: €' + item.price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) +
-                      (item.supermarket ? ' · ' + escapeHtml(item.supermarket) : '') + priceDateText + sourceLinkHtml + providerLinkHtml +
+                    ? (item.isFlyerOffer ? 'Offerta da volantino: €' : 'Ultimo prezzo registrato: €') +
+                      item.price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) +
+                      (item.supermarket ? ' · ' + escapeHtml(item.supermarket) : '') +
+                      (item.isFlyerOffer ? flyerExpiryText : priceDateText) + sourceLinkHtml + providerLinkHtml +
                       (item.priceCount > 1 ? ' · ' + item.priceCount + ' rilevazioni' : '')
                     : 'Prezzo non ancora registrato';
                 const safePrice = item.price === null ? 'null' : String(item.price);
@@ -2274,7 +2338,7 @@
                     ? '<button type="button" class="shopping-secondary mt-2" onclick=\'openPriceEntryForProduct(' + safeName + ', ' + safeBarcode + ')\'><i class="fa-solid fa-tag mr-1"></i>Registra un prezzo</button>'
                     : '';
                 const productDetails = [item.brand, item.quantity, item.catalogSource].filter(Boolean).join(' · ');
-                html += '<div data-ai-product-id="' + resultIndex + '" class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center gap-3"><div class="w-10 h-10 shrink-0 rounded-xl bg-emerald-50 flex items-center justify-center"><i class="fa-solid fa-box text-emerald-700"></i></div><div class="min-w-0 flex-1"><p class="font-semibold text-gray-900 break-words">' + escapeHtml(item.productName) + '</p>' + (productDetails ? '<p class="text-xs text-gray-500 mt-1">' + escapeHtml(productDetails) + '</p>' : '') + '<p class="text-xs text-gray-500">' + priceText + '</p>' + registerButton + '</div><button type="button" class="shopping-action shrink-0" onclick=\'addShoppingItem(' + safeName + ', ' + safeBarcode + ', ' + safePrice + ', ' + safeSupermarket + ', ' + safePriceSource + ', ' + safeSourceUrl + ', ' + safeTimestamp + ')\'><i class="fa-solid fa-plus mr-1"></i>Aggiungi</button></div>';
+                html += '<div data-ai-product-id="' + resultIndex + '" class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center gap-3"><div class="w-10 h-10 shrink-0 rounded-xl bg-emerald-50 flex items-center justify-center"><i class="fa-solid fa-box text-emerald-700"></i></div><div class="min-w-0 flex-1">' + (item.isFlyerOffer ? '<span class="inline-block text-[10px] font-semibold uppercase tracking-wide text-emerald-800 bg-emerald-50 rounded px-2 py-1 mb-1">Offerta da volantino</span>' : '') + '<p class="font-semibold text-gray-900 break-words">' + escapeHtml(item.productName) + '</p>' + (productDetails ? '<p class="text-xs text-gray-500 mt-1">' + escapeHtml(productDetails) + '</p>' : '') + '<p class="text-xs text-gray-500">' + priceText + '</p>' + registerButton + '</div><button type="button" class="shopping-action shrink-0" onclick=\'addShoppingItem(' + safeName + ', ' + safeBarcode + ', ' + safePrice + ', ' + safeSupermarket + ', ' + safePriceSource + ', ' + safeSourceUrl + ', ' + safeTimestamp + ')\'><i class="fa-solid fa-plus mr-1"></i>Aggiungi</button></div>';
             });
             html += '</div>';
             // La ricerca del catalogo non deve spacciare una voce libera per un prodotto venduto da un supermercato.
