@@ -2144,7 +2144,8 @@
 
             try {
                 await addDoc(collection(db, "prices"), priceData);
-                alert("✅ Prezzo salvato con successo! Grazie per il contributo.");
+                await loadPrices();
+                alert("Prezzo salvato con successo. Grazie per il contributo.");
                 document.getElementById('priceForm').reset();
                 toggleSourceUrl();
                 document.getElementById('barcodeLookupStatus').classList.add('hidden');
