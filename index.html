@@ -868,6 +868,59 @@
             }
         }
 
+        // Un dominio retailer valido non basta: il nome dell'insegna deve essere coerente
+        // con il dominio ufficiale, altrimenti un'offerta potrebbe finire nel supermercato sbagliato.
+        function isOfficialUrlForStore(store, value) {
+            if (!isVerifiedSupermarketUrl(value)) return false;
+            const name = normalizeProductName(String(store || ""));
+            const groups = [
+                { match: /sole\s*365/, domains: ["sole365.it"] },
+                { match: /iper\s*rossetto|rossetto/, domains: ["rossettogroup.it"] },
+                { match: /iperlando|lando/, domains: ["iperlando.it"] },
+                { match: /conad/, domains: ["conad.it"] },
+                { match: /coop/, domains: ["coop.it"] },
+                { match: /esselunga/, domains: ["esselunga.it"] },
+                { match: /carrefour/, domains: ["carrefour.it"] },
+                { match: /lidl/, domains: ["lidl.it"] },
+                { match: /eurospin/, domains: ["eurospin.it"] },
+                { match: /aldi/, domains: ["aldi.it"] },
+                { match: /(^|\s)md($|\s)|md discount/, domains: ["mdspa.it"] },
+                { match: /iper\s*la\s*grande\s*i/, domains: ["iper.it"] },
+                { match: /bennet/, domains: ["bennet.com", "bennet.it"] },
+                { match: /pam|panorama/, domains: ["pampanorama.it", "pam.it"] },
+                { match: /dec[oò]|deco/, domains: ["decoitalia.it", "gruppoarena.it"] },
+                { match: /superconveniente/, domains: ["gruppoarena.it"] },
+                { match: /prix\s*quality|prixquality/, domains: ["prixquality.com"] },
+                { match: /tigros|primia/, domains: ["tigros.it"] },
+                { match: /iperal/, domains: ["iperal.it"] },
+                { match: /crai/, domains: ["crai.it"] },
+                { match: /despar|eurospar|interspar/, domains: ["despar.it", "despar.com"] },
+                { match: /naturasi|natura\s*si/, domains: ["naturasi.it"] },
+                { match: /migross/, domains: ["migross.it"] },
+                { match: /tosano/, domains: ["supertosano.com", "tosano.com"] },
+                { match: /al[iì]\s*supermercati|ali\s*supermercati/, domains: ["alisupermercati.it", "ali-supermercati.it"] },
+                { match: /famila/, domains: ["famila.it", "famila.it"] },
+                { match: /unes/, domains: ["unes.it"] },
+                { match: /todis/, domains: ["todis.it"] },
+                { match: /penny/, domains: ["penny.it"] },
+                { match: /sogegross/, domains: ["sogegross.it"] },
+                { match: /italmark/, domains: ["italmark.it"] },
+                { match: /cadoro/, domains: ["cadoro.it"] },
+                { match: /superemme/, domains: ["superemme.it"] },
+                { match: /orvea/, domains: ["orvea.it"] },
+                { match: /dok|et[eé]|megamark/, domains: ["megamark.it", "gruppoarena.it", "decoitalia.it"] },
+                { match: /gruppo\s*arena|tigre\s*supermercati/, domains: ["gruppoarena.it"] }
+            ];
+            const group = groups.find(item => item.match.test(name));
+            if (!group) return false;
+            try {
+                const host = new URL(String(value)).hostname;
+                return group.domains.some(domain => host === domain || host.endsWith("." + domain));
+            } catch (_) {
+                return false;
+            }
+        }
+
         function normalizeOfferDate(value) {
             const raw = String(value || "").trim();
             if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
@@ -894,7 +947,7 @@
                 offer && String(offer.name || "").trim() &&
                 String(offer.store || "").trim() &&
                 Number.isFinite(price) && price >= 0 && price <= 100000 &&
-                isVerifiedSupermarketUrl(offer.official_flyer_url) &&
+                isOfficialUrlForStore(offer.store, offer.official_flyer_url) &&
                 isPrezzinvistaOfferUrl(offer.url) &&
                 expiry && expiry >= getLocalDateISO()
             );
@@ -2229,29 +2282,41 @@
             // Collegamenti esclusivamente a fonti ufficiali verificate.
             // Non importiamo automaticamente prodotti da queste pagine: la disponibilità e i prezzi possono dipendere da CAP/negozio.
             const officialCatalogs = [
-                { name: 'Sole 365', url: 'https://catalogo.sole365.it/', label: 'Apri catalogo ufficiale', note: 'Catalogo online con prezzi/formati pubblicati; verifica le condizioni e la zona prima di considerare il prezzo valido.' },
-                { name: 'Iper Rossetto / Rossetto', url: 'https://rossettogroup.it/prezzi-rossetto-in-corso/', label: 'Prezzi e prodotti pubblicati', note: 'Controlla la data di scadenza indicata per ogni articolo.' },
-                { name: 'Iperlando', url: 'https://www.iperlando.it/', label: 'Sito ufficiale', note: 'Non è stato verificato un catalogo completo interrogabile.' },
-                { name: 'Conad', url: 'https://spesaonline.conad.it/tutti-i-prodotti', label: 'Catalogo e spesa online', note: 'Richiede la verifica della zona e del negozio.' },
-                { name: 'Coop', url: 'https://www.coop.it/prodotti-coop/catalogo-prodotti', label: 'Catalogo prodotti Coop', note: 'Catalogo dei prodotti a marchio Coop, non tutto l’assortimento locale.' },
-                { name: 'Esselunga', url: 'https://spesaonline.esselunga.it/commerce/nav/supermercato/', label: 'Spesa online', note: 'Assortimento e prezzi possono richiedere la selezione del negozio.' },
-                { name: 'Carrefour', url: 'https://www.carrefour.it/spesa-online/i-nostri-prodotti-a-marchio/', label: 'Prodotti a marchio Carrefour', note: 'Sezione prodotti a marchio, non catalogo completo del punto vendita.' },
-                { name: 'Lidl', url: 'https://www.lidl.it/c/cibo-e-bevande/s10068374', label: 'Categorie prodotto ufficiali', note: 'Non conferma la disponibilità in un singolo negozio.' },
-                { name: 'Eurospin', url: 'https://www.eurospin.it/ribassati/', label: 'Prodotti ribassati e offerte', note: 'Fonte promozionale, non catalogo completo.' },
-                { name: 'Aldi', url: 'https://www.aldi.it/prodotti', label: 'Catalogo prodotti', note: 'Verifica date e disponibilità locale.' },
-                { name: 'MD', url: 'https://www.mdspa.it/punti-vendita/', label: 'Punti vendita e volantini', note: 'Seleziona il negozio per consultare le promozioni locali.' },
-                { name: 'Iper La grande i', url: 'https://volantini.iper.it/', label: 'Volantini ufficiali', note: 'Seleziona città o punto vendita e controlla le date.' },
-                { name: 'Bennet', url: 'https://www.bennet.com/', label: 'Sito e spesa online', note: 'Verifica negozio e disponibilità online.' },
-                { name: 'Pam Panorama', url: 'https://pamacasa.pampanorama.it/', label: 'Spesa online', note: 'Richiede verifica del CAP o della zona.' },
-                { name: 'Decò / Gruppo Arena', url: 'https://decoacasa.gruppoarena.it/', label: 'Catalogo spesa online', note: 'Il catalogo richiede la selezione di un negozio/zona; non generalizzare prezzi o assortimento ad altri punti vendita.' },
-                { name: 'SuperConveniente / Gruppo Arena', url: 'https://superconveniente.gruppoarena.it/volantini/', label: 'Volantini ufficiali', note: 'Offerte locali per punto vendita e periodo; non è un catalogo completo.' },
-                { name: 'Prix Quality', url: 'https://www.prixquality.com/app/', label: 'Offerte e volantini ufficiali', note: 'Le promozioni possono richiedere registrazione/carta fedeltà e sono limitate alle date pubblicate.' },
-                { name: 'Tigros / Primia', url: 'https://www.tigros.it/page/catalogo-primia', label: 'Catalogo prodotti Primia', note: 'Catalogo della linea Primia, non dell’intero assortimento Tigros.' },
-                { name: 'Iperal', url: 'https://www.iperal.it/I-MARCHI/Iperal/', label: 'Prodotti a marchio Iperal', note: 'Non rappresenta tutto l’assortimento.' },
-                { name: 'CRAI', url: 'https://crai.it/prodotti-crai/prodotti-a-marchio-crai', label: 'Catalogo prodotti CRAI', note: 'Catalogo a marchio, non listino prezzi di ogni negozio.' },
-                { name: 'Despar', url: 'https://www.despar.it/it/sbudget/', label: 'Prodotti S-Budget', note: 'Sezione parziale; controlla anche i volantini locali.' },
-                { name: 'NaturaSì', url: 'https://www.naturasi.it/', label: 'Sito e catalogo online', note: 'Verifica zona e disponibilità.' },
-                { name: 'Migross', url: 'https://www.migross.it/', label: 'Sito ufficiale', note: 'Promozioni e assortimento dipendono dal punto vendita.' }
+                { name: 'Sole 365', domain: 'catalogo.sole365.it', url: 'https://catalogo.sole365.it/', label: 'Apri catalogo ufficiale', note: 'Catalogo online con prodotti, formati e prezzi pubblicati; verifica le condizioni e la zona.' },
+                { name: 'Iper Rossetto / Rossetto', domain: 'rossettogroup.it', url: 'https://rossettogroup.it/prezzi-rossetto-in-corso/', label: 'Prezzi e prodotti pubblicati', note: 'Controlla la data di scadenza di ogni articolo; non prova la disponibilità in ogni negozio.' },
+                { name: 'Iperlando', domain: 'iperlando.it', url: 'https://www.iperlando.it/', label: 'Sito ufficiale', note: 'Non è stato verificato un catalogo completo interrogabile.' },
+                { name: 'Conad', domain: 'spesaonline.conad.it', url: 'https://spesaonline.conad.it/tutti-i-prodotti', label: 'Catalogo e spesa online', note: 'Richiede la verifica della zona e del negozio.' },
+                { name: 'Coop', domain: 'coop.it', url: 'https://www.coop.it/prodotti-coop/catalogo-prodotti', label: 'Catalogo prodotti Coop', note: 'Catalogo dei prodotti a marchio Coop, non dell’intero assortimento locale.' },
+                { name: 'Esselunga', domain: 'spesaonline.esselunga.it', url: 'https://spesaonline.esselunga.it/commerce/nav/supermercato/', label: 'Spesa online', note: 'Assortimento e prezzi possono richiedere la selezione del negozio.' },
+                { name: 'Carrefour', domain: 'carrefour.it', url: 'https://www.carrefour.it/spesa-online/i-nostri-prodotti-a-marchio/', label: 'Prodotti a marchio Carrefour', note: 'Sezione parziale, non catalogo completo del punto vendita.' },
+                { name: 'Lidl', domain: 'lidl.it', url: 'https://www.lidl.it/c/cibo-e-bevande/s10068374', label: 'Categorie prodotto ufficiali', note: 'Non conferma la disponibilità in un singolo negozio.' },
+                { name: 'Eurospin', domain: 'eurospin.it', url: 'https://www.eurospin.it/ribassati/', label: 'Prodotti ribassati e offerte', note: 'Fonte promozionale, non catalogo completo.' },
+                { name: 'Aldi', domain: 'aldi.it', url: 'https://www.aldi.it/prodotti', label: 'Catalogo prodotti', note: 'Verifica date e disponibilità locale.' },
+                { name: 'MD', domain: 'mdspa.it', url: 'https://www.mdspa.it/punti-vendita/', label: 'Punti vendita e volantini', note: 'Seleziona il negozio per consultare le promozioni locali.' },
+                { name: 'Iper La grande i', domain: 'volantini.iper.it', url: 'https://volantini.iper.it/', label: 'Volantini ufficiali', note: 'Seleziona città o punto vendita e controlla le date.' },
+                { name: 'Bennet', domain: 'bennet.com', url: 'https://www.bennet.com/', label: 'Sito e spesa online', note: 'Verifica negozio e disponibilità online.' },
+                { name: 'Pam / Panorama', domain: 'pamacasa.pampanorama.it', url: 'https://pamacasa.pampanorama.it/', label: 'Spesa online', note: 'Richiede verifica del CAP o della zona.' },
+                { name: 'Decò', domain: 'decoacasa.gruppoarena.it', url: 'https://decoacasa.gruppoarena.it/', label: 'Catalogo spesa online', note: 'Richiede selezione di negozio/zona.' },
+                { name: 'SuperConveniente', domain: 'superconveniente.gruppoarena.it', url: 'https://superconveniente.gruppoarena.it/volantini/', label: 'Volantini ufficiali', note: 'Offerte locali per punto vendita e periodo; non è catalogo completo.' },
+                { name: 'Prix Quality', domain: 'prixquality.com', url: 'https://www.prixquality.com/app/', label: 'Offerte e volantini ufficiali', note: 'Verifica validità e condizioni, anche per carta fedeltà.' },
+                { name: 'Tigros / Primia', domain: 'tigros.it', url: 'https://www.tigros.it/page/catalogo-primia', label: 'Catalogo prodotti Primia', note: 'Catalogo della linea Primia, non dell’intero assortimento Tigros.' },
+                { name: 'Iperal', domain: 'iperal.it', url: 'https://www.iperal.it/I-MARCHI/Iperal/', label: 'Prodotti a marchio Iperal', note: 'Non rappresenta tutto l’assortimento.' },
+                { name: 'CRAI', domain: 'crai.it', url: 'https://crai.it/prodotti-crai/prodotti-a-marchio-crai', label: 'Catalogo prodotti CRAI', note: 'Catalogo a marchio, non listino prezzi di ogni negozio.' },
+                { name: 'Despar', domain: 'despar.it', url: 'https://www.despar.it/it/sbudget/', label: 'Prodotti S-Budget', note: 'Sezione parziale; controlla anche i volantini locali.' },
+                { name: 'NaturaSì', domain: 'naturasi.it', url: 'https://www.naturasi.it/', label: 'Sito e catalogo online', note: 'Verifica zona e disponibilità.' },
+                { name: 'Migross', domain: 'migross.it', url: 'https://www.migross.it/', label: 'Sito ufficiale', note: 'Promozioni e assortimento dipendono dal punto vendita.' },
+                { name: 'Famila', domain: 'famila.it', url: 'https://www.famila.it/', label: 'Sito ufficiale', note: 'Consulta il negozio locale per catalogo e promozioni.' },
+                { name: 'Tosano', domain: 'supertosano.com', url: 'https://www.supertosano.com/', label: 'Sito ufficiale', note: 'Verifica negozio, date e assortimento pubblicato.' },
+                { name: 'Alì Supermercati', domain: 'alisupermercati.it', url: 'https://www.alisupermercati.it/', label: 'Sito ufficiale', note: 'Verifica le promozioni e il punto vendita.' },
+                { name: 'Unes', domain: 'unes.it', url: 'https://www.unes.it/', label: 'Sito ufficiale', note: 'Verifica le informazioni del punto vendita.' },
+                { name: 'Todis', domain: 'todis.it', url: 'https://www.todis.it/', label: 'Sito ufficiale', note: 'Controlla volantini e periodo di validità.' },
+                { name: 'Penny', domain: 'penny.it', url: 'https://www.penny.it/', label: 'Sito ufficiale', note: 'Catalogo e offerte possono variare per periodo e negozio.' },
+                { name: 'Sogegross', domain: 'sogegross.it', url: 'https://www.sogegross.it/', label: 'Sito ufficiale', note: 'Verifica l’insegna e il punto vendita locale.' },
+                { name: 'Italmark', domain: 'italmark.it', url: 'https://www.italmark.it/', label: 'Sito ufficiale', note: 'Verifica volantini e assortimento locale.' },
+                { name: 'Cadoro', domain: 'cadoro.it', url: 'https://www.cadoro.it/', label: 'Sito ufficiale', note: 'Verifica le informazioni del negozio.' },
+                { name: 'Superemme', domain: 'superemme.it', url: 'https://www.superemme.it/', label: 'Sito ufficiale', note: 'Verifica le promozioni della zona.' },
+                { name: 'Orvea', domain: 'orvea.it', url: 'https://www.orvea.it/', label: 'Sito ufficiale', note: 'Verifica l’assortimento e il punto vendita.' },
+                { name: 'Dok / Eté', domain: 'megamark.it', url: 'https://www.megamark.it/', label: 'Sito del gruppo', note: 'Fonte di gruppo: non prova l’assortimento del singolo negozio.' }
             ];
             const relevantCatalogs = officialCatalogs.filter(catalog =>
                 !selectedMarket || marketMatchesSelected(catalog.name, selectedMarket)
@@ -2260,12 +2325,13 @@
                 '<div class="rounded-xl border border-gray-100 p-3">' +
                 '<div class="flex flex-wrap gap-2 items-center"><span class="text-sm font-semibold text-gray-700">' + escapeHtml(catalog.name) + '</span>' +
                 '<a class="shopping-secondary inline-flex items-center gap-2" href="' + escapeHtml(catalog.url) + '" target="_blank" rel="noopener noreferrer">' +
-                escapeHtml(catalog.label) + ' <i class="fa-solid fa-arrow-up-right-from-square"></i></a></div>' +
+                escapeHtml(catalog.label) + ' <i class="fa-solid fa-arrow-up-right-from-square"></i></a>' +
+                '<a class="inline-flex items-center gap-2 text-sm underline text-emerald-700" href="' + escapeHtml("https://www.google.com/search?q=" + encodeURIComponent("site:" + catalog.domain + " " + String(rawTerm || "").trim())) + '" target="_blank" rel="noopener noreferrer">Cerca “' + escapeHtml(String(rawTerm || "").trim()) + '” sul dominio ufficiale <i class="fa-solid fa-arrow-up-right-from-square"></i></a></div>' +
                 '<p class="text-xs text-gray-500 mt-1">' + escapeHtml(catalog.note) + '</p></div>'
             ).join('');
             container.innerHTML = (html || '<p class="text-sm text-gray-500 text-center py-4">Nessun prodotto trovato. Puoi aggiungerlo come voce personalizzata.</p>') +
                 '<details class="bg-white border border-emerald-100 rounded-2xl p-4 mt-4"><summary class="font-semibold text-gray-800 cursor-pointer">Consulta i cataloghi ufficiali dei supermercati</summary>' +
-                '<p class="text-xs text-gray-500 mt-2 mb-3">I risultati mostrati sopra provengono dai dati già registrati in SmartSpesa. Questi collegamenti aprono le fonti ufficiali: non importano automaticamente i prodotti e non garantiscono la disponibilità nel tuo punto vendita.</p>' +
+                '<p class="text-xs text-gray-500 mt-2 mb-3">I risultati interni provengono solo da prodotti già associati a un supermercato nei dati SmartSpesa. Per ampliare la ricerca, puoi aprire il catalogo ufficiale o cercare il termine nel solo dominio dell’insegna. I risultati esterni non vengono importati automaticamente e non dimostrano la disponibilità nel tuo punto vendita.</p>' +
                 '<div class="space-y-3 mt-3">' + officialSearchHtml + '</div></details>';
         };
 
