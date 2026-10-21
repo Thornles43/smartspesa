@@ -375,7 +375,7 @@
                 <button type="button" onclick="searchFlyerOffers()" class="flex-1 min-w-[140px] px-4 py-3 rounded-xl bg-green-700 text-white font-bold"><i class="fa-solid fa-magnifying-glass mr-2"></i>Cerca offerte</button>
                 <button type="button" onclick="searchFlyerOffers()" class="flex-1 min-w-[140px] px-4 py-3 rounded-xl border border-gray-300 font-semibold"><i class="fa-solid fa-rotate mr-2"></i>Aggiorna offerte</button>
             </div>
-            <p class="text-xs text-gray-500 mt-3">Il comune serve a filtrare le offerte dei volantini per zona. Amazon si apre in una ricerca separata: il prezzo live Amazon non viene mostrato finché non viene configurata la sua API ufficiale.</p>
+            <p class="text-xs text-gray-500 mt-3">Il comune serve a filtrare le offerte dei supermercati per zona. SmartSpesa importa automaticamente soltanto le offerte con collegamento a una fonte ufficiale riconosciuta e scadenza verificabile; le altre restano consultabili ma non entrano nella banca dati.</p>
         </section>
         <p id="offerSearchStatus" class="text-sm text-gray-600 mb-3" role="status" aria-live="polite">Inserisci un prodotto e premi Cerca offerte.</p>
         <div id="flyerOfferResults" class="space-y-3 mb-5"></div>
@@ -845,6 +845,118 @@
 
         let liveFlyerOffers = [];
 
+        const VERIFIED_SUPERMARKET_DOMAINS = [
+            "sole365.it", "rossettogroup.it", "iperlando.it", "conad.it", "coop.it",
+            "esselunga.it", "carrefour.it", "lidl.it", "eurospin.it", "aldi.it",
+            "mdspa.it", "iper.it", "bennet.com", "bennet.it", "pampanorama.it",
+            "gruppoarena.it", "decoitalia.it", "prixquality.com", "tigros.it",
+            "iperal.it", "crai.it", "despar.it", "naturasi.it", "migross.it",
+            "supertosano.com", "tosano.com", "alisupermercati.it", "famila.it",
+            "superemme.it", "sogegross.it", "italmark.it", "cadoro.it", "unes.it",
+            "todis.it", "penny.it", "despar.com", "orvea.it"
+        ];
+
+        function isVerifiedSupermarketUrl(value) {
+            try {
+                const parsed = new URL(String(value || ""));
+                return parsed.protocol === "https:" &&
+                    VERIFIED_SUPERMARKET_DOMAINS.some(domain =>
+                        parsed.hostname === domain || parsed.hostname.endsWith("." + domain)
+                    );
+            } catch (_) {
+                return false;
+            }
+        }
+
+        function normalizeOfferDate(value) {
+            const raw = String(value || "").trim();
+            if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+            const it = raw.match(/^(\d{1,2})[/. -](\d{1,2})[/. -](\d{4})$/);
+            if (it) return it[3] + "-" + it[2].padStart(2, "0") + "-" + it[1].padStart(2, "0");
+            const parsed = new Date(raw);
+            return Number.isFinite(parsed.getTime()) ? parsed.toISOString().slice(0, 10) : "";
+        }
+
+        function isVerifiedCurrentFlyerOffer(offer) {
+            const price = Number(offer && offer.price_eur);
+            const expiry = normalizeOfferDate(offer && offer.valid_until);
+            return Boolean(
+                offer && String(offer.name || "").trim() &&
+                String(offer.store || "").trim() &&
+                Number.isFinite(price) && price >= 0 && price <= 100000 &&
+                isVerifiedSupermarketUrl(offer.official_flyer_url) &&
+                expiry && expiry >= getLocalDateISO()
+            );
+        }
+
+        async function autoImportVerifiedFlyerOffers(offers) {
+            const allOffers = Array.isArray(offers) ? offers : [];
+            if (!currentUser) return { saved: 0, existing: 0, skipped: allOffers.length, failed: 0 };
+            const verified = allOffers.filter(isVerifiedCurrentFlyerOffer);
+            const result = { saved: 0, existing: 0, skipped: allOffers.length - verified.length, failed: 0 };
+            const existingByUrl = new Map();
+            for (const offer of verified) {
+                const officialUrl = String(offer.official_flyer_url).trim();
+                const name = String(offer.name).trim();
+                const store = String(offer.store).trim();
+                const price = Number(offer.price_eur);
+                const expiry = normalizeOfferDate(offer.valid_until);
+                try {
+                    let existingRows = existingByUrl.get(officialUrl);
+                    if (!existingRows) {
+                        const snapshot = await getDocs(query(
+                            collection(db, "prices"),
+                            where("sourceUrl", "==", officialUrl),
+                            limit(100)
+                        ));
+                        existingRows = snapshot.docs.map(document => document.data());
+                        existingByUrl.set(officialUrl, existingRows);
+                    }
+                    const duplicate = existingRows.some(saved =>
+                        normalizeProductName(saved.productName) === normalizeProductName(name) &&
+                        normalizeProductName(saved.supermarket) === normalizeProductName(store) &&
+                        Number(saved.price) === price &&
+                        normalizeOfferDate(saved.offerValidUntil) === expiry
+                    );
+                    if (duplicate) {
+                        result.existing++;
+                        continue;
+                    }
+                    const record = {
+                        barcode: "",
+                        productName: name,
+                        price,
+                        supermarket: store,
+                        origin: "unknown",
+                        priceSource: "flyer",
+                        sourceUrl: officialUrl,
+                        sourceVerified: true,
+                        brand: String(offer.brand || ""),
+                        category: String(offer.category || ""),
+                        ingredients: "",
+                        countryOfOrigin: "",
+                        productSource: "Offerta online con collegamento ufficiale verificato",
+                        catalogSource: String(offer.source || "Prezzi in Vista") + " + sito ufficiale",
+                        flyerName: store,
+                        offerValidFrom: normalizeOfferDate(offer.valid_from),
+                        offerValidUntil: expiry,
+                        offerConditions: String(offer.conditions || ""),
+                        unitPrice: Number.isFinite(Number(offer.unit_price_eur)) ? Number(offer.unit_price_eur) : null,
+                        unitPricePer: String(offer.unit_price_per || ""),
+                        userId: currentUser.uid,
+                        timestamp: new Date().toISOString()
+                    };
+                    await addDoc(collection(db, "prices"), record);
+                    existingRows.push(record);
+                    result.saved++;
+                } catch (error) {
+                    result.failed++;
+                    console.warn("Importazione automatica offerta verificata:", error);
+                }
+            }
+            return result;
+        }
+
         let nearbySupermarketResults = [];
 
         window.openNearbyScreen = () => {
@@ -1030,8 +1142,16 @@
                         (offer.brand ? '<p class="text-xs text-gray-500 mt-1">Marca: ' + escapeHtml(offer.brand) + '</p>' : "") +
                         '<p class="text-xs text-gray-500 mt-2">' + until + '</p>' + conditions + unit +
                         '<div class="flex flex-wrap items-center gap-y-2 mt-3">' + sourceLink + officialLink +
-                        '<button type="button" onclick="saveLiveFlyerOffer(' + index + ')" class="ml-auto px-3 py-2 rounded-lg bg-green-700 text-white text-sm font-semibold">Salva nello storico</button></div></article>';
+                        (isVerifiedCurrentFlyerOffer(offer)
+                            ? '<span class="ml-auto px-3 py-2 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-semibold">Importazione automatica verificabile</span>'
+                            : '<span class="ml-auto px-3 py-2 rounded-lg bg-amber-50 text-amber-800 text-xs font-semibold">Non importata: fonte ufficiale o scadenza non verificabile</span>') +
+                        '</div></article>';
                 }).join("");
+                const importResult = await autoImportVerifiedFlyerOffers(liveFlyerOffers);
+                if (importResult.saved > 0) await loadPrices();
+                status.textContent += " Importazione automatica: " + importResult.saved + " nuove offerte verificate, " +
+                    importResult.existing + " già presenti, " + importResult.skipped + " escluse perché senza fonte ufficiale/scadenza valida" +
+                    (importResult.failed ? ", " + importResult.failed + " non salvate per errore di rete o permessi" : "") + ".";
             } catch (error) {
                 console.error("Ricerca offerte volantino:", error);
                 status.textContent = error && error.name === "AbortError"
@@ -1046,6 +1166,10 @@
             const offer = liveFlyerOffers[index];
             if (!offer || !currentUser) { alert("Accedi prima di salvare il prezzo."); return; }
             const price = Number(offer.price_eur);
+            if (!isVerifiedCurrentFlyerOffer(offer)) {
+                alert("Offerta non importata: serve un collegamento HTTPS a un dominio ufficiale verificato e una data di scadenza valida non trascorsa.");
+                return;
+            }
             if (!offer.name || !Number.isFinite(price) || price < 0) { alert("Questa offerta non contiene dati sufficienti per essere salvata."); return; }
             try {
                 await addDoc(collection(db, "prices"), {
@@ -1055,14 +1179,18 @@
                     supermarket: String(offer.store || "Supermercato"),
                     origin: "unknown",
                     priceSource: "flyer",
-                    sourceUrl: String(offer.url || ""),
+                    sourceUrl: String(offer.official_flyer_url || ""),
+                    sourceVerified: true,
                     brand: String(offer.brand || ""),
                     category: String(offer.category || ""),
                     ingredients: "",
                     countryOfOrigin: "",
-                    productSource: "Offerta da volantino online",
+                    productSource: "Offerta online con collegamento ufficiale verificato",
+                    catalogSource: String(offer.source || "Prezzi in Vista") + " + sito ufficiale",
                     flyerName: String(offer.store || "Volantino"),
-                    offerValidUntil: String(offer.valid_until || ""),
+                    offerValidFrom: normalizeOfferDate(offer.valid_from),
+                    offerValidUntil: normalizeOfferDate(offer.valid_until),
+                    offerConditions: String(offer.conditions || ""),
                     flyerSource: String(offer.source || "Prezzi in Vista"),
                     userId: currentUser.uid,
                     timestamp: new Date().toISOString()
@@ -1490,13 +1618,53 @@
 
         window.processReceiptFile = file => window.processReceiptFiles(file ? [file] : []);
 
+        function detectSupermarketFromReceipt(lines) {
+            const joined = lines.slice(0, 35).join(" ");
+            const markets = [
+                ["Iper Rossetto", /\b(?:iper\s*rossetto|super\s*rossetto|rossetto)\b/i],
+                ["Iperlando", /\b(?:iper\s*lando|iperlando|lando)\b/i],
+                ["Sole 365", /\bsole\s*365\b/i],
+                ["Conad", /\bconad\b/i],
+                ["Coop", /\b(?:coop|ipercoop|nova\s*coop|unicoop)\b/i],
+                ["Esselunga", /\besselunga\b/i],
+                ["Carrefour", /\bcarrefour\b/i],
+                ["Lidl", /\blidl\b/i],
+                ["Aldi", /\baldi\b/i],
+                ["Eurospin", /\beurospin\b/i],
+                ["MD", /\bmd\s*(?:discount|spa|s\.p\.a\.)?\b/i],
+                ["Penny", /\bpenny\s*(?:market)?\b/i],
+                ["Despar", /\b(?:despar|eurospar|interspar)\b/i],
+                ["Famila", /\bfamila\b/i],
+                ["Pam", /\b(?:pam|panorama)\b/i],
+                ["Bennet", /\bbennet\b/i],
+                ["Tosano", /\b(?:tosano|super\s*tosano)\b/i],
+                ["Iper La grande i", /\biper\s*la\s*grande\s*i\b/i],
+                ["Iperal", /\biperal\b/i],
+                ["Migross", /\bmigross\b/i],
+                ["Prix Quality", /\bprix\s*quality\b/i],
+                ["Alì Supermercati", /\b(?:alì\s*supermercati|aliper)\b/i],
+                ["CRAI", /\bcrai\b/i],
+                ["Decò", /\bdec[oò]\b/i],
+                ["Dok", /\bdok\b/i],
+                ["Eté", /\bet[eé]\b/i],
+                ["Tigros", /\btigros\b/i],
+                ["Italmark", /\bitalmark\b/i],
+                ["NaturaSì", /\bnatura\s*s[iì]\b/i],
+                ["Maxi Di", /\bmaxi\s*di\b/i],
+                ["Sogegross", /\bsogegross\b/i],
+                ["Gruppo Arena", /\b(?:gruppo\s*arena|tigre\s*supermercati)\b/i]
+            ];
+            const found = markets.find(([, pattern]) => pattern.test(joined));
+            return found ? found[0] : "";
+        }
+
         function suggestReceiptMetadata(extracted) {
             const lines = String(extracted || "").split(/\r?\n/).map(line => line.replace(/\s+/g, " ").trim()).filter(Boolean);
             const storeInput = document.getElementById("receiptSupermarket");
             if (storeInput && !storeInput.value.trim()) {
-                const candidate = lines.find(line => /[a-zA-ZÀ-ÿ]{3}/.test(line) && line.length <= 80 &&
-                    !/documento commerciale|partita iva|codice fiscale|via\b|tel\.?|www\.|http|totale|scontrino|cassa\b/i.test(line));
-                if (candidate) storeInput.value = candidate.slice(0, 80);
+                // Non indovinare l'insegna dalla prima riga: potrebbe essere l'indirizzo o un prodotto.
+                const detectedMarket = detectSupermarketFromReceipt(lines);
+                if (detectedMarket) storeInput.value = detectedMarket;
             }
             const dateInput = document.getElementById("receiptDate");
             if (dateInput && !dateInput.value) {
