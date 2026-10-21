@@ -1806,7 +1806,9 @@
                 const name = String(item.productName || '').trim();
                 const supermarketName = String(item.supermarket || '').trim();
                 if (!name || !supermarketName || !marketMatchesSelected(supermarketName, selectedMarket)) return;
-                const score = productSearchScore(term, name);
+                const brand = String(item.brand || item.productBrand || '').trim();
+                const quantity = String(item.quantity || item.format || item.productQuantity || '').trim();
+                const score = productSearchScore(term, [name, brand, quantity].filter(Boolean).join(' '));
                 if (score < 0.5) return;
                 // Mantiene separati i prezzi dello stesso prodotto tra insegne diverse.
                 const productIdentity = String(item.barcode || '').trim() || normalizeProductName(name);
@@ -1820,6 +1822,7 @@
                         productName: name, barcode: item.barcode || '', price: hasPrice ? price : null,
                         supermarket: item.supermarket || '', priceSource: item.priceSource || 'community',
                         sourceUrl: item.sourceUrl || '', timestamp: item.timestamp || '',
+                        brand, quantity, catalogSource: item.catalogSource || item.priceSource || '',
                         priceCount: hasPrice ? 1 : 0, score
                     });
                     return;
@@ -1883,91 +1886,42 @@
                 const safeTerm = JSON.stringify(String(rawTerm || '').trim()).replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
                 html += '<div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex items-center gap-3"><div class="min-w-0 flex-1"><p class="font-semibold text-emerald-950">Aggiungi “' + escapeHtml(String(rawTerm || '').trim()) + '”</p><p class="text-xs text-emerald-800">Voce personalizzata nella tua lista, senza prezzo associato</p></div><button type="button" class="shopping-action shrink-0" onclick=\'addShoppingItem(' + safeTerm + ', "")\'><i class="fa-solid fa-plus mr-1"></i>Aggiungi</button></div>';
             }
-            const retailerSearches = [
-                { name: 'Sole 365', query: 'site:catalogo.sole365.it OR site:sole365.cosicomodo.it OR site:sole365.it' },
-                { name: 'Iper Rossetto / Rossetto', query: 'site:rossettogroup.it/prezzi-rossetto-in-corso OR site:rossettogroup.it/prezzi-rossetto OR site:rossettogroup.it' },
-                { name: 'Iperlando', query: 'site:iperlando.it' },
-                { name: 'Iper La grande i', query: 'site:iper.it' },
-                { name: 'Conad', query: 'site:conad.it OR site:spesaonline.conad.it' },
-                { name: 'Coop', query: 'site:coop.it' },
-                { name: 'Esselunga', query: 'site:esselunga.it OR site:spesaonline.esselunga.it' },
-                { name: 'Lidl', query: 'site:lidl.it' },
-                { name: 'Eurospin', query: 'site:eurospin.it' },
-                { name: 'MD', query: 'site:mdspa.it' },
-                { name: 'Carrefour', query: 'site:carrefour.it' },
-                { name: 'Pam Panorama', query: 'site:pampanorama.it OR site:pam.it' },
-                { name: 'Tigros', query: 'site:tigros.it' },
-                { name: 'Iperal', query: 'site:iperal.it OR site:iperalspesaonline.it' },
-                { name: 'Aldi', query: 'site:aldi.it' },
-                { name: 'Bennet', query: 'site:bennet.com OR site:bennet.it' },
-                { name: 'Despar', query: 'site:despar.it OR site:despar.com' },
-                { name: 'Crai', query: 'site:crai.it' },
-                { name: 'NaturaSì', query: 'site:naturasi.it' },
-                { name: 'Migross', query: 'site:migross.it' },
-                { name: 'Prix Quality', query: 'site:prixquality.com' },
-                { name: 'Todis', query: 'site:todis.it' },
-                { name: 'Italmark', query: 'site:italmark.it' },
-                { name: 'Alì Supermercati', query: 'site:alisupermercati.it' },
-                { name: 'A&O', query: 'site:ao.it OR site:despar.it' },
-                { name: 'Ard Discount', query: 'site:arddiscount.it' },
-                { name: 'Basko', query: 'site:basko.it' },
-                { name: 'Cadoro', query: 'site:cadoro.it' },
-                { name: 'Decò', query: 'site:supermercatideco.it OR site:decoitalia.it' },
-                { name: 'Dok', query: 'site:doksupermercati.it OR site:megaholding.it' },
-                { name: 'Eté', query: 'site:etesupermercati.it OR site:megaholding.it' },
-                { name: 'Futura', query: 'site:futurasupermercati.it' },
-                { name: 'Lando', query: 'site:iperlando.it' },
-                { name: 'Maxi Di', query: 'site:maxidi.it' },
-                { name: 'Megamark', query: 'site:megamark.it' },
-                { name: 'Orvea', query: 'site:orvea.it' },
-                { name: 'Poli', query: 'site:gruppopoli.it' },
-                { name: 'Pewex', query: 'site:pewex.it' },
-                { name: 'Sigma', query: 'site:sigma.coop OR site:sigmasuperstore.it' },
-                { name: 'Sisa', query: 'site:sisasupermercati.it' },
-                { name: 'Sogegross', query: 'site:sogegross.it' },
-                { name: 'SuperConveniente', query: 'site:superconveniente.it OR site:megamark.it' },
-                { name: 'Supermercati Piccolo', query: 'site:supermercatipiccolo.it' },
-                { name: 'Tigre', query: 'site:gruppoarena.it' },
-                { name: 'Tosano', query: 'site:tosano.it' },
-                { name: 'Visotto', query: 'site:visotto.it' }
+            // Collegamenti esclusivamente a fonti ufficiali verificate.
+            // Non importiamo automaticamente prodotti da queste pagine: la disponibilità e i prezzi possono dipendere da CAP/negozio.
+            const officialCatalogs = [
+                { name: 'Sole 365', url: 'https://www.cosicomodo.it/sole365/ricerca?q=' + encodeURIComponent(String(rawTerm || '').trim()), label: 'Cerca nel catalogo online', note: 'Richiede selezione della zona o del negozio; prezzo e assortimento locali.' },
+                { name: 'Iper Rossetto / Rossetto', url: 'https://rossettogroup.it/prezzi-rossetto-in-corso/', label: 'Prezzi e prodotti pubblicati', note: 'Controlla la data di scadenza indicata per ogni articolo.' },
+                { name: 'Iperlando', url: 'https://www.iperlando.it/', label: 'Sito ufficiale', note: 'Non è stato verificato un catalogo completo interrogabile.' },
+                { name: 'Conad', url: 'https://spesaonline.conad.it/tutti-i-prodotti', label: 'Catalogo e spesa online', note: 'Richiede la verifica della zona e del negozio.' },
+                { name: 'Coop', url: 'https://www.coop.it/prodotti-coop/catalogo-prodotti', label: 'Catalogo prodotti Coop', note: 'Catalogo dei prodotti a marchio Coop, non tutto l’assortimento locale.' },
+                { name: 'Esselunga', url: 'https://spesaonline.esselunga.it/commerce/nav/supermercato/', label: 'Spesa online', note: 'Assortimento e prezzi possono richiedere la selezione del negozio.' },
+                { name: 'Carrefour', url: 'https://www.carrefour.it/spesa-online/i-nostri-prodotti-a-marchio/', label: 'Prodotti a marchio Carrefour', note: 'Sezione prodotti a marchio, non catalogo completo del punto vendita.' },
+                { name: 'Lidl', url: 'https://www.lidl.it/c/cibo-e-bevande/s10068374', label: 'Categorie prodotto ufficiali', note: 'Non conferma la disponibilità in un singolo negozio.' },
+                { name: 'Eurospin', url: 'https://www.eurospin.it/ribassati/', label: 'Prodotti ribassati e offerte', note: 'Fonte promozionale, non catalogo completo.' },
+                { name: 'Aldi', url: 'https://www.aldi.it/prodotti', label: 'Catalogo prodotti', note: 'Verifica date e disponibilità locale.' },
+                { name: 'MD', url: 'https://www.mdspa.it/punti-vendita/', label: 'Punti vendita e volantini', note: 'Seleziona il negozio per consultare le promozioni locali.' },
+                { name: 'Iper La grande i', url: 'https://volantini.iper.it/', label: 'Volantini ufficiali', note: 'Seleziona città o punto vendita e controlla le date.' },
+                { name: 'Bennet', url: 'https://www.bennet.com/', label: 'Sito e spesa online', note: 'Verifica negozio e disponibilità online.' },
+                { name: 'Pam Panorama', url: 'https://pamacasa.pampanorama.it/', label: 'Spesa online', note: 'Richiede verifica del CAP o della zona.' },
+                { name: 'Iperal', url: 'https://www.iperal.it/I-MARCHI/Iperal/', label: 'Prodotti a marchio Iperal', note: 'Non rappresenta tutto l’assortimento.' },
+                { name: 'CRAI', url: 'https://crai.it/prodotti-crai/prodotti-a-marchio-crai', label: 'Catalogo prodotti CRAI', note: 'Catalogo a marchio, non listino prezzi di ogni negozio.' },
+                { name: 'Despar', url: 'https://www.despar.it/it/sbudget/', label: 'Prodotti S-Budget', note: 'Sezione parziale; controlla anche i volantini locali.' },
+                { name: 'NaturaSì', url: 'https://www.naturasi.it/', label: 'Sito e catalogo online', note: 'Verifica zona e disponibilità.' },
+                { name: 'Migross', url: 'https://www.migross.it/', label: 'Sito ufficiale', note: 'Promozioni e assortimento dipendono dal punto vendita.' }
             ];
-            // Link diretti verificati a cataloghi o sezioni ufficiali. Non tutti rappresentano l'intero assortimento fisico.
-            const officialCatalogs = {
-                'Sole 365': { url: 'https://catalogo.sole365.it/', label: 'Catalogo ufficiale prodotti e prezzi' },
-                'Iper Rossetto / Rossetto': { url: 'https://rossettogroup.it/prezzi-rossetto-in-corso/', label: 'Prodotti e prezzi pubblicati (verifica scadenza)' },
-                'MD': { url: 'https://www.mdspa.it/punti-vendita/', label: 'Volantino ufficiale per zona (seleziona il negozio)' },
-                'Iper La grande i': { url: 'https://volantini.iper.it/', label: 'Volantini ufficiali per punto vendita' },
-                'Iperlando': { url: 'https://www.iperlando.it/', label: 'Sito ufficiale (catalogo completo non pubblicato)' },
-                'Conad': { url: 'https://spesaonline.conad.it/tutti-i-prodotti', label: 'Spesa online e catalogo' },
-                'Coop': { url: 'https://www.coop.it/prodotti-coop/catalogo-prodotti', label: 'Catalogo prodotti Coop' },
-                'Esselunga': { url: 'https://spesaonline.esselunga.it/commerce/nav/supermercato/', label: 'Spesa online e catalogo' },
-                'Carrefour': { url: 'https://www.carrefour.it/spesa-online/i-nostri-prodotti-a-marchio/', label: 'Catalogo prodotti a marchio' },
-                'Lidl': { url: 'https://www.lidl.it/c/cibo-e-bevande/s10068374', label: 'Catalogo categorie prodotti' },
-                'Eurospin': { url: 'https://www.eurospin.it/ribassati/', label: 'Prodotti ribassati e offerte' },
-                'Aldi': { url: 'https://www.aldi.it/prodotti', label: 'Catalogo prodotti' },
-                'Bennet': { url: 'https://www.bennet.com/', label: 'Spesa online e assortimento' },
-                'Pam Panorama': { url: 'https://pamacasa.pampanorama.it/', label: 'Spesa online (verifica CAP)' },
-                'Iperal': { url: 'https://www.iperal.it/I-MARCHI/Iperal/', label: 'Prodotti a marchio Iperal' },
-                'Crai': { url: 'https://crai.it/prodotti-crai/prodotti-a-marchio-crai', label: 'Catalogo prodotti CRAI' },
-                'Despar': { url: 'https://www.despar.it/it/sbudget/', label: 'Prodotti S-Budget e volantini' },
-                'NaturaSì': { url: 'https://www.naturasi.it/', label: 'Spesa online e catalogo' },
-                'Migross': { url: 'https://www.migross.it/', label: 'Promozioni e spesa online' }
-            };
-            const relevantRetailers = retailerSearches.filter(retailer =>
-                !selectedMarket || marketMatchesSelected(retailer.name, selectedMarket)
+            const relevantCatalogs = officialCatalogs.filter(catalog =>
+                !selectedMarket || marketMatchesSelected(catalog.name, selectedMarket)
             );
-            const officialSearchHtml = relevantRetailers.map(retailer => {
-                const searchUrl = 'https://www.google.com/search?q=' + encodeURIComponent(retailer.query + ' ' + String(rawTerm || '').trim());
-                const catalog = officialCatalogs[retailer.name];
-                const directLink = catalog
-                    ? '<a class="shopping-secondary inline-flex items-center gap-2" href="' + catalog.url + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(catalog.label) + ' <i class="fa-solid fa-arrow-up-right-from-square"></i></a>'
-                    : '';
-                const searchLink = '<a class="shopping-secondary inline-flex items-center gap-2" href="' + searchUrl + '" target="_blank" rel="noopener noreferrer">Cerca ' + escapeHtml(retailer.name) + ' <i class="fa-solid fa-arrow-up-right-from-square"></i></a>';
-                return '<div class="flex flex-wrap gap-2 items-center"><span class="text-xs font-semibold text-gray-600">' + escapeHtml(retailer.name) + '</span>' + directLink + searchLink + '</div>';
-            }).join('');
+            const officialSearchHtml = relevantCatalogs.map(catalog =>
+                '<div class="rounded-xl border border-gray-100 p-3">' +
+                '<div class="flex flex-wrap gap-2 items-center"><span class="text-sm font-semibold text-gray-700">' + escapeHtml(catalog.name) + '</span>' +
+                '<a class="shopping-secondary inline-flex items-center gap-2" href="' + escapeHtml(catalog.url) + '" target="_blank" rel="noopener noreferrer">' +
+                escapeHtml(catalog.label) + ' <i class="fa-solid fa-arrow-up-right-from-square"></i></a></div>' +
+                '<p class="text-xs text-gray-500 mt-1">' + escapeHtml(catalog.note) + '</p></div>'
+            ).join('');
             container.innerHTML = (html || '<p class="text-sm text-gray-500 text-center py-4">Nessun prodotto trovato. Puoi aggiungerlo come voce personalizzata.</p>') +
-                '<details class="bg-white border border-emerald-100 rounded-2xl p-4 mt-4"><summary class="font-semibold text-gray-800 cursor-pointer">Cerca “' + escapeHtml(String(rawTerm || '').trim()) + '” sui siti dei supermercati</summary>' +
-                '<p class="text-xs text-gray-500 mt-2 mb-3">Per gli articoli non ancora registrati, consulta il catalogo o la ricerca del sito ufficiale. Alcuni cataloghi richiedono CAP, negozio o accesso; i risultati non confermano automaticamente la disponibilità nel punto vendita.</p>' +
+                '<details class="bg-white border border-emerald-100 rounded-2xl p-4 mt-4"><summary class="font-semibold text-gray-800 cursor-pointer">Consulta i cataloghi ufficiali dei supermercati</summary>' +
+                '<p class="text-xs text-gray-500 mt-2 mb-3">I risultati mostrati sopra provengono dai dati già registrati in SmartSpesa. Questi collegamenti aprono le fonti ufficiali: non importano automaticamente i prodotti e non garantiscono la disponibilità nel tuo punto vendita.</p>' +
                 '<div class="space-y-3 mt-3">' + officialSearchHtml + '</div></details>';
         };
 
