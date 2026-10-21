@@ -629,13 +629,9 @@
             panel.classList.remove("hidden");
             status.textContent = "Richiesta accesso alla fotocamera…";
             try {
-                const formats = [
-                    Html5QrcodeSupportedFormats.EAN_13,
-                    Html5QrcodeSupportedFormats.EAN_8,
-                    Html5QrcodeSupportedFormats.UPC_A,
-                    Html5QrcodeSupportedFormats.UPC_E,
-                    Html5QrcodeSupportedFormats.CODE_128
-                ];
+                // Il modulo prezzo e la ricerca Open Food Facts gestiscono EAN-13.
+                // Non esporre formati che poi verrebbero rifiutati dal controllo del codice.
+                const formats = [Html5QrcodeSupportedFormats.EAN_13];
                 barcodeScanner = new Html5Qrcode("reader", { verbose: false, formatsToSupport: formats });
                 const scanConfig = { fps: 12, qrbox: (viewWidth, viewHeight) => {
                     const width = Math.min(340, Math.floor(viewWidth * 0.92));
@@ -1269,13 +1265,23 @@
             });
         }
 
+        function flyerTextHasPriceRows(text) {
+            return String(text || "").split(/\r?\n/).some(line =>
+                /[a-zA-ZÀ-ÿ]{3}/.test(line) && /(?:\d{1,3}(?:\.\d{3})+|\d{1,6})[,.]\d{2}/.test(line)
+            );
+        }
+
         window.processFlyerFile = async (file) => {
             if (!file) return;
-            flyerCurrentFileName = file.name;
+            flyerCurrentFileName = "";
             const status = document.getElementById("flyerProcessingStatus");
             const textarea = document.getElementById("flyerExtractedText");
+            textarea.value = ""; flyerParsedRows = []; renderFlyerRows();
+            const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+            if (!isPdf && !file.type.startsWith("image/")) { status.textContent = "Seleziona un'immagine o un PDF."; return; }
+            if (file.size > 15 * 1024 * 1024) { status.textContent = "Il file supera 15 MB. Riducilo e riprova."; return; }
+            flyerCurrentFileName = file.name.slice(0, 160);
             status.textContent = "Lettura del file in corso…";
-            textarea.value = "";
             try {
                 let extracted = "";
                 if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
@@ -1301,9 +1307,9 @@
                             .join("\n"));
                     }
                     extracted = pages.join("\n");
-                    if (!extracted.trim()) status.textContent = "Il PDF sembra una scansione senza testo selezionabile. Provo l'OCR delle pagine…";
+                    if (!flyerTextHasPriceRows(extracted)) status.textContent = "Non trovo righe con prezzo nel testo PDF. Provo l'OCR delle pagine…";
                 }
-                if (file.type.startsWith("image/") || !extracted.trim()) {
+                if (file.type.startsWith("image/") || !flyerTextHasPriceRows(extracted)) {
                     status.textContent = "Riconoscimento testo (OCR) in corso; può richiedere un po' di tempo…";
                     await loadExternalScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js", "Tesseract");
                     if (file.type.startsWith("image/")) {
@@ -1311,8 +1317,8 @@
                             if (m.status === "recognizing text") status.textContent = "OCR in corso: " + Math.round((m.progress || 0) * 100) + "%";
                         }});
                         extracted = result.data.text || "";
-                    } else if (!extracted.trim()) {
-                        // PDF scansionato: renderizza le pagine e applica OCR, con limite prudenziale.
+                    } else if (!flyerTextHasPriceRows(extracted)) {
+                        // PDF scansionato o con testo parziale: renderizza le pagine e applica OCR, con limite prudenziale.
                         const buffer = await file.arrayBuffer();
                         const pdf = await window.pdfjsLib.getDocument({ data: buffer }).promise;
                         const pages = [];
@@ -1352,16 +1358,16 @@
                 const parts = line.split("|").map(part => part.trim());
                 if (parts.length >= 2) {
                     const name = parts[0];
-                    const priceMatch = parts[1].match(/\d+[,.]\d{1,2}|\d+/);
+                    const priceMatch = parts[1].match(/(?:\d{1,3}(?:\.\d{3})+|\d{1,6})[,.]\d{1,2}|\d+/);
                     const barcode = (parts[2] || "").replace(/\D/g, "");
-                    if (name && priceMatch) rows.push({ productName: name, price: priceMatch[0].replace(",", "."), barcode: /^\d{8,14}$/.test(barcode) ? barcode : "" });
+                    if (name && priceMatch) rows.push({ productName: name, price: String(parseItalianMoney(priceMatch[0])), barcode: /^\d{8,14}$/.test(barcode) ? barcode : "" });
                     continue;
                 }
-                const priceMatches = [...line.matchAll(/(?:€\s*)?(\d{1,3}[,.]\d{2})\s*€?/g)];
+                const priceMatches = [...line.matchAll(/(?:€\s*)?((?:\d{1,3}(?:\.\d{3})+|\d{1,6})[,.]\d{2})\s*€?/g)];
                 if (priceMatches.length) {
                     const match = priceMatches[priceMatches.length - 1];
                     const name = line.slice(0, match.index).replace(/[|•·—–-]+$/g, "").trim();
-                    if (name.length >= 3) rows.push({ productName: name, price: match[1].replace(",", "."), barcode: "" });
+                    if (name.length >= 3) rows.push({ productName: name, price: String(parseItalianMoney(match[1])), barcode: "" });
                 }
             }
             flyerParsedRows = rows.slice(0, 200);
@@ -1407,7 +1413,7 @@
             if (!flyerParsedRows.length) { status.textContent = "Prepara almeno una riga prima di salvare."; return; }
             const validRows = flyerParsedRows.map(row => ({
                 productName: String(row.productName || "").trim(),
-                price: Number(String(row.price || "").replace(",", ".")),
+                price: parseItalianMoney(row.price),
                 barcode: String(row.barcode || "").replace(/\D/g, "").slice(0, 14)
             })).filter(row => row.productName && Number.isFinite(row.price) && row.price >= 0 && row.price < 100000);
             if (!validRows.length) { status.textContent = "Nessuna riga valida: controlla nomi e prezzi."; return; }
