@@ -181,9 +181,7 @@ function parseConadProducts(source, html) {
     for (const match of text.matchAll(pricePattern)) {
       const end = (match.index || 0) + match[0].length;
       const tail = text.slice(end, end + 16);
-      const prefix = text.slice(Math.max(0, (match.index || 0) - 8), match.index || 0);
-      if (/^\s*\/\s*(?:kg|l|lt|litro|litri)\b/i.test(tail) ||
-          /\/\s*(?:kg|l|lt)\s*$/i.test(prefix)) continue;
+      if (/^\s*\/\s*(?:kg|l|lt|litro|litri)\b/i.test(tail)) continue;
       const value = parseMoney(match[1]);
       if (value !== null) prices.push(value);
     }
