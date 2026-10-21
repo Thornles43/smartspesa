@@ -940,16 +940,27 @@
             }
         }
 
+        function parseOptionalOfferNumber(value) {
+            if (value === null || value === undefined || String(value).trim() === "") return null;
+            const parsed = Number(value);
+            return Number.isFinite(parsed) && parsed >= 0 && parsed <= 100000 ? parsed : null;
+        }
+
         function isVerifiedCurrentFlyerOffer(offer) {
-            const price = Number(offer && offer.price_eur);
+            const price = parseOptionalOfferNumber(offer && offer.price_eur);
             const expiry = normalizeOfferDate(offer && offer.valid_until);
+            const rawStart = String(offer && offer.valid_from || "").trim();
+            const start = rawStart ? normalizeOfferDate(rawStart) : "";
+            const today = getLocalDateISO();
+            // Una promozione futura non deve apparire come corrente; una data di inizio presente ma illeggibile è rifiutata.
+            const startIsValid = !rawStart || Boolean(start && start <= today);
             return Boolean(
                 offer && String(offer.name || "").trim() &&
                 String(offer.store || "").trim() &&
-                Number.isFinite(price) && price >= 0 && price <= 100000 &&
+                price !== null &&
                 isOfficialUrlForStore(offer.store, offer.official_flyer_url) &&
                 isPrezzinvistaOfferUrl(offer.url) &&
-                expiry && expiry >= getLocalDateISO()
+                startIsValid && expiry && expiry >= today
             );
         }
 
@@ -1014,7 +1025,7 @@
                         offerValidFrom: normalizeOfferDate(offer.valid_from),
                         offerValidUntil: expiry,
                         offerConditions: String(offer.conditions || ""),
-                        unitPrice: Number.isFinite(Number(offer.unit_price_eur)) ? Number(offer.unit_price_eur) : null,
+                        unitPrice: parseOptionalOfferNumber(offer.unit_price_eur),
                         unitPricePer: String(offer.unit_price_per || ""),
                         userId: currentUser.uid,
                         timestamp: new Date().toISOString()
@@ -1210,8 +1221,9 @@
                     const size = offer.size ? " · " + escapeHtml(offer.size) : "";
                     const until = offer.valid_until ? "Valida fino al " + escapeHtml(offer.valid_until) : "Scadenza non indicata";
                     const conditions = offer.conditions ? '<p class="text-xs text-amber-700 mt-1">' + escapeHtml(offer.conditions) + '</p>' : "";
-                    const unit = Number.isFinite(Number(offer.unit_price_eur)) && offer.unit_price_per
-                        ? '<p class="text-xs text-gray-500 mt-1">' + Number(offer.unit_price_eur).toLocaleString("it-IT", {style:"currency",currency:"EUR"}) + " / " + escapeHtml(offer.unit_price_per) + '</p>' : "";
+                    const parsedUnitPrice = parseOptionalOfferNumber(offer.unit_price_eur);
+                    const unit = parsedUnitPrice !== null && parsedUnitPrice > 0 && offer.unit_price_per
+                        ? '<p class="text-xs text-gray-500 mt-1">' + parsedUnitPrice.toLocaleString("it-IT", {style:"currency",currency:"EUR"}) + " / " + escapeHtml(offer.unit_price_per) + '</p>' : "";
                     const link = /^https:\/\//i.test(offer.url || "") ? offer.url : "";
                     const sourceLink = link ? '<a href="' + escapeHtml(link) + '" target="_blank" rel="noopener noreferrer" class="text-sm underline text-emerald-700">Fonte e volantino</a>' : "";
                     const officialLink = /^https:\/\//i.test(offer.official_flyer_url || "") ? '<a href="' + escapeHtml(offer.official_flyer_url) + '" target="_blank" rel="noopener noreferrer" class="text-sm underline text-emerald-700 ml-3">Sito ufficiale</a>' : "";
@@ -2272,7 +2284,7 @@
                             catalogSource: 'Volantino ufficiale · Prezzi in Vista',
                             offerValidUntil: normalizeOfferDate(offer.valid_until),
                             offerConditions: String(offer.conditions || '').trim(),
-                            unitPrice: Number.isFinite(Number(offer.unit_price_eur)) ? Number(offer.unit_price_eur) : null,
+                            unitPrice: parseOptionalOfferNumber(offer.unit_price_eur),
                             unitPricePer: String(offer.unit_price_per || ''),
                             isFlyerOffer: true,
                             score,
