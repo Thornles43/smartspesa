@@ -923,11 +923,10 @@
             if (!L) throw new Error("La libreria della mappa non è disponibile.");
             const fallback = document.getElementById("nearbyMapFallback");
             const mapElement = document.getElementById("nearbyMap");
-            // Mostra la mappa di riserva solo finché Leaflet non ha tessere utilizzabili.
-            // L'evento "load" deve restare attivo anche quando la schermata viene riaperta.
-            const hasVisibleTiles = !!(mapElement && mapElement.querySelector(".leaflet-tile-loaded"));
-            if (fallback) fallback.style.display = hasVisibleTiles ? "none" : "block";
-            if (mapElement) mapElement.style.display = hasVisibleTiles ? "block" : "block";
+            // Evita di mostrare due mappe una sotto l'altra. Se le tessere non arrivano,
+            // il timeout riattiva la mappa incorporata come riserva.
+            if (fallback) fallback.style.display = "none";
+            if (mapElement) mapElement.style.display = "block";
             if (!nearbyMapInstance) {
                 nearbyMapInstance = L.map("nearbyMap").setView([lat, lon], zoom);
                 const tileLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
