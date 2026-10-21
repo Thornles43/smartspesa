@@ -55,3 +55,14 @@
 3. Mostrare prezzo e data solo se presenti nella fonte; non stimare né riutilizzare come attuale un prezzo scaduto.
 4. Non importare risultati da marketplace o cataloghi generici come se fossero prodotti del supermercato.
 5. Se il catalogo non è accessibile pubblicamente o richiede CAP/login, dichiarare il limite e usare il sito ufficiale, senza aggirare protezioni.
+
+
+## Importazione automatica prudente delle offerte
+
+- La ricerca delle offerte usa l'API pubblica di Prezzi in Vista come fonte di scoperta. Le condizioni d'uso del fornitore consentono le interrogazioni e la citazione dei dati con collegamento alla pagina originale, ma vietano di copiare in blocco il suo archivio per ripubblicarlo come servizio proprio.
+- Per questo SmartSpesa importa al massimo **3 offerte per ogni ricerca esplicita** e soltanto se sono presenti: nome, insegna, prezzo valido, data di scadenza non trascorsa, URL della pagina Prezzi in Vista e URL HTTPS su un dominio ufficiale del supermercato presente nell'elenco consentito.
+- Ogni record salvato conserva sia il collegamento alla fonte ufficiale del supermercato sia `dataProviderUrl` per citare Prezzi in Vista; il prezzo è contrassegnato come offerta da volantino e non come prezzo garantito in negozio.
+- I record identici per prodotto, insegna, prezzo e scadenza vengono controllati prima dell'inserimento per evitare duplicazioni. Gli esiti e le offerte escluse sono mostrati nella schermata di ricerca.
+- Le pagine di catalogo completo, come il catalogo Sole 365 e le pagine “Prezzi Rossetto”, restano consultabili tramite i collegamenti ufficiali. **Non vengono scaricate in massa né importate automaticamente** finché non sia disponibile un feed/API autorizzato o una modalità di riutilizzo verificata.
+- L'importazione delle offerte non copre tutti i prodotti normalmente in assortimento. Per Iperlando, ad esempio, il sito ufficiale consultato non espone un catalogo pubblico completo interrogabile. In quel caso le fonti pratiche restano gli scontrini verificati e l'importazione controllata di volantini/documenti pubblicati dall'insegna.
+- I dati degli scontrini vengono elaborati localmente con OCR; il sistema confronta le righe riconosciute con lo storico SmartSpesa e mostra possibili corrispondenze e prezzi storici. Il nome del supermercato viene compilato automaticamente soltanto quando l'OCR riconosce un'insegna nota, per evitare di scambiare un indirizzo o una riga prodotto per il nome del negozio. Le righe devono essere controllate prima del salvataggio.
