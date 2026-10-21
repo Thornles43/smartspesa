@@ -32,15 +32,29 @@ jobs:
         run: node scripts/sync-official-catalogs.mjs
       - name: Validate catalog JSON
         run: node -e "const d=require('./data/official-catalogs.json'); if(!Array.isArray(d.products)||!Array.isArray(d.sources)) process.exit(1); for(const p of d.products){if(!p.productName||!p.supermarket||!p.sourceVerified||!p.sourceUrl.startsWith('https://')) process.exit(1); if(p.price!==null && (!Number.isFinite(p.price)||p.price<0)) process.exit(1)} console.log('Catalog JSON valido:', d.products.length, 'prodotti')"
-      - name: Commit catalog changes
+      - name: Commit catalog changes (retry on concurrent updates)
         run: |
+          set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/official-catalogs.json
-          if git diff --cached --quiet; then
-            echo "Nessun aggiornamento al catalogo"
-          else
+          # Preserve the freshly generated catalogue while refreshing the branch before each push attempt.
+          cp data/official-catalogs.json /tmp/official-catalogs-generated.json
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git reset --hard origin/main
+            cp /tmp/official-catalogs-generated.json data/official-catalogs.json
+            git add data/official-catalogs.json
+            if git diff --cached --quiet; then
+              echo "Nessun aggiornamento al catalogo"
+              exit 0
+            fi
             git commit -m "Aggiorna cataloghi ufficiali supermercati"
-            git pull --rebase origin main
-            git push
-          fi
+            if git push origin HEAD:main; then
+              echo "Catalogo aggiornato al tentativo $attempt"
+              exit 0
+            fi
+            echo "Push concorrente al tentativo $attempt; riprovo sul ramo aggiornato"
+            sleep "$attempt"
+          done
+          echo "Impossibile pubblicare il catalogo dopo 3 tentativi"
+          exit 1
