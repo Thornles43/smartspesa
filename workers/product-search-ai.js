@@ -166,12 +166,13 @@ export default {
         );
         const rows = (Array.isArray(parsed.rows) ? parsed.rows : []).map(row => {
           const productName = String(row.productName || "").trim().slice(0, 180);
-          const price = String(row.price || "").trim().slice(0, 20);
-          const normalizedPrice = price.replace(/€/g, "").replace(/\s/g, "");
-          const validPrice = /^(?:\d{1,3}(?:\.\d{3})*|\d{1,6})[,.]\d{2}$/.test(normalizedPrice);
-          return { productName, price: normalizedPrice, validPrice };
-        }).filter(row => row.productName.length >= 3 && row.validPrice)
-          .map(row => ({ productName: row.productName, price: row.price.replace(".", ",") }))
+          let price = String(row.price || "").trim().replace(/€/g, "").replace(/\s/g, "");
+          if (price.includes(",") && price.includes(".")) price = price.replace(/\./g, "").replace(",", ".");
+          else if (price.includes(",")) price = price.replace(",", ".");
+          const numericPrice = Number(price);
+          return { productName, numericPrice };
+        }).filter(row => row.productName.length >= 3 && Number.isFinite(row.numericPrice) && row.numericPrice >= 0 && row.numericPrice <= 10000)
+          .map(row => ({ productName: row.productName, price: row.numericPrice.toFixed(2) }))
           .slice(0, 150);
         return json({ rows, usedAI: true }, 200, corsHeaders);
       }
