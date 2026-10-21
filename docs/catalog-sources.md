@@ -42,7 +42,10 @@
 ## Stato nell'app
 
 - La ricerca interna di SmartSpesa mostra prodotti già associati a un'insegna nei dati/prezzi registrati nell'app; i cataloghi generalisti esterni non vengono usati per popolare automaticamente i risultati interni.
-- La sezione “Cerca sui siti dei supermercati” apre i collegamenti ufficiali noti o una ricerca web limitata ai domini dichiarati delle insegne. Il collegamento esterno è una via per consultare la fonte, non prova che il prodotto sia disponibile.
+- La ricerca interna mostra solo record già associati a un'insegna in SmartSpesa; non inserisce automaticamente risultati provenienti da database generalisti.
+- La sezione dei cataloghi offre sia il collegamento alla pagina del retailer sia una ricerca web vincolata al dominio dichiarato dell'insegna e al termine cercato. È una scorciatoia per consultare fonti ufficiali, non un'importazione automatica né una prova di disponibilità.
+- L'importazione automatica delle offerte ora verifica anche la coerenza tra il nome del supermercato indicato dal fornitore e il dominio ufficiale del link. Un URL ufficiale di un'insegna diversa non è sufficiente e l'offerta viene esclusa.
+- I cataloghi online di Sole 365, Rossetto e delle altre insegne restano limitati a ciò che ciascun sito pubblica e consente di interrogare; la ricerca vincolata al dominio non sostituisce un feed ufficiale.
 - I collegamenti diretti a cataloghi sono stati aggiunti solo per pagine pubbliche individuate e verificate. Dove il sito non offre un catalogo pubblico completo, l'app non deve inventarlo.
 - La ricerca online non è ancora un connettore dati strutturato: non importa automaticamente tutte le schede, i prezzi o le disponibilità dei siti esterni.
 - Il riconoscimento tramite barcode nell'app ora cerca una corrispondenza esatta nei prezzi registrati in SmartSpesa e richiede che il record abbia nome prodotto e insegna. Non usa più cataloghi generalisti o UPCitemdb per identificare un articolo come prodotto di un supermercato. Se non esiste una corrispondenza, chiede l'inserimento manuale e la verifica sul sito ufficiale. L'ultima rilevazione può essere mostrata come dato storico, ma non viene copiata nel campo del prezzo corrente.
