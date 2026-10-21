@@ -1,0 +1,41 @@
+# Inventario fonti cataloghi supermercati — SmartSpesa
+
+**Verifica delle pagine pubbliche:** 21 ottobre 2026  
+**Scopo:** distinguere fonti ufficiali consultabili da cataloghi completi, prezzi correnti e disponibilità in singolo negozio. Questo inventario non equivale a un'integrazione automatica dei dati.
+
+## Fonti ufficiali verificate
+
+| Insegna | Fonte ufficiale | Tipo di informazione osservata | Limite da rispettare |
+|---|---|---|---|
+| Sole 365 | https://catalogo.sole365.it/ | Catalogo online con nomi prodotto, formati e prezzi mostrati nella pagina | Prezzo e assortimento vanno verificati per zona/negozio e al momento della consultazione. Il marchio dichiara un modello di prezzi bassi quotidiani e non pubblica volantini tradizionali. |
+| Sole 365 | https://www.sole365.it/spesa-online/ | Informazioni ufficiali sulla spesa online; rimanda al servizio CosìComodo | La copertura dipende dalla zona di consegna. La pagina informativa disponibile è datata 2021, quindi non prova da sola l'assortimento corrente. |
+| Iper Rossetto / Rossetto | https://rossettogroup.it/prezzi-rossetto/ | Pagina ufficiale “Prezzi Rossetto”, esempi di prezzi bassi e promozioni | Non è stato verificato un catalogo pubblico completo interrogabile per prodotto o una API pubblica. Non inferire che ogni prodotto mostrato sia disponibile in ogni negozio. |
+| Iper Rossetto / Rossetto | https://rossettogroup.it/punti-vendita/ | Elenco ufficiale dei punti vendita e delle insegne locali | Utile per disambiguare Super Rossetto e Iperalimentare Rossetto, non è un catalogo prodotti. |
+| Iperlando | https://www.iperlando.it/ | Sito ufficiale e localizzazione dei punti vendita | Non è stato individuato un catalogo pubblico completo di prodotti/prezzi interrogabile. Usare la ricerca limitata al dominio ufficiale e non inventare risultati. |
+| Conad | https://spesaonline.conad.it/tutti-i-prodotti | Catalogo/spesa online con categorie e prodotti | Richiede la verifica dei servizi nella zona; assortimento, prezzi e consegna possono variare per punto vendita. |
+| Conad | https://www.conad.it/ricerca-negozi | Negozi e volantini ufficiali | Le offerte vanno collegate al negozio selezionato e al periodo di validità. |
+| Coop | https://www.coop.it/prodotti-coop/catalogo-prodotti | Catalogo ufficiale dei prodotti a marchio Coop, con filtri | Copre soprattutto le linee a marchio Coop; non equivale al catalogo completo di ogni cooperativa/ipermercato né a un listino prezzi locale. |
+| Esselunga | https://spesaonline.esselunga.it/commerce/nav/supermercato/ | Spesa online e assortimento navigabile | Il catalogo e i prezzi possono richiedere selezione della zona/negozio o accesso; non generalizzare la disponibilità nazionale. |
+| Carrefour | https://www.carrefour.it/spesa-online/i-nostri-prodotti-a-marchio/ | Catalogo online di prodotti a marchio Carrefour | È una sezione di prodotti a marchio, non l'intero assortimento di ogni punto vendita. |
+| Lidl | https://www.lidl.it/c/cibo-e-bevande/s10068374 | Categorie di prodotti venduti in negozio | Alcuni prodotti sono stagionali o disponibili solo in periodi specifici; la pagina non conferma stock locale. |
+| Lidl | https://www.lidl.it/c/c1074 | Prodotti/offerte pubblicate sul sito | Promozioni con intervalli temporali e disponibilità variabile. |
+| ALDI | https://www.aldi.it/prodotti | Catalogo ufficiale per categorie, con formati e prezzi per alcuni articoli | Alcuni articoli sono indicati come disponibili da una data specifica; verificare periodo e negozio. |
+| Eurospin | https://www.eurospin.it/ribassati/ | Prodotti ribassati con prezzo, formato e validità dichiarata | Sezione promozionale, non catalogo completo. Le date della promozione sono essenziali. |
+| MD | https://www.mdspa.it/ | Sito ufficiale, marchi e volantini | Non è stato verificato un catalogo pubblico completo di tutti i prodotti e prezzi. Volantini e prodotti a marchio non dimostrano la disponibilità dell'intero assortimento. |
+| Iper La grande i | https://volantini.iper.it/ | Volantini ufficiali selezionabili per città/punto vendita, con date | È una fonte promozionale; non va trattata come catalogo completo. Da non confondere con Iper Rossetto. |
+
+## Stato nell'app
+
+- La ricerca interna di SmartSpesa mostra prodotti già associati a un'insegna nei dati/prezzi registrati nell'app; i cataloghi generalisti esterni non vengono usati per popolare automaticamente i risultati interni.
+- La sezione “Cerca sui siti dei supermercati” apre i collegamenti ufficiali noti o una ricerca web limitata ai domini dichiarati delle insegne. Il collegamento esterno è una via per consultare la fonte, non prova che il prodotto sia disponibile.
+- I collegamenti diretti a cataloghi sono stati aggiunti solo per pagine pubbliche individuate e verificate. Dove il sito non offre un catalogo pubblico completo, l'app non deve inventarlo.
+- La ricerca online non è ancora un connettore dati strutturato: non importa automaticamente tutte le schede, i prezzi o le disponibilità dei siti esterni.
+- Non sono state trovate e validate, in questa verifica pubblica, API aperte e documentate che forniscano l'intero catalogo aggiornato di tutte le insegne elencate. Per integrazioni commerciali o sincronizzazioni su larga scala serve verificare termini d'uso e, dove necessario, chiedere autorizzazione/feed al retailer.
+
+## Regole dati richieste
+
+1. Conservare per ogni prodotto l'insegna e la fonte originaria.
+2. Tenere distinti prodotto di catalogo, prezzo osservato, offerta con validità e disponibilità del singolo punto vendita.
+3. Mostrare prezzo e data solo se presenti nella fonte; non stimare né riutilizzare come attuale un prezzo scaduto.
+4. Non importare risultati da marketplace o cataloghi generici come se fossero prodotti del supermercato.
+5. Se il catalogo non è accessibile pubblicamente o richiede CAP/login, dichiarare il limite e usare il sito ufficiale, senza aggirare protezioni.
