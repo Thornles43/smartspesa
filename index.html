@@ -351,8 +351,9 @@
         <div class="flex items-center gap-3 mb-5"><button onclick="showScreen('screen-dashboard')" class="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100" aria-label="Torna alla home"><i class="fa-solid fa-arrow-left"></i></button><div><h2 class="text-xl font-bold">Carica uno scontrino</h2><p class="text-sm text-gray-500">Foto o PDF, riconoscimento testo e controllo dei prezzi.</p></div></div>
         <div class="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 mb-4"><p class="font-semibold text-emerald-950 mb-1"><i class="fa-solid fa-shield-halved mr-2"></i>Privacy e verifica</p><p class="text-sm text-emerald-900">Il file viene elaborato nel browser. Non archiviamo la foto né il testo OCR completo: vengono salvati soltanto i prodotti e i prezzi che confermi. Controlla i dati prima di salvarli nel catalogo condiviso.</p></div>
         <section class="bg-white border border-gray-200 rounded-2xl p-4 mb-4">
-            <label class="block text-sm font-semibold mb-1" for="receiptFile">Foto o PDF dello scontrino</label><input id="receiptFile" type="file" accept=".pdf,application/pdf,image/*" class="w-full text-sm border border-gray-300 rounded-xl p-3" onchange="processReceiptFile(this.files && this.files[0])">
-            <p id="receiptProcessingStatus" class="text-sm text-gray-600 mt-2" role="status" aria-live="polite">Scatta una foto o seleziona un'immagine o un PDF.</p>
+            <label class="block text-sm font-semibold mb-1" for="receiptFile">Foto o PDF dello scontrino</label><input id="receiptFile" type="file" accept=".pdf,application/pdf,image/*" multiple class="w-full text-sm border border-gray-300 rounded-xl p-3" onchange="processReceiptFiles(this.files)">
+            <p class="text-xs text-gray-500 mt-2">Carica 1 foto per uno scontrino corto oppure 2 foto per uno lungo: inquadra le parti una dopo l’altra, con buona luce e testo a fuoco. Puoi anche caricare un PDF multipagina.</p>
+            <p id="receiptProcessingStatus" class="text-sm text-gray-600 mt-2" role="status" aria-live="polite">Se la foto è sfocata o il testo non è leggibile, ti chiederò di rifarla.</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
                 <div><label for="receiptSupermarket" class="block text-sm font-medium mb-1">Supermercato / negozio</label><input id="receiptSupermarket" type="text" maxlength="80" class="w-full border border-gray-300 rounded-xl p-3" placeholder="Es. Coop, Lidl, Conad"></div>
                 <div><label for="receiptDate" class="block text-sm font-medium mb-1">Data acquisto</label><input id="receiptDate" type="date" class="w-full border border-gray-300 rounded-xl p-3"></div>
@@ -1489,71 +1490,118 @@
             showScreen("screen-receipts");
         };
 
-        window.processReceiptFile = async file => {
-            if (!file) return;
+        window.processReceiptFiles = async fileList => {
+            const files = Array.from(fileList || []);
+            if (!files.length) return;
             const status = document.getElementById("receiptProcessingStatus");
             const textarea = document.getElementById("receiptExtractedText");
             receiptCurrentFileName = "";
             textarea.value = ""; receiptParsedRows = []; renderReceiptRows();
-            const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
-            if (!isPdf && !file.type.startsWith("image/")) { status.textContent = "Seleziona una foto o un PDF."; return; }
-            if (file.size > 15 * 1024 * 1024) { status.textContent = "Il file supera 15 MB. Riducilo e riprova."; return; }
-            receiptCurrentFileName = file.name.slice(0, 160);
-            status.textContent = "Leggo lo scontrino…";
+            if (files.length > 2 && !files.some(file => file.type === "application/pdf" || /\.pdf$/i.test(file.name))) {
+                status.textContent = "Puoi caricare al massimo 2 foto per scontrino. Per più pagine, seleziona un PDF.";
+                document.getElementById("receiptFile").value = "";
+                return;
+            }
+            if (files.length > 1 && files.some(file => file.type === "application/pdf" || /\.pdf$/i.test(file.name))) {
+                status.textContent = "Seleziona un solo PDF oppure fino a 2 foto dello stesso scontrino.";
+                document.getElementById("receiptFile").value = "";
+                return;
+            }
+            if (files.some(file => !(file.type.startsWith("image/") || file.type === "application/pdf" || /\.pdf$/i.test(file.name)))) {
+                status.textContent = "File non supportato: seleziona foto oppure un PDF.";
+                document.getElementById("receiptFile").value = "";
+                return;
+            }
+            if (files.some(file => file.size > 15 * 1024 * 1024) || files.reduce((sum, file) => sum + file.size, 0) > 25 * 1024 * 1024) {
+                status.textContent = "File troppo grandi: massimo 15 MB ciascuno e 25 MB complessivi.";
+                document.getElementById("receiptFile").value = "";
+                return;
+            }
+            receiptCurrentFileName = files.map(file => file.name.slice(0, 100)).join(" + ").slice(0, 240);
+            status.textContent = "Preparo " + files.length + (files.length === 1 ? " file…" : " immagini…");
             try {
-                let extracted = "";
-                if (isPdf) {
-                    await loadExternalScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js", "pdfjsLib");
-                    window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-                    const pdf = await window.pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
-                    const pages = [];
-                    for (let n = 1; n <= Math.min(pdf.numPages, 10); n++) {
-                        const page = await pdf.getPage(n);
-                        const content = await page.getTextContent();
-                        const lineMap = new Map();
-                        content.items.forEach(item => {
-                            const value = String(item.str || "").trim();
-                            if (!value) return;
-                            const y = Math.round(Number(item.transform?.[5]) || 0);
-                            if (!lineMap.has(y)) lineMap.set(y, []);
-                            lineMap.get(y).push({ x: Number(item.transform?.[4]) || 0, text: value });
-                        });
-                        pages.push(Array.from(lineMap.entries()).sort((a, b) => b[0] - a[0])
-                            .map(([, items]) => items.sort((a, b) => a.x - b.x).map(item => item.text).join(" "))
-                            .join("\n"));
-                    }
-                    extracted = pages.join("\n");
-                    // Alcuni PDF contengono solo intestazioni testuali ma i prodotti sono immagini.
-                    // In quel caso prova l'OCR anche se il PDF non è completamente vuoto.
-                    if (!receiptTextHasPriceRows(extracted)) {
-                        status.textContent = "Non trovo righe prodotto con prezzo nel testo PDF: provo l'OCR…";
-                        await loadExternalScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js", "Tesseract");
-                        const ocrPages = [];
-                        for (let n = 1; n <= Math.min(pdf.numPages, 4); n++) {
-                            const page = await pdf.getPage(n), viewport = page.getViewport({ scale: 1.7 });
-                            const canvas = document.createElement("canvas");
-                            canvas.width = viewport.width; canvas.height = viewport.height;
-                            await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
-                            const result = await window.Tesseract.recognize(canvas, "ita+eng", { logger: m => { if (m.status === "recognizing text") status.textContent = "OCR: " + Math.round((m.progress || 0) * 100) + "%"; }});
-                            ocrPages.push(result.data.text || "");
+                await loadExternalScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js", "Tesseract");
+                let combinedText = "";
+                const warnings = [];
+                let readableImageCount = 0;
+                for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
+                    const file = files[fileIndex];
+                    const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+                    let extracted = "";
+                    let confidence = null;
+                    if (isPdf) {
+                        await loadExternalScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js", "pdfjsLib");
+                        window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+                        const pdf = await window.pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+                        if (pdf.numPages > 10) throw new Error("Il PDF supera 10 pagine. Carica un PDF più corto.");
+                        const pages = [];
+                        for (let n = 1; n <= pdf.numPages; n++) {
+                            status.textContent = "Leggo il PDF, pagina " + n + " di " + pdf.numPages + "…";
+                            const page = await pdf.getPage(n);
+                            const content = await page.getTextContent();
+                            const lineMap = new Map();
+                            content.items.forEach(item => {
+                                const value = String(item.str || "").trim();
+                                if (!value) return;
+                                const y = Math.round(Number(item.transform?.[5]) || 0);
+                                if (!lineMap.has(y)) lineMap.set(y, []);
+                                lineMap.get(y).push({ x: Number(item.transform?.[4]) || 0, text: value });
+                            });
+                            pages.push(Array.from(lineMap.entries()).sort((a, b) => b[0] - a[0])
+                                .map(([, items]) => items.sort((a, b) => a.x - b.x).map(item => item.text).join(" "))
+                                .join("\n"));
                         }
-                        const ocrText = ocrPages.join("\n");
-                        if (ocrText.trim()) extracted = ocrText;
+                        extracted = pages.join("\n");
+                        if (!receiptTextHasPriceRows(extracted)) {
+                            const ocrPages = [];
+                            for (let n = 1; n <= Math.min(pdf.numPages, 4); n++) {
+                                status.textContent = "OCR PDF: pagina " + n + "…";
+                                const page = await pdf.getPage(n), viewport = page.getViewport({ scale: 1.8 });
+                                const canvas = document.createElement("canvas");
+                                canvas.width = viewport.width; canvas.height = viewport.height;
+                                await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+                                const result = await window.Tesseract.recognize(canvas, "ita+eng", { logger: m => { if (m.status === "recognizing text") status.textContent = "OCR PDF: " + Math.round((m.progress || 0) * 100) + "%"; }});
+                                ocrPages.push(result.data.text || "");
+                                if (typeof result.data.confidence === "number") confidence = confidence === null ? result.data.confidence : Math.min(confidence, result.data.confidence);
+                            }
+                            const ocrText = ocrPages.join("\n");
+                            if (ocrText.trim()) extracted = ocrText;
+                        }
+                    } else {
+                        status.textContent = "Leggo la foto " + (fileIndex + 1) + " di " + files.length + "…";
+                        const result = await window.Tesseract.recognize(file, "ita+eng", { logger: m => { if (m.status === "recognizing text") status.textContent = "Foto " + (fileIndex + 1) + ": OCR " + Math.round((m.progress || 0) * 100) + "%"; }});
+                        extracted = result.data.text || "";
+                        confidence = typeof result.data.confidence === "number" ? result.data.confidence : null;
+                        const hasRows = receiptTextHasPriceRows(extracted);
+                        const isReadable = extracted.replace(/\s/g, "").length >= 20 && hasRows && (confidence === null || confidence >= 35);
+                        if (isReadable) readableImageCount++;
+                        else warnings.push("Foto " + (fileIndex + 1) + ": testo poco leggibile" + (confidence === null ? "" : " (confidenza OCR " + Math.round(confidence) + "%)") + ".");
                     }
-                } else {
-                    await loadExternalScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js", "Tesseract");
-                    const result = await window.Tesseract.recognize(file, "ita+eng", { logger: m => { if (m.status === "recognizing text") status.textContent = "OCR: " + Math.round((m.progress || 0) * 100) + "%"; }});
-                    extracted = result.data.text || "";
+                    if (extracted.trim()) combinedText += (combinedText ? "\n\n" : "") + "=== " + file.name + " ===\n" + extracted;
                 }
-                textarea.value = extracted;
-                suggestReceiptMetadata(extracted);
-                status.textContent = extracted.trim() ? "Testo letto. Estrai i prodotti e verifica ogni prezzo." : "Testo non riconosciuto: puoi incollarlo o aggiungere le righe manualmente.";
+                if (files.some(file => file.type.startsWith("image/")) && readableImageCount === 0) {
+                    textarea.value = combinedText;
+                    status.textContent = "ERRORE: non riesco a leggere lo scontrino. La foto potrebbe essere sfocata, scura o troppo lontana. Rifalla con buona luce, a fuoco e con tutto il testo visibile; per uno scontrino lungo carica 2 foto sovrapposte.";
+                    return;
+                }
+                if (!combinedText.trim() || !receiptTextHasPriceRows(combinedText)) {
+                    textarea.value = combinedText;
+                    status.textContent = "ERRORE: non ho trovato righe prodotto con prezzo. Carica una foto più nitida o un PDF leggibile; controlla che siano visibili descrizioni e prezzi.";
+                    return;
+                }
+                textarea.value = combinedText;
+                suggestReceiptMetadata(combinedText);
                 parseReceiptText();
+                status.textContent = warnings.length
+                    ? "Ho letto parte dello scontrino, ma " + warnings.join(" ") + " Verifica il testo e carica una foto più nitida se mancano prodotti."
+                    : "Testo letto da " + files.length + (files.length === 1 ? " file." : " immagini.") + " Estrai i prodotti e controlla ogni prezzo prima di salvare.";
             } catch (error) {
                 console.error("Lettura scontrino:", error);
-                status.textContent = "Lettura non riuscita (" + (error.message || "errore") + "). Puoi inserire il testo manualmente.";
+                status.textContent = "ERRORE di lettura: " + (error.message || "problema nel file o nell'OCR") + ". Prova con una foto più nitida o un PDF leggibile.";
             }
         };
+
+        window.processReceiptFile = file => window.processReceiptFiles(file ? [file] : []);
 
         function suggestReceiptMetadata(extracted) {
             const lines = String(extracted || "").split(/\r?\n/).map(line => line.replace(/\s+/g, " ").trim()).filter(Boolean);
