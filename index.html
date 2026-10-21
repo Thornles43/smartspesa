@@ -1289,7 +1289,17 @@
                     for (let pageNo = 1; pageNo <= pdf.numPages; pageNo++) {
                         const page = await pdf.getPage(pageNo);
                         const content = await page.getTextContent();
-                        pages.push(content.items.map(item => item.str).join(" "));
+                        const lineMap = new Map();
+                        content.items.forEach(item => {
+                            const value = String(item.str || "").trim();
+                            if (!value) return;
+                            const y = Math.round(Number(item.transform?.[5]) || 0);
+                            if (!lineMap.has(y)) lineMap.set(y, []);
+                            lineMap.get(y).push({ x: Number(item.transform?.[4]) || 0, text: value });
+                        });
+                        pages.push(Array.from(lineMap.entries()).sort((a, b) => b[0] - a[0])
+                            .map(([, items]) => items.sort((a, b) => a.x - b.x).map(item => item.text).join(" "))
+                            .join("\n"));
                     }
                     extracted = pages.join("\n");
                     if (!extracted.trim()) status.textContent = "Il PDF sembra una scansione senza testo selezionabile. Provo l'OCR delle pagine…";
@@ -1495,6 +1505,7 @@
                     extracted = result.data.text || "";
                 }
                 textarea.value = extracted;
+                suggestReceiptMetadata(extracted);
                 status.textContent = extracted.trim() ? "Testo letto. Estrai i prodotti e verifica ogni prezzo." : "Testo non riconosciuto: puoi incollarlo o aggiungere le righe manualmente.";
                 parseReceiptText();
             } catch (error) {
@@ -1502,6 +1513,36 @@
                 status.textContent = "Lettura non riuscita (" + (error.message || "errore") + "). Puoi inserire il testo manualmente.";
             }
         };
+
+        function suggestReceiptMetadata(extracted) {
+            const lines = String(extracted || "").split(/\r?\n/).map(line => line.replace(/\s+/g, " ").trim()).filter(Boolean);
+            const storeInput = document.getElementById("receiptSupermarket");
+            if (storeInput && !storeInput.value.trim()) {
+                const candidate = lines.find(line => /[a-zA-ZÀ-ÿ]{3}/.test(line) && line.length <= 80 &&
+                    !/documento commerciale|partita iva|codice fiscale|via\b|tel\.?|www\.|http|totale|scontrino|cassa\b/i.test(line));
+                if (candidate) storeInput.value = candidate.slice(0, 80);
+            }
+            const dateInput = document.getElementById("receiptDate");
+            if (dateInput && !dateInput.value) {
+                for (const line of lines.slice(0, 20)) {
+                    let match = line.match(/\b(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})\b/);
+                    if (match) {
+                        const date = match[3] + "-" + match[2].padStart(2, "0") + "-" + match[1].padStart(2, "0");
+                        if (!Number.isNaN(Date.parse(date))) { dateInput.value = date; break; }
+                    }
+                    match = line.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
+                    if (match) { dateInput.value = match[0]; break; }
+                }
+            }
+            const totalInput = document.getElementById("receiptTotal");
+            if (totalInput && !totalInput.value.trim()) {
+                for (const line of lines) {
+                    if (!/\b(totale|importo pagato|tot\.\s*doc)\b/i.test(line)) continue;
+                    const matches = [...line.matchAll(/(?:€\s*)?(\d{1,4}[,.]\d{2})\s*€?/g)];
+                    if (matches.length) { totalInput.value = matches[matches.length - 1][1].replace(".", ","); break; }
+                }
+            }
+        }
 
         window.parseReceiptText = () => {
             const lines = (document.getElementById("receiptExtractedText").value || "").split(/\r?\n/).map(line => line.replace(/\s+/g, " ").trim()).filter(Boolean);
