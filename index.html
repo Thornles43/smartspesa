@@ -843,6 +843,52 @@
         });
 
 
+        let officialCatalogProductsCache = null;
+        let officialCatalogProductsLoadedAt = 0;
+        let officialCatalogProductsLoadPromise = null;
+
+        async function loadOfficialCatalogProducts() {
+            // JSON aggiornato da GitHub Actions; la sorgente del dato resta il sito ufficiale dell'insegna.
+            if (officialCatalogProductsCache && Date.now() - officialCatalogProductsLoadedAt < 5 * 60 * 1000) {
+                return officialCatalogProductsCache;
+            }
+            if (officialCatalogProductsLoadPromise) return officialCatalogProductsLoadPromise;
+            officialCatalogProductsLoadPromise = (async () => {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 4500);
+                try {
+                    const response = await fetch('https://raw.githubusercontent.com/Thornles43/smartspesa/main/data/official-catalogs.json', {
+                        headers: { Accept: 'application/json' },
+                        cache: 'no-store',
+                        signal: controller.signal
+                    });
+                    if (!response.ok) throw new Error('Cataloghi ufficiali HTTP ' + response.status);
+                    const payload = await response.json();
+                    const products = Array.isArray(payload.products) ? payload.products : [];
+                    const cutoff = Date.now() - 36 * 60 * 60 * 1000;
+                    officialCatalogProductsCache = products.filter(item => {
+                        const retrieved = Date.parse(item.retrievedAt || '');
+                        return item.sourceVerified === true &&
+                            String(item.productName || '').trim() &&
+                            String(item.supermarket || '').trim() &&
+                            /^https:\/\//i.test(String(item.sourceUrl || '')) &&
+                            Number.isFinite(Number(item.price)) && Number(item.price) >= 0 &&
+                            Number.isFinite(retrieved) && retrieved >= cutoff &&
+                            (!item.validUntil || String(item.validUntil) >= getLocalDateISO());
+                    });
+                    officialCatalogProductsLoadedAt = Date.now();
+                    return officialCatalogProductsCache;
+                } catch (error) {
+                    console.warn('Cataloghi ufficiali sincronizzati non disponibili:', error);
+                    return officialCatalogProductsCache || [];
+                } finally {
+                    clearTimeout(timeout);
+                    officialCatalogProductsLoadPromise = null;
+                }
+            })();
+            return officialCatalogProductsLoadPromise;
+        }
+
         let liveFlyerOffers = [];
 
         const VERIFIED_SUPERMARKET_DOMAINS = [
@@ -2240,6 +2286,43 @@
                 if (!current.barcode && item.barcode) current.barcode = item.barcode;
             });
 
+            // Cataloghi di supermercato acquisiti esclusivamente da pagine ufficiali verificate.
+            // Le voci senza scadenza esplicita sono mostrate come catalogo, non come prezzo sicuramente attuale.
+            const officialCatalogProducts = await loadOfficialCatalogProducts();
+            for (const product of officialCatalogProducts) {
+                if (!marketMatchesSelected(product.supermarket, selectedMarket)) continue;
+                const name = String(product.productName || '').trim();
+                const brand = String(product.brand || '').trim();
+                const quantity = String(product.quantity || '').trim();
+                const score = productSearchScore(term, [name, brand, quantity].filter(Boolean).join(' '));
+                if (!name || score < 0.5) continue;
+                const marketKey = normalizeProductName(product.supermarket);
+                const key = 'officialcatalog::' + normalizeProductName(name) + '::' + marketKey;
+                matches.set(key, {
+                    productName: name,
+                    barcode: '',
+                    price: Number(product.price),
+                    supermarket: product.supermarket,
+                    priceSource: product.priceStatus === 'official_promotion_with_expiry' ? 'official_promotion' : 'official_catalog',
+                    sourceUrl: product.sourceUrl,
+                    dataProviderUrl: '',
+                    officialSourceUrl: product.sourceUrl,
+                    timestamp: product.retrievedAt || '',
+                    brand,
+                    quantity,
+                    catalogSource: product.catalogSource || 'Catalogo ufficiale supermercato',
+                    offerValidUntil: product.validUntil || '',
+                    offerConditions: '',
+                    unitPrice: null,
+                    unitPricePer: '',
+                    isOfficialCatalogPrice: true,
+                    officialPriceValidityUnconfirmed: product.priceStatus === 'official_catalog_validity_unconfirmed',
+                    isFlyerOffer: false,
+                    score,
+                    priceCount: 1
+                });
+            }
+
             // Aggiunge offerte attuali soltanto se la fonte del volantino e il collegamento ufficiale
             // sono coerenti con l'insegna. Non importa in blocco i cataloghi e non presume disponibilità in negozio.
             let flyerLookupFailed = false;
@@ -2333,14 +2416,20 @@
                       (item.offerConditions ? ' · ' + escapeHtml(item.offerConditions) : '') +
                       (item.unitPrice !== null && Number.isFinite(Number(item.unitPrice)) && item.unitPricePer ? ' · ' + Number(item.unitPrice).toLocaleString('it-IT', { style: 'currency', currency: 'EUR' }) + ' / ' + escapeHtml(item.unitPricePer) : '')
                     : '';
+                const officialCatalogPriceText = item.isOfficialCatalogPrice
+                    ? (item.officialPriceValidityUnconfirmed
+                        ? ' · prezzo indicato dal catalogo ufficiale; validità non specificata'
+                        : (item.offerValidUntil ? ' · prezzo/offerta valido fino al ' + escapeHtml(item.offerValidUntil) : ' · prezzo pubblicato dalla fonte ufficiale'))
+                    : '';
                 const priceText = item.price !== null
-                    ? (item.isFlyerOffer ? 'Offerta da volantino: €' : 'Ultimo prezzo registrato: €') +
+                    ? (item.isFlyerOffer ? 'Offerta da volantino: €' : item.isOfficialCatalogPrice ? 'Prezzo da catalogo ufficiale: €' : 'Ultimo prezzo registrato: €') +
                       item.price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) +
                       (item.supermarket ? ' · ' + escapeHtml(item.supermarket) : '') +
-                      (item.isFlyerOffer ? flyerExpiryText : priceDateText) + sourceLinkHtml + providerLinkHtml +
+                      (item.isFlyerOffer ? flyerExpiryText : item.isOfficialCatalogPrice ? officialCatalogPriceText + priceDateText : priceDateText) + sourceLinkHtml + providerLinkHtml +
                       (item.priceCount > 1 ? ' · ' + item.priceCount + ' rilevazioni' : '')
                     : 'Prezzo non ancora registrato';
-                const safePrice = item.price === null ? 'null' : String(item.price);
+                // I prezzi Sole365 senza validità esplicita non vengono salvati come prezzo verificato nella lista.
+                const safePrice = item.price === null || item.officialPriceValidityUnconfirmed ? 'null' : String(item.price);
                 const safeSupermarket = JSON.stringify(item.supermarket || '').replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
                 const safePriceSource = JSON.stringify(item.priceSource || 'community').replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
                 const safeSourceUrl = JSON.stringify(item.sourceUrl || '').replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
@@ -2350,7 +2439,7 @@
                     ? '<button type="button" class="shopping-secondary mt-2" onclick=\'openPriceEntryForProduct(' + safeName + ', ' + safeBarcode + ')\'><i class="fa-solid fa-tag mr-1"></i>Registra un prezzo</button>'
                     : '';
                 const productDetails = [item.brand, item.quantity, item.catalogSource].filter(Boolean).join(' · ');
-                html += '<div data-ai-product-id="' + resultIndex + '" class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center gap-3"><div class="w-10 h-10 shrink-0 rounded-xl bg-emerald-50 flex items-center justify-center"><i class="fa-solid fa-box text-emerald-700"></i></div><div class="min-w-0 flex-1">' + (item.isFlyerOffer ? '<span class="inline-block text-[10px] font-semibold uppercase tracking-wide text-emerald-800 bg-emerald-50 rounded px-2 py-1 mb-1">Offerta da volantino</span>' : '') + '<p class="font-semibold text-gray-900 break-words">' + escapeHtml(item.productName) + '</p>' + (productDetails ? '<p class="text-xs text-gray-500 mt-1">' + escapeHtml(productDetails) + '</p>' : '') + '<p class="text-xs text-gray-500">' + priceText + '</p>' + registerButton + '</div><button type="button" class="shopping-action shrink-0" onclick=\'addShoppingItem(' + safeName + ', ' + safeBarcode + ', ' + safePrice + ', ' + safeSupermarket + ', ' + safePriceSource + ', ' + safeSourceUrl + ', ' + safeTimestamp + ')\'><i class="fa-solid fa-plus mr-1"></i>Aggiungi</button></div>';
+                html += '<div data-ai-product-id="' + resultIndex + '" class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center gap-3"><div class="w-10 h-10 shrink-0 rounded-xl bg-emerald-50 flex items-center justify-center"><i class="fa-solid fa-box text-emerald-700"></i></div><div class="min-w-0 flex-1">' + (item.isFlyerOffer ? '<span class="inline-block text-[10px] font-semibold uppercase tracking-wide text-emerald-800 bg-emerald-50 rounded px-2 py-1 mb-1">Offerta da volantino</span>' : item.isOfficialCatalogPrice ? '<span class="inline-block text-[10px] font-semibold uppercase tracking-wide text-blue-800 bg-blue-50 rounded px-2 py-1 mb-1">Catalogo ufficiale</span>' : '') + '<p class="font-semibold text-gray-900 break-words">' + escapeHtml(item.productName) + '</p>' + (productDetails ? '<p class="text-xs text-gray-500 mt-1">' + escapeHtml(productDetails) + '</p>' : '') + '<p class="text-xs text-gray-500">' + priceText + '</p>' + registerButton + '</div><button type="button" class="shopping-action shrink-0" onclick=\'addShoppingItem(' + safeName + ', ' + safeBarcode + ', ' + safePrice + ', ' + safeSupermarket + ', ' + safePriceSource + ', ' + safeSourceUrl + ', ' + safeTimestamp + ')\'><i class="fa-solid fa-plus mr-1"></i>Aggiungi</button></div>';
             });
             html += '</div>';
             // La ricerca del catalogo non deve spacciare una voce libera per un prodotto venduto da un supermercato.
@@ -2406,11 +2495,11 @@
             ).join('');
             const noCatalogResults = results.length === 0;
             const catalogEmptyState = noCatalogResults
-                ? '<p class="text-sm text-gray-600 text-center py-4">Nessun prodotto di supermercato trovato nei dati SmartSpesa per questa ricerca. Consulta il catalogo ufficiale dell’insegna qui sotto oppure importa un volantino/scontrino verificato.</p>'
+                ? '<p class="text-sm text-gray-600 text-center py-4">Nessun prodotto di supermercato trovato nei dati SmartSpesa o nei cataloghi ufficiali sincronizzati per questa ricerca. Consulta anche il sito ufficiale dell’insegna qui sotto oppure importa uno scontrino/volantino verificato.</p>'
                 : html;
             container.innerHTML = catalogEmptyState +
                 '<details class="bg-white border border-emerald-100 rounded-2xl p-4 mt-4"><summary class="font-semibold text-gray-800 cursor-pointer">Consulta i cataloghi ufficiali dei supermercati</summary>' +
-                '<p class="text-xs text-gray-500 mt-2 mb-3">I risultati interni provengono solo da prodotti già associati a un supermercato nei dati SmartSpesa. Se non trovi il prodotto, apri il catalogo ufficiale o cerca il termine nel dominio dell’insegna. I risultati esterni non vengono importati automaticamente e non dimostrano la disponibilità nel tuo punto vendita.</p>' +
+                '<p class="text-xs text-gray-500 mt-2 mb-3">I risultati interni provengono da prodotti associati a un supermercato nei dati SmartSpesa, cataloghi ufficiali sincronizzati e offerte con fonte verificata. Un prezzo senza scadenza esplicita è segnalato come tale e non viene salvato come prezzo verificato. I risultati esterni non vengono importati automaticamente e non dimostrano la disponibilità nel tuo punto vendita.</p>' +
                 '<div class="space-y-3 mt-3">' + officialSearchHtml + '</div></details>';
         };
 
