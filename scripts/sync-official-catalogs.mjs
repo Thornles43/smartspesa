@@ -306,6 +306,7 @@ if (eurospinFixtureProducts.length !== 1 || eurospinFixtureProducts[0].price !==
 function parseProducts(source, html) {
   if (source.mode === "jsonld") return parseJsonLdProducts(source, html);
   if (source.mode === "conad") return parseConadProducts(source, html);
+  if (source.mode === "eurospin") return parseEurospinProducts(source, html);
   const allowedTags = source.id === "sole365" ? ["h2"] : ["h4"];
   const headings = extractHeadings(html, allowedTags);
   const products = [];
