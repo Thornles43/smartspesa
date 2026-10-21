@@ -19,7 +19,29 @@ Il sito SmartSpesa è pubblicato su GitHub Pages, che non esegue codice server. 
 Il Worker limita le richieste al formato di query usato dalla ricerca vicina e accetta CORS dal dominio GitHub Pages. Le istanze Overpass pubbliche possono comunque applicare limiti o non essere disponibili. Non sono richieste chiavi API, ma il proxy non deve essere considerato un servizio con garanzia di disponibilità.
 
 
-## Assistente AI per ricerca prodotti e scontrini
+## Percorso consigliato: AI senza costi iniziali con Firebase AI Logic
+
+Il frontend può usare Gemini tramite Firebase AI Logic, senza una chiave API OpenAI e senza distribuire un Cloudflare Worker. Il codice usa il modello `gemini-3.5-flash-lite`, disponibile nel livello senza costi aggiuntivi della Gemini Developer API secondo la documentazione ufficiale; restano applicabili quote e limiti del piano gratuito.
+
+Per attivarlo:
+1. Apri la [console Firebase del progetto SmartSpesa](https://console.firebase.google.com/project/smartspesa-f9718).
+2. Vai in **AI Services > AI Logic**, seleziona **Get started** e scegli **Gemini Developer API** (non Agent Platform/Vertex AI, che richiede il piano Blaze).
+3. Completa la configurazione guidata e abilita Firebase AI Logic.
+4. Configura **App Check** per l'app Web con il provider **reCAPTCHA v3** e il dominio `thornles43.github.io`. Copia la site key pubblica generata/configurata.
+5. In `index.html`, sostituisci il valore vuoto di `window.SMARTSPESA_RECAPTCHA_SITE_KEY = "";` con quella site key pubblica. La site key reCAPTCHA non è una password; non inserire segreti o chiavi private nel repository.
+6. Pubblica la modifica su `main` e prova la lettura di uno scontrino e la ricerca assistita.
+
+**Importante:** il codice non attiva l'AI finché non è impostata la site key App Check. L'OCR locale continua a funzionare nel frattempo. L'AI corregge il testo OCR ricevuto, non analizza la foto originale; le righe restano bozze da controllare prima di salvarle. Il testo OCR dello scontrino viene inviato al modello Gemini quando la funzione è attiva. Verifica le informative e le impostazioni del servizio prima di usare dati personali.
+
+Riferimenti ufficiali:
+- [Configurare Firebase AI Logic per il Web](https://firebase.google.com/docs/ai-logic/get-started?platform=web)
+- [Prezzi di Firebase AI Logic](https://firebase.google.com/docs/ai-logic/pricing)
+- [FAQ e App Check](https://firebase.google.com/docs/ai-logic/faq-and-troubleshooting)
+
+---
+
+## Percorso alternativo: Worker OpenAI
+
 
 Il file `product-search-ai.js` gestisce sia il riordino semantico dei prodotti sia la correzione/estrazione delle righe dal testo OCR degli scontrini. GitHub Pages non esegue codice server: il Worker va pubblicato separatamente e le chiavi segrete non devono essere inserite in `index.html` o nel repository.
 
