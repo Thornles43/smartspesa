@@ -306,7 +306,44 @@
         <div class="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 mb-5">
             <label for="shoppingSearch" class="block text-sm font-semibold text-gray-700 mb-2">Cerca un prodotto</label>
             <div class="relative"><i class="fa-solid fa-magnifying-glass absolute left-4 top-4 text-gray-400"></i><input id="shoppingSearch" type="search" autocomplete="off" placeholder="Es. latte, pasta, mele..." class="w-full pl-11 pr-4 py-3 outline-none" oninput="searchShoppingProducts(this.value)"></div>
-            <p class="text-xs text-gray-500 mt-2">Mostriamo solo prodotti già registrati con un supermercato su SmartSpesa. Per cercare articoli non ancora registrati, apri il catalogo o il sito ufficiale dell’insegna.</p>
+            <label for="shoppingMarketFilter" class="block text-sm font-medium text-gray-700 mt-3 mb-1">Filtra per supermercato</label>
+            <select id="shoppingMarketFilter" class="w-full px-3 py-3 border border-gray-200 rounded-xl bg-white text-sm" onchange="searchShoppingProducts(document.getElementById('shoppingSearch').value)">
+                <option value="">Tutti i supermercati registrati</option>
+                <option value="Sole 365">Sole 365</option>
+                <option value="Iper Rossetto">Iper Rossetto / Rossetto</option>
+                <option value="Iperlando">Iperlando / Lando</option>
+                <option value="Conad">Conad</option>
+                <option value="Coop">Coop</option>
+                <option value="Esselunga">Esselunga</option>
+                <option value="Carrefour">Carrefour</option>
+                <option value="Lidl">Lidl</option>
+                <option value="Aldi">Aldi</option>
+                <option value="Eurospin">Eurospin</option>
+                <option value="MD">MD</option>
+                <option value="Penny">Penny</option>
+                <option value="Despar">Despar / Eurospar / Interspar</option>
+                <option value="Famila">Famila</option>
+                <option value="Pam">Pam / Panorama</option>
+                <option value="Bennet">Bennet</option>
+                <option value="Tosano">Tosano</option>
+                <option value="Iper La grande i">Iper La grande i</option>
+                <option value="Iperal">Iperal</option>
+                <option value="Migross">Migross</option>
+                <option value="Prix Quality">Prix Quality</option>
+                <option value="Alì Supermercati">Alì Supermercati</option>
+                <option value="Crai">Crai</option>
+                <option value="Decò">Decò</option>
+                <option value="Dok">Dok</option>
+                <option value="Eté">Eté</option>
+                <option value="Tigros">Tigros</option>
+                <option value="Italmark">Italmark</option>
+                <option value="NaturaSì">NaturaSì</option>
+                <option value="Maxi Di">Maxi Di</option>
+                <option value="Sogegross">Sogegross</option>
+                <option value="SuperConveniente">SuperConveniente</option>
+                <option value="Gruppo Arena">Gruppo Arena / Tigre</option>
+            </select>
+            <p class="text-xs text-gray-500 mt-2">I risultati interni mostrano solo prodotti associati a un'insegna nei prezzi registrati su SmartSpesa. Il filtro non inventa prodotti mancanti: i cataloghi ufficiali non ancora integrati vanno verificati tramite il collegamento dell'insegna.</p>
         </div>
         <div id="shoppingSearchResults" class="space-y-3 mb-6"><p class="text-sm text-gray-400 text-center py-4">Scrivi il nome di un prodotto per iniziare.</p></div>
         <div class="bg-white border border-gray-100 rounded-2xl p-4 mb-4">
@@ -1776,6 +1813,29 @@
             return matched / queryTokens.length;
         }
 
+        function marketMatchesSelected(supermarketName, selectedMarket) {
+            if (!selectedMarket) return true;
+            const store = normalizeProductName(supermarketName).replace(/\\s+/g, '');
+            const selected = normalizeProductName(selectedMarket).replace(/\\s+/g, '');
+            const aliases = {
+                'sol e365': ['sole365', 'sole365', 'sole'],
+                'iper rossetto': ['iperrossetto', 'iperalimentarerossetto', 'superrossetto', 'rossetto'],
+                'iperlando': ['iperlando', 'lando'],
+                'conad': ['conad'],
+                'coop': ['coop', 'ipercoop', 'nova coop', 'unicoopfirenze'],
+                'despar': ['despar', 'eurospar', 'interspar'],
+                'pam': ['pam', 'panorama'],
+                'iperlagrandei': ['iperlagrandei', 'iper'],
+                'alì supermercati': ['alisupermercati', 'alìsupermercati', 'aliper'],
+                'gruppo arena': ['gruppoarena', 'tigre', 'supermercatipan'],
+                'decò': ['deco', 'decò'],
+                'dok': ['dok'],
+                'eté': ['ete', 'eté']
+            };
+            const candidates = aliases[selectedMarket] || aliases[selected] || [selected];
+            return candidates.some(alias => store.includes(normalizeProductName(alias).replace(/\\s+/g, '')));
+        }
+
         window.openPriceEntryForProduct = async (productName, barcode = '') => {
             if (!currentUser) {
                 alert('Accedi con Google prima di inserire un prezzo.');
@@ -1806,14 +1866,17 @@
                 return;
             }
 
+            const selectedMarket = document.getElementById('shoppingMarketFilter')?.value || '';
             const matches = new Map();
             allKnownPrices.forEach(item => {
                 const name = String(item.productName || '').trim();
                 const supermarketName = String(item.supermarket || '').trim();
-                if (!name || !supermarketName) return;
+                if (!name || !supermarketName || !marketMatchesSelected(supermarketName, selectedMarket)) return;
                 const score = productSearchScore(term, name);
                 if (score < 0.5) return;
-                const key = normalizeProductName(name);
+                // Mantiene separati i prezzi dello stesso prodotto tra insegne diverse.
+                const productIdentity = String(item.barcode || '').trim() || normalizeProductName(name);
+                const key = productIdentity + '::' + normalizeProductName(supermarketName);
                 const rawPrice = item.price;
                 const price = rawPrice !== null && rawPrice !== undefined && rawPrice !== '' ? Number(rawPrice) : null;
                 const hasPrice = price !== null && Number.isFinite(price) && price >= 0;
@@ -1874,8 +1937,8 @@
                 html += '<div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex items-center gap-3"><div class="min-w-0 flex-1"><p class="font-semibold text-emerald-950">Aggiungi “' + escapeHtml(String(rawTerm || '').trim()) + '”</p><p class="text-xs text-emerald-800">Voce personalizzata nella tua lista, senza prezzo associato</p></div><button type="button" class="shopping-action shrink-0" onclick=\'addShoppingItem(' + safeTerm + ', "")\'><i class="fa-solid fa-plus mr-1"></i>Aggiungi</button></div>';
             }
             const retailerSearches = [
-                { name: 'Sole 365', query: 'site:catalogo.sole365.it OR site:cosicomodo.it/sole365' },
-                { name: 'Iper Rossetto / Rossetto', query: 'site:rossettogroup.it' },
+                { name: 'Sole 365', query: 'site:catalogo.sole365.it OR site:sole365.cosicomodo.it OR site:sole365.it' },
+                { name: 'Iper Rossetto / Rossetto', query: 'site:rossettogroup.it/prezzi-rossetto OR site:rossettogroup.it' },
                 { name: 'Iperlando', query: 'site:iperlando.it' },
                 { name: 'Iper La grande i', query: 'site:iper.it' },
                 { name: 'Conad', query: 'site:conad.it' },
