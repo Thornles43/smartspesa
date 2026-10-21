@@ -22,7 +22,7 @@
 | Lidl | https://www.lidl.it/c/c1074 | Prodotti/offerte pubblicate sul sito | Promozioni con intervalli temporali e disponibilità variabile. |
 | ALDI | https://www.aldi.it/prodotti | Catalogo ufficiale per categorie, con formati e prezzi per alcuni articoli | Alcuni articoli sono indicati come disponibili da una data specifica; verificare periodo e negozio. |
 | Eurospin | https://www.eurospin.it/ribassati/ | Prodotti ribassati con prezzo, formato e validità dichiarata | Sezione promozionale, non catalogo completo. Le date della promozione sono essenziali. |
-| MD | https://www.mdspa.it/ | Sito ufficiale, marchi e volantini | Non è stato verificato un catalogo pubblico completo di tutti i prodotti e prezzi. Volantini e prodotti a marchio non dimostrano la disponibilità dell'intero assortimento. |
+| MD | https://www.mdspa.it/punti-vendita/ | Ricerca punto vendita e volantini ufficiali associati alla zona | Richiede la selezione della località/negozio; i volantini sono promozionali e non rappresentano il catalogo completo. Verificare sempre il periodo di validità e le condizioni della promozione. |
 | Iper La grande i | https://volantini.iper.it/ | Volantini ufficiali selezionabili per città/punto vendita, con date | È una fonte promozionale; non va trattata come catalogo completo. Da non confondere con Iper Rossetto. |
 
 
