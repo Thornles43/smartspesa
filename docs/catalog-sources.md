@@ -33,6 +33,10 @@
 | Despar | https://www.despar.it/it/sbudget/ | Prodotti della linea S-Budget e collegamenti ai volantini locali | La pagina non rappresenta tutto l'assortimento Despar; i volantini hanno validità e copertura territoriale. |
 | NaturaSì | https://www.naturasi.it/ | E-commerce e catalogo navigabile per categorie | Verificare zona di consegna e disponibilità; i prodotti online non provano la disponibilità nel singolo negozio fisico. |
 | Migross | https://www.migross.it/ | Promozioni, volantini e accesso ai servizi online | La pagina mostra selezione del punto vendita; le promozioni hanno intervalli temporali e copertura specifica. |
+| Decò / Gruppo Arena | https://decoacasa.gruppoarena.it/ | Catalogo di spesa online con prodotti e prezzi per negozio/zona | La selezione del negozio è necessaria; non generalizzare i prezzi ad altri punti vendita. |
+| SuperConveniente / Gruppo Arena | https://superconveniente.gruppoarena.it/volantini/ | Volantini ufficiali selezionabili per punto vendita | Fonte promozionale locale, non catalogo completo. |
+| Prix Quality | https://www.prixquality.com/app/ | App ufficiale con offerte e volantini digitali | Alcune offerte possono essere riservate a iscritti/carta fedeltà; verificare validità e condizioni. |
+| Tigros / Primia | https://www.tigros.it/page/catalogo-primia | Catalogo ufficiale della linea Primia | Copre la linea Primia, non l'intero assortimento Tigros. |
 | Bennet | https://www.bennet.com/ | Catalogo di spesa online con prodotti, formati, prezzi e indicazioni di disponibilità | La disponibilità può essere specifica del punto vendita e l'accesso può dipendere dalla selezione del negozio. |
 
 ## Stato nell'app
