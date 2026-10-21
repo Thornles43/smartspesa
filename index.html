@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>SmartSpesa</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -351,7 +351,7 @@
         <div class="flex items-center gap-3 mb-5"><button onclick="showScreen('screen-dashboard')" class="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100" aria-label="Torna alla home"><i class="fa-solid fa-arrow-left"></i></button><div><h2 class="text-xl font-bold">Carica uno scontrino</h2><p class="text-sm text-gray-500">Foto o PDF, riconoscimento testo e controllo dei prezzi.</p></div></div>
         <div class="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 mb-4"><p class="font-semibold text-emerald-950 mb-1"><i class="fa-solid fa-shield-halved mr-2"></i>Privacy e verifica</p><p class="text-sm text-emerald-900">Il file viene elaborato nel browser. Non archiviamo la foto né il testo OCR completo: vengono salvati soltanto i prodotti e i prezzi che confermi. Controlla i dati prima di salvarli nel catalogo condiviso.</p></div>
         <section class="bg-white border border-gray-200 rounded-2xl p-4 mb-4">
-            <label class="block text-sm font-semibold mb-1" for="receiptFile">Foto o PDF dello scontrino</label><input id="receiptFile" type="file" accept=".pdf,image/*" capture="environment" class="w-full text-sm border border-gray-300 rounded-xl p-3" onchange="processReceiptFile(this.files && this.files[0])">
+            <label class="block text-sm font-semibold mb-1" for="receiptFile">Foto o PDF dello scontrino</label><input id="receiptFile" type="file" accept=".pdf,application/pdf,image/*" class="w-full text-sm border border-gray-300 rounded-xl p-3" onchange="processReceiptFile(this.files && this.files[0])">
             <p id="receiptProcessingStatus" class="text-sm text-gray-600 mt-2" role="status" aria-live="polite">Scatta una foto o seleziona un'immagine o un PDF.</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
                 <div><label for="receiptSupermarket" class="block text-sm font-medium mb-1">Supermercato / negozio</label><input id="receiptSupermarket" type="text" maxlength="80" class="w-full border border-gray-300 rounded-xl p-3" placeholder="Es. Coop, Lidl, Conad"></div>
