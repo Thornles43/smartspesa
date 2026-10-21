@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>SmartSpesa</title>
+    <meta name="description" content="SmartSpesa ti aiuta a confrontare i prezzi, organizzare la lista della spesa e trovare offerte e supermercati vicini.">
+    <meta name="theme-color" content="#087f5b">
+    <title>SmartSpesa 2.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
@@ -46,7 +48,11 @@
         #priceForm input, #priceForm select { min-height: 46px; border-color: #d9e2dc; border-radius: 12px; background-color: #fff; color: #17211d; }
         #priceForm input:focus, #priceForm select:focus { --tw-ring-color: #087f5b; border-color: #087f5b; }
         #priceForm button[type="submit"] { min-height: 50px; background: var(--ss-green) !important; border-radius: 14px !important; }
-        #bottomNav { padding-bottom: max(12px, env(safe-area-inset-bottom)); background: #ffffffed !important; backdrop-filter: blur(16px); border-color: var(--ss-line) !important; box-shadow: 0 -5px 24px #17211d08; }
+        #bottomNav { padding-bottom: max(12px, env(safe-area-inset-bottom)); background: #ffffffed !important; backdrop-filter: blur(16px); border-color: var(--ss-line) !important; box-shadow: 0 -5px 24px #17211d08; gap: 2px; }
+        #bottomNav .nav-item { flex: 1 1 0; min-width: 0; min-height: 44px; justify-content: center; }
+        #bottomNav .nav-item span { white-space: nowrap; font-size: 10px; }
+        button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid #0f766e; outline-offset: 2px; }
+        @media (max-width: 370px) { #bottomNav { padding-left: 6px; padding-right: 6px; } #bottomNav .nav-item span { font-size: 9px; } #bottomNav .nav-item i { font-size: 1.1rem; } }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         .google-btn { background: white; border: 1px solid #dadce0; color: #3c4043; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 10px; transition: background 0.2s; }
         .google-btn:hover { background: #f8f9fa; border-color: #d2e3fc; }
@@ -94,7 +100,7 @@
         <div class="flex items-center justify-between mb-6">
             <div>
                 <h2 class="text-2xl font-bold text-gray-900">Ciao, <span id="userNameDisplay">Utente</span>! 👋</h2>
-                <p class="text-sm text-gray-500">Pronto a risparmiare oggi?</p>
+                <p class="text-sm text-gray-500">Pronto a risparmiare oggi?</p><span class="inline-flex items-center mt-2 rounded-full bg-emerald-50 border border-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">SMARTSPESA 2.0</span>
             </div>
             <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
                 <i class="fa-solid fa-user text-green-600"></i>
@@ -442,6 +448,7 @@
         let shoppingItems = [];
         let shoppingListLoading = false;
         let shoppingSearchRequestId = 0;
+        let priceSaving = false;
         const shoppingThemes = {
             green: { primary: '#087f5b', soft: '#e5f5ed', ink: '#07543e', line: '#c8e8d7' },
             blue: { primary: '#2563eb', soft: '#eaf2ff', ink: '#1e40af', line: '#cbdcff' },
@@ -900,7 +907,7 @@
                 try {
                     status.textContent = "Posizione ottenuta. Cerco supermercati entro " + (radius / 1000) + " km…";
                     const query = '[out:json][timeout:25];(nwr["shop"~"supermarket|convenience|grocery|greengrocer"](around:' + radius + ',' + lat + ',' + lon + ');nwr["amenity"="supermarket"](around:' + radius + ',' + lat + ',' + lon + '););out center tags;';
-                    status.textContent = "Posizione ottenuta. Cerco i supermercati…";
+                    status.textContent = "Posizione ottenuta. Cerco i punti vendita entro " + (radius / 1000) + " km…";
                     let response = null;
                     const endpoints = [
                         ...(window.SMARTSPESA_OVERPASS_PROXY_URL ? [String(window.SMARTSPESA_OVERPASS_PROXY_URL).replace(/\/$/, "")] : []),
@@ -1583,7 +1590,7 @@
             if (!supermarket) { status.textContent = "Inserisci il supermercato o negozio."; return; }
             if (totalText && (!Number.isFinite(total) || total < 0 || total > 100000)) { status.textContent = "Controlla il totale dello scontrino."; return; }
             if (!receiptParsedRows.length) { status.textContent = "Aggiungi o estrai almeno un prodotto."; return; }
-            const rows = receiptParsedRows.map(row => ({ productName: String(row.productName || "").trim(), price: Number(String(row.price || "").replace(",", ".")), barcode: String(row.barcode || "").replace(/\D/g, "").slice(0, 14) })).filter(row => row.productName && Number.isFinite(row.price) && row.price >= 0 && row.price < 100000);
+            const rows = receiptParsedRows.map(row => ({ productName: String(row.productName || "").trim(), price: parseItalianMoney(row.price), barcode: String(row.barcode || "").replace(/\D/g, "").slice(0, 14) })).filter(row => row.productName && Number.isFinite(row.price) && row.price >= 0 && row.price < 100000);
             if (!rows.length) { status.textContent = "Nessuna riga valida. Controlla nomi e prezzi."; return; }
             if (rows.length !== receiptParsedRows.length && !confirm("Alcune righe non sono valide. Salvare solo le " + rows.length + " righe corrette?")) return;
             if (!confirm("Salvare " + rows.length + " prezzi nel catalogo condiviso? La foto e il testo OCR completo non verranno archiviati.")) return;
@@ -1831,7 +1838,14 @@
             if (term.length >= 2) {
                 try {
                     const url = 'https://world.openfoodfacts.org/cgi/search.pl?search_terms=' + encodeURIComponent(String(rawTerm || '').trim()) + '&search_simple=1&action=process&json=1&page_size=10&fields=code,product_name,product_name_it,brands';
-                    const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                    const catalogController = new AbortController();
+                    const catalogTimeout = setTimeout(() => catalogController.abort(), 4500);
+                    let response;
+                    try {
+                        response = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: catalogController.signal });
+                    } finally {
+                        clearTimeout(catalogTimeout);
+                    }
                     if (response.ok) {
                         const data = await response.json();
                         (data.products || []).forEach(product => {
@@ -2060,9 +2074,29 @@
 
         window.savePrice = async (e) => {
             e.preventDefault();
+            if (priceSaving) return;
             if (!currentUser) return alert("Devi effettuare il login!");
+            const barcode = document.getElementById("barcode").value.trim();
+            const productName = document.getElementById("productName").value.trim();
+            const supermarket = document.getElementById("supermarket").value;
             const selectedSource = document.getElementById("priceSource").value;
             const enteredSourceUrl = document.getElementById("sourceUrl").value.trim();
+
+            if (!isValidEan13(barcode)) {
+                alert("Il codice a barre deve essere un EAN-13 valido, con cifra di controllo corretta.");
+                document.getElementById("barcode").focus();
+                return;
+            }
+            if (!productName) {
+                alert("Inserisci il nome del prodotto.");
+                document.getElementById("productName").focus();
+                return;
+            }
+            if (!supermarket) {
+                alert("Seleziona il supermercato.");
+                document.getElementById("supermarket").focus();
+                return;
+            }
             if (selectedSource === "official") {
                 let parsedUrl;
                 try { parsedUrl = new URL(enteredSourceUrl); } catch (_) {}
@@ -2076,18 +2110,21 @@
             }
 
             const enteredPrice = Number(document.getElementById("price").value);
-            if (!Number.isFinite(enteredPrice) || enteredPrice < 0) {
+            if (!Number.isFinite(enteredPrice) || enteredPrice < 0 || enteredPrice > 100000) {
                 alert("Inserisci un prezzo valido, pari o superiore a zero.");
+                document.getElementById("price").focus();
                 return;
             }
+            if (!currentUser.email) {
+                alert("L'account non contiene un indirizzo email verificabile per registrare il prezzo.");
+                return;
+            }
+
             const priceData = {
-                barcode: document.getElementById('barcode').value,
-                productName: document.getElementById('productName').value,
-                price: enteredPrice,
-                supermarket: document.getElementById('supermarket').value,
-                origin: document.getElementById('origin').value,
-                priceSource: document.getElementById('priceSource').value,
-                sourceUrl: document.getElementById('sourceUrl').value.trim(),
+                barcode, productName, price: enteredPrice, supermarket,
+                origin: document.getElementById("origin").value,
+                priceSource: selectedSource,
+                sourceUrl: selectedSource === "official" ? enteredSourceUrl : "",
                 brand: scannedProductMetadata?.brand || "",
                 category: scannedProductMetadata?.category || "",
                 ingredients: scannedProductMetadata?.ingredients || "",
@@ -2109,11 +2146,16 @@
                 timestamp: new Date().toISOString()
             };
 
+            const form = document.getElementById("priceForm");
+            const submitButton = form.querySelector('button[type="submit"]');
+            const originalButtonText = submitButton ? submitButton.textContent : "";
+            priceSaving = true;
+            if (submitButton) { submitButton.disabled = true; submitButton.textContent = "Salvataggio…"; }
             try {
                 await addDoc(collection(db, "prices"), priceData);
                 await loadPrices();
                 alert("Prezzo salvato con successo. Grazie per il contributo.");
-                document.getElementById('priceForm').reset();
+                form.reset();
                 toggleSourceUrl();
                 document.getElementById('barcodeLookupStatus').classList.add('hidden');
                 document.getElementById('barcodeLookupStatus').textContent = '';
@@ -2122,7 +2164,11 @@
                 document.getElementById("scannerStatus").textContent = "Scanner pronto.";
                 showScreen('screen-dashboard');
             } catch (error) {
-                alert("Errore nel salvataggio: " + error.message);
+                console.error("Errore salvataggio prezzo:", error);
+                alert("Non riesco a salvare il prezzo. " + (error.code || "Controlla la connessione e riprova."));
+            } finally {
+                priceSaving = false;
+                if (submitButton) { submitButton.disabled = false; submitButton.textContent = originalButtonText; }
             }
         };
 
@@ -2174,6 +2220,7 @@
         window.loadMorePrices = async () => {
             if (pricePageLoading || !priceHasMore || !pricePageCursor) return;
             pricePageLoading = true;
+            const generation = priceLoadGeneration;
             const button = document.getElementById('loadMorePricesButton');
             const status = document.getElementById('pricePaginationStatus');
             if (button) { button.disabled = true; button.textContent = 'Caricamento…'; }
@@ -2181,6 +2228,7 @@
             try {
                 const q = query(collection(db, "prices"), orderBy("timestamp", "desc"), startAfter(pricePageCursor), limit(PRICE_PAGE_SIZE));
                 const snapshot = await getDocs(q);
+                if (generation !== priceLoadGeneration) return;
                 const page = snapshot.docs.map(item => item.data());
                 allKnownPrices = allKnownPrices.concat(page);
                 if (snapshot.docs.length) pricePageCursor = snapshot.docs[snapshot.docs.length - 1];
