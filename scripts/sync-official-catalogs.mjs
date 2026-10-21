@@ -237,7 +237,8 @@ function parseEurospinProducts(source, html) {
     const name = heading.title.trim();
     const normalizedName = normalize(name);
     if (name.length < 3 || name.length > 180 ||
-        /^(ribassati|scopri tutti i prodotti ribassati di eurospin|offerte valide dal|home|vedi prodotto)$/i.test(normalizedName)) continue;
+        /^(ribassati|scopri tutti i prodotti ribassati di eurospin|home|vedi prodotto)$/i.test(normalizedName) ||
+        normalizedName.startsWith("offerte valide dal ")) continue;
     const segment = html.slice(heading.end, headings[i + 1]?.start ?? (heading.end + 2400))
       .replace(/<(del|s)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, " ");
     const text = htmlText(segment);
