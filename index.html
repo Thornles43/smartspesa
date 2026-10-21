@@ -846,6 +846,7 @@
         let officialCatalogProductsCache = null;
         let officialCatalogProductsLoadedAt = 0;
         let officialCatalogProductsLoadPromise = null;
+        let officialCatalogSourceStatuses = [];
 
         async function loadOfficialCatalogProducts() {
             // JSON aggiornato da GitHub Actions; la sorgente del dato resta il sito ufficiale dell'insegna.
@@ -864,6 +865,7 @@
                     });
                     if (!response.ok) throw new Error('Cataloghi ufficiali HTTP ' + response.status);
                     const payload = await response.json();
+                    officialCatalogSourceStatuses = Array.isArray(payload.sources) ? payload.sources : [];
                     const products = Array.isArray(payload.products) ? payload.products : [];
                     const cutoff = Date.now() - 36 * 60 * 60 * 1000;
                     officialCatalogProductsCache = products.filter(item => {
@@ -2432,7 +2434,14 @@
             const aiButton = document.getElementById("shoppingAiButton");
             if (aiButton) aiButton.classList.toggle("hidden", !SMARTSPESA_AI_WORKER_URL || results.length < 2);
             const aiStatus = document.getElementById("shoppingAiStatus");
-            if (aiStatus) aiStatus.textContent = (flyerLookupFailed ? "Catalogo offerte temporaneamente non raggiungibile: mostro i prodotti registrati in SmartSpesa." : "Ricerca nei prodotti registrati, nei cataloghi ufficiali sincronizzati e nelle offerte correnti con fonte verificata.") + (SMARTSPESA_AI_WORKER_URL && results.length >= 2 ? " Puoi anche chiedere all'IA di riordinare i risultati." : "");
+            const catalogCoverageText = officialCatalogSourceStatuses.length
+                ? " Copertura importazione automatica: " + officialCatalogSourceStatuses.map(source =>
+                    source.status === "ok"
+                        ? String(source.name || source.id) + " (" + Number(source.productCount || 0).toLocaleString("it-IT") + " prodotti)"
+                        : String(source.name || source.id) + " non importato automaticamente"
+                  ).join("; ") + "."
+                : " Stato dei cataloghi ufficiali non disponibile in questo momento.";
+            if (aiStatus) aiStatus.textContent = (flyerLookupFailed ? "Catalogo offerte temporaneamente non raggiungibile: mostro i prodotti registrati in SmartSpesa." : "Ricerca nei prodotti registrati, nei cataloghi ufficiali sincronizzati e nelle offerte correnti con fonte verificata.") + catalogCoverageText + (SMARTSPESA_AI_WORKER_URL && results.length >= 2 ? " Puoi anche chiedere all'IA di riordinare i risultati." : "");
             let html = '<div id="shoppingAiProductResults" class="space-y-3">';
             results.forEach((item, resultIndex) => {
                 const safeName = JSON.stringify(item.productName).replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
