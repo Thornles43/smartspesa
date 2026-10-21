@@ -58,6 +58,12 @@
         .nav-item { color: #9ca3af; transition: color 0.2s; }
         .nav-item.active { color: #16a34a; }
         #reader { width: 100%; min-height: 180px; overflow: hidden; border-radius: 14px; background: #101713; }
+        .nutrition-grade { display:inline-flex; align-items:center; justify-content:center; min-width:34px; height:34px; border-radius:10px; font-weight:800; font-size:17px; }
+        .nutrition-grade-a { background:#16803c; color:white; } .nutrition-grade-b { background:#65a30d; color:white; }
+        .nutrition-grade-c { background:#facc15; color:#422006; } .nutrition-grade-d { background:#f97316; color:white; }
+        .nutrition-grade-e { background:#dc2626; color:white; }
+        .nutrition-detail { background:#fff; border:1px solid var(--ss-line); border-radius:12px; padding:10px; }
+        .nutrition-alternative { border:1px solid var(--ss-line); border-radius:12px; padding:10px; background:white; }
         #reader video { width: 100% !important; max-height: 55vh; border-radius: 14px; object-fit: cover; }
         #scannerPanel { border-radius: 16px; }
         .source-link { display: inline-flex; align-items: center; gap: 8px; padding: 12px 14px; border: 1px solid var(--ss-line); border-radius: 14px; background: white; color: var(--ss-ink); font-weight: 600; }
@@ -176,6 +182,15 @@
                 <p id="productIngredients" class="hidden mt-1"><span class="font-medium">Ingredienti:</span> <span></span></p>
                 <p id="productCountry" class="hidden mt-1"><span class="font-medium">Origine dichiarata:</span> <span></span></p>
                 <p id="productNutriScore" class="hidden mt-1"><span class="font-medium">Nutri-Score:</span> <span></span></p>
+                <div id="productNutritionDetails" class="hidden grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3"></div>
+                <p id="productAllergens" class="hidden mt-2"><span class="font-medium">Allergeni dichiarati:</span> <span></span></p>
+                <p id="productAdditives" class="hidden mt-1"><span class="font-medium">Additivi dichiarati:</span> <span></span></p>
+                <p id="productNutritionDisclaimer" class="hidden text-xs text-gray-500 mt-2">I dati nutrizionali dipendono dalla completezza della scheda del prodotto. Controlla sempre la confezione, soprattutto in caso di allergie o intolleranze.</p>
+                <div id="productAlternatives" class="hidden mt-3">
+                    <p class="font-semibold text-blue-900 mb-2"><i class="fa-solid fa-scale-balanced mr-1"></i>Alternative nel catalogo SmartSpesa</p>
+                    <div id="productAlternativesList" class="space-y-2"></div>
+                    <p class="text-xs text-gray-500 mt-2">Suggerimenti basati sui prodotti e sui prezzi già caricati nell'app; non sono una raccomandazione medica e il catalogo può essere incompleto.</p>
+                </div>
                 <p id="productDataSource" class="text-xs text-gray-500 mt-2">Dati forniti da Open Food Facts; possono essere incompleti.</p>
             </div>
 
@@ -448,16 +463,76 @@
 
         function showProductMetadata(metadata) {
             const panel = document.getElementById("productMetadata");
+            const nutritionBox = document.getElementById("productNutritionDetails");
+            const alternativesBox = document.getElementById("productAlternatives");
             if (!metadata || !Object.values(metadata).some(Boolean)) {
                 panel.classList.add("hidden");
+                nutritionBox.classList.add("hidden");
+                alternativesBox.classList.add("hidden");
+                document.getElementById("productNutritionDisclaimer").classList.add("hidden");
                 return;
             }
             setMetadataLine("productBrand", metadata.brand);
             setMetadataLine("productCategory", metadata.category);
             setMetadataLine("productIngredients", metadata.ingredients);
             setMetadataLine("productCountry", metadata.countryOfOrigin);
-            setMetadataLine("productNutriScore", metadata.nutriScore ? String(metadata.nutriScore).toUpperCase() : "");
+            const grade = String(metadata.nutriScore || "").toLowerCase();
+            const gradeLine = document.getElementById("productNutriScore");
+            setMetadataLine("productNutriScore", grade ? grade.toUpperCase() + (metadata.nutriScoreSource === "official" ? " · indicatore Open Food Facts" : "") : "");
+            const nutritionLabels = [
+                ["Energia", metadata.energyKcal, "kcal/100 g"],
+                ["Zuccheri", metadata.sugars, "g/100 g"],
+                ["Grassi saturi", metadata.saturatedFat, "g/100 g"],
+                ["Sale", metadata.salt, "g/100 g"],
+                ["Fibre", metadata.fiber, "g/100 g"],
+                ["Proteine", metadata.proteins, "g/100 g"]
+            ];
+            nutritionBox.innerHTML = nutritionLabels.filter(([, value]) => value !== "" && value !== null && value !== undefined && Number.isFinite(Number(value)))
+                .map(([label, value, unit]) => '<div class="nutrition-detail"><p class="text-xs text-gray-500">' + escapeHtml(label) + '</p><p class="font-bold text-gray-900">' + escapeHtml(Number(value).toLocaleString("it-IT", { maximumFractionDigits: 2 })) + ' <span class="text-xs font-normal text-gray-500">' + unit + '</span></p></div>').join("");
+            nutritionBox.classList.toggle("hidden", !nutritionBox.innerHTML);
+            setMetadataLine("productAllergens", metadata.allergens || "");
+            const additivesText = metadata.additivesCount !== "" && metadata.additivesCount !== null && metadata.additivesCount !== undefined
+                ? String(metadata.additivesCount) + " additivi dichiarati" : (metadata.additives || "");
+            setMetadataLine("productAdditives", additivesText);
+            document.getElementById("productNutritionDisclaimer").classList.toggle("hidden", !(nutritionBox.innerHTML || metadata.allergens || additivesText));
             panel.classList.remove("hidden");
+            renderProductAlternatives(metadata);
+        }
+
+        function renderProductAlternatives(metadata) {
+            const section = document.getElementById("productAlternatives");
+            const list = document.getElementById("productAlternativesList");
+            const gradeRank = { a: 1, b: 2, c: 3, d: 4, e: 5 };
+            const currentGrade = String(metadata?.nutriScore || "").toLowerCase();
+            const categoryTokens = normalizeProductName(metadata?.category || "").split(" ").filter(token => token.length >= 4);
+            if (!currentGrade || !gradeRank[currentGrade] || !categoryTokens.length) {
+                section.classList.add("hidden");
+                list.innerHTML = "";
+                return;
+            }
+            const candidates = new Map();
+            allKnownPrices.forEach(item => {
+                const grade = String(item.nutriScore || "").toLowerCase();
+                if (!gradeRank[grade] || gradeRank[grade] >= gradeRank[currentGrade]) return;
+                if (String(item.barcode || "") === String(document.getElementById("barcode").value || "")) return;
+                const itemCategory = normalizeProductName(item.category || "");
+                if (!itemCategory || !categoryTokens.some(token => itemCategory.includes(token))) return;
+                const key = normalizeProductName(item.productName);
+                if (!key) return;
+                const prior = candidates.get(key);
+                if (!prior || (Number(item.price) < Number(prior.price))) candidates.set(key, item);
+            });
+            const suggestions = Array.from(candidates.values()).sort((a, b) => {
+                const gradeDiff = gradeRank[String(a.nutriScore).toLowerCase()] - gradeRank[String(b.nutriScore).toLowerCase()];
+                return gradeDiff || Number(a.price) - Number(b.price);
+            }).slice(0, 3);
+            list.innerHTML = suggestions.map(item => {
+                const grade = String(item.nutriScore).toUpperCase();
+                const safeName = escapeHtml(item.productName || "Prodotto");
+                const price = Number.isFinite(Number(item.price)) ? "€" + Number(item.price).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "Prezzo non disponibile";
+                return '<div class="nutrition-alternative flex items-center gap-3"><span class="nutrition-grade nutrition-grade-' + grade.toLowerCase() + '">' + grade + '</span><div class="min-w-0 flex-1"><p class="font-semibold text-gray-900 break-words">' + safeName + '</p><p class="text-xs text-gray-500">' + escapeHtml(item.supermarket || "Supermercato non indicato") + ' · ' + price + '</p></div></div>';
+            }).join("");
+            section.classList.toggle("hidden", !suggestions.length);
         }
 
         function mapOrigin(originTags) {
@@ -580,7 +655,7 @@
             }
             status.textContent = "Ricerca del prodotto su Open Food Facts…";
             try {
-                const fields = "code,product_name,product_name_it,brands,categories,categories_tags,ingredients_text,ingredients_text_it,origins,origins_tags,countries,countries_tags,manufacturing_places,nutriscore_grade";
+                const fields = "code,product_name,product_name_it,brands,categories,categories_tags,ingredients_text,ingredients_text_it,origins,origins_tags,countries,countries_tags,manufacturing_places,nutriscore_grade,nutriscore_data,allergens,allergens_tags,additives_n,additives_tags,nutriments";
                 // Prova più endpoint/versioni: alcuni browser o reti possono fallire
                 // su un singolo host o percorso API.
                 const endpoints = [
@@ -679,12 +754,29 @@
                 const countryOfOrigin = p.origins || (origins.length ? origins.map(cleanTag).join(", ") : "");
                 const category = p.categories || (Array.isArray(p.categories_tags) ? p.categories_tags.slice(0, 3).map(cleanTag).join(", ") : "");
                 const ingredients = p.ingredients_text_it || p.ingredients_text || "";
+                const nutriments = p.nutriments || {};
+                const numericNutrition = key => {
+                    const value = nutriments[key];
+                    return value !== undefined && value !== null && value !== "" && Number.isFinite(Number(value)) ? Number(value) : "";
+                };
+                const additivesTags = Array.isArray(p.additives_tags) ? p.additives_tags : [];
+                const allergensTags = Array.isArray(p.allergens_tags) ? p.allergens_tags : [];
                 scannedProductMetadata = {
                     brand: p.brands || "",
                     category: category,
                     ingredients: ingredients,
                     countryOfOrigin: countryOfOrigin,
-                    nutriScore: p.nutriscore_grade || "",
+                    nutriScore: p.nutriscore_grade || (p.nutriscore_data && p.nutriscore_data.grade) || "",
+                    nutriScoreSource: (p.nutriscore_grade || (p.nutriscore_data && p.nutriscore_data.grade)) ? "official" : "",
+                    energyKcal: numericNutrition("energy-kcal_100g"),
+                    sugars: numericNutrition("sugars_100g"),
+                    saturatedFat: numericNutrition("saturated-fat_100g"),
+                    salt: numericNutrition("salt_100g"),
+                    fiber: numericNutrition("fiber_100g"),
+                    proteins: numericNutrition("proteins_100g"),
+                    allergens: p.allergens || allergensTags.map(cleanTag).join(", "),
+                    additivesCount: Number.isFinite(Number(p.additives_n)) ? Number(p.additives_n) : "",
+                    additives: additivesTags.map(cleanTag).join(", "),
                     productSource: "Open Food Facts"
                 };
                 if (name) document.getElementById("productName").value = name;
@@ -1792,6 +1884,15 @@
                 ingredients: scannedProductMetadata?.ingredients || "",
                 countryOfOrigin: scannedProductMetadata?.countryOfOrigin || "",
                 nutriScore: scannedProductMetadata?.nutriScore || "",
+                energyKcal: scannedProductMetadata?.energyKcal ?? "",
+                sugars: scannedProductMetadata?.sugars ?? "",
+                saturatedFat: scannedProductMetadata?.saturatedFat ?? "",
+                salt: scannedProductMetadata?.salt ?? "",
+                fiber: scannedProductMetadata?.fiber ?? "",
+                proteins: scannedProductMetadata?.proteins ?? "",
+                allergens: scannedProductMetadata?.allergens || "",
+                additivesCount: scannedProductMetadata?.additivesCount ?? "",
+                additives: scannedProductMetadata?.additives || "",
                 productSource: scannedProductMetadata?.productSource || "",
                 userId: currentUser.email,
                 timestamp: new Date().toISOString()
