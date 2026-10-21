@@ -462,11 +462,13 @@
     </nav>
 
     <!-- FIREBASE SDK -->
-    <script>window.SMARTSPESA_AI_WORKER_URL = "";</script>
+    <script>window.SMARTSPESA_AI_WORKER_URL = ""; window.SMARTSPESA_RECAPTCHA_SITE_KEY = "";</script>
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, query, orderBy, where, doc, updateDoc, deleteDoc, limit, startAfter, getCountFromServer } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, query, orderBy, where, doc, updateDoc, deleteDoc, limit, startAfter, getCountFromServer } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
+        import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app-check.js";
+        import { getAI, getGenerativeModel, GoogleAIBackend } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-ai.js";
 
         // LA TUA CONFIGURAZIONE FIREBASE
         const firebaseConfig = {
@@ -479,13 +481,34 @@
             measurementId: "G-TYFYY4HL8P"
         };
 
-        // URL pubblico del Cloudflare Worker AI; resta vuoto finché il Worker non è distribuito.
+        // Worker AI opzionale; alternativa gratuita tramite Firebase AI Logic + Gemini.
         const SMARTSPESA_AI_WORKER_URL = String(window.SMARTSPESA_AI_WORKER_URL || "").trim();
+        const SMARTSPESA_RECAPTCHA_SITE_KEY = String(window.SMARTSPESA_RECAPTCHA_SITE_KEY || "").trim();
 
         // Inizializza Firebase
         const app = initializeApp(firebaseConfig);
+        let smartSpesaAIModel = null;
+        if (SMARTSPESA_RECAPTCHA_SITE_KEY) {
+            try {
+                initializeAppCheck(app, { provider: new ReCaptchaV3Provider(SMARTSPESA_RECAPTCHA_SITE_KEY), isTokenAutoRefreshEnabled: true });
+                const ai = getAI(app, { backend: new GoogleAIBackend() });
+                smartSpesaAIModel = getGenerativeModel(ai, {
+                    model: "gemini-3.5-flash-lite",
+                    generationConfig: { responseMimeType: "application/json", temperature: 0.1 }
+                });
+            } catch (error) {
+                console.warn("Firebase AI Logic non inizializzata; l’AI resta disattivata.", error);
+            }
+        }
         const auth = getAuth(app);
         const db = getFirestore(app);
+
+        async function generateSmartSpesaAIJSON(prompt) {
+            if (!smartSpesaAIModel) throw new Error("Firebase AI Logic non configurata: manca la chiave pubblica reCAPTCHA v3 di App Check.");
+            const result = await smartSpesaAIModel.generateContent(prompt);
+            const raw = result.response.text().trim().replace(/^\x60\x60\x60(?:json)?\s*/i, "").replace(/\s*\x60\x60\x60$/, "");
+            return JSON.parse(raw);
+        }
 
 
         let currentUser = null;
@@ -1945,9 +1968,9 @@
         async function refineReceiptExtractionWithAI() {
             const status = document.getElementById("receiptSaveStatus");
             const extractedText = String(document.getElementById("receiptExtractedText").value || "").trim().slice(0, 12000);
-            if (!SMARTSPESA_AI_WORKER_URL || !currentUser || !extractedText) {
-                if (!SMARTSPESA_AI_WORKER_URL && status) {
-                    status.textContent += " AI non attiva: il servizio sicuro non è ancora configurato; resta disponibile la lettura locale.";
+            if ((!SMARTSPESA_AI_WORKER_URL && !smartSpesaAIModel) || !currentUser || !extractedText) {
+                if (!SMARTSPESA_AI_WORKER_URL && !smartSpesaAIModel && status) {
+                    status.textContent += " AI non attiva: resta disponibile la lettura locale. Per attivare Gemini serve configurare App Check in Firebase.";
                 }
                 return;
             }
@@ -1955,32 +1978,32 @@
             if (button) button.disabled = true;
             if (status) status.textContent = "Lettura locale completata. L’AI sta verificando le righe e gli importi; controlla comunque ogni campo…";
             try {
-                const token = await currentUser.getIdToken();
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 18000);
-                let response;
-                try {
-                    response = await fetch(SMARTSPESA_AI_WORKER_URL, {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            "Authorization": "Bearer " + token
-                        },
-                        body: JSON.stringify({
-                            task: "receipt_parse",
-                            extractedText,
-                            localRows: receiptParsedRows.slice(0, 150).map(row => ({
-                                productName: String(row.productName || "").slice(0, 180),
-                                price: String(row.price || "").slice(0, 20)
-                            }))
-                        }),
-                        signal: controller.signal
-                    });
-                } finally {
-                    clearTimeout(timeoutId);
+                let payload;
+                const localRows = receiptParsedRows.slice(0, 150).map(row => ({
+                    productName: String(row.productName || "").slice(0, 180),
+                    price: String(row.price || "").slice(0, 20)
+                }));
+                if (SMARTSPESA_AI_WORKER_URL) {
+                    const token = await currentUser.getIdToken();
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 18000);
+                    let response;
+                    try {
+                        response = await fetch(SMARTSPESA_AI_WORKER_URL, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+                            body: JSON.stringify({ task: "receipt_parse", extractedText, localRows }),
+                            signal: controller.signal
+                        });
+                    } finally { clearTimeout(timeoutId); }
+                    if (!response.ok) throw new Error("AI HTTP " + response.status);
+                    payload = await response.json();
+                } else {
+                    payload = await generateSmartSpesaAIJSON(
+                        "Sei un assistente per leggere scontrini italiani. Estrai solo righe di prodotti presenti nel testo OCR e il prezzo della singola riga. Usa localRows come suggerimento, non come verità assoluta. Escludi totale, subtotale, IVA, pagamenti, resto, sconti complessivi, punti, date e dati fiscali. Non inventare nomi o prezzi, non calcolare importi mancanti e non confondere quantità o codici con prezzi. Mantieni il prezzo quando non è correggibile con certezza. Restituisci esclusivamente JSON con forma {\"rows\":[{\"productName\":\"nome\",\"price\":\"1,29\"}]}. Testo OCR: " +
+                        JSON.stringify({ extractedText, localRows })
+                    );
                 }
-                if (!response.ok) throw new Error("AI HTTP " + response.status);
-                const payload = await response.json();
                 if (!Array.isArray(payload.rows) || !payload.rows.length) throw new Error("Nessuna riga AI valida");
                 const combined = new Map();
                 for (const row of receiptParsedRows) {
@@ -2002,7 +2025,7 @@
                 if (status) status.textContent = "AI: " + receiptParsedRows.length + " righe candidate dopo il controllo del testo. Verifica manualmente ogni nome e importo: l’AI può sbagliare.";
             } catch (error) {
                 console.warn("Assistenza AI per scontrini non disponibile; mantengo le righe locali.", error);
-                if (status) status.textContent = "Lettura locale mantenuta. AI non disponibile in questo momento: controlla e correggi le righe manualmente.";
+                if (status) status.textContent = "Lettura locale mantenuta. AI non disponibile o non configurata: controlla e correggi le righe manualmente.";
             } finally {
                 if (button) button.disabled = false;
             }
@@ -2224,41 +2247,46 @@
         }
 
         async function callSmartSpesaAI(queryText, market, products) {
-            if (!SMARTSPESA_AI_WORKER_URL || !currentUser || !Array.isArray(products) || products.length < 2) {
-                return null;
-            }
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 9000);
+            if ((!SMARTSPESA_AI_WORKER_URL && !smartSpesaAIModel) || !currentUser || !Array.isArray(products) || products.length < 2) return null;
+            const candidates = products.slice(0, 20).map((item, index) => ({
+                id: String(index),
+                name: String(item.productName || "").slice(0, 160),
+                brand: String(item.brand || "").slice(0, 80),
+                quantity: String(item.quantity || "").slice(0, 50),
+                supermarket: String(item.supermarket || "").slice(0, 100)
+            }));
             try {
-                const token = await currentUser.getIdToken();
-                const response = await fetch(SMARTSPESA_AI_WORKER_URL, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": "Bearer " + token
-                    },
-                    body: JSON.stringify({
-                        query: String(queryText || "").slice(0, 120),
-                        supermarket: String(market || "").slice(0, 100),
-                        candidates: products.slice(0, 20).map((item, index) => ({
-                            id: String(index),
-                            name: String(item.productName || "").slice(0, 160),
-                            brand: String(item.brand || "").slice(0, 80),
-                            quantity: String(item.quantity || "").slice(0, 50),
-                            supermarket: String(item.supermarket || "").slice(0, 100)
-                        }))
-                    }),
-                    signal: controller.signal
-                });
-                if (!response.ok) throw new Error("AI worker HTTP " + response.status);
-                const payload = await response.json();
-                if (!Array.isArray(payload.rankedIds)) return null;
-                return payload.rankedIds.filter(id => products.some((item, index) => String(index) === String(id)));
+                let rankedIds;
+                if (SMARTSPESA_AI_WORKER_URL) {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 9000);
+                    try {
+                        const token = await currentUser.getIdToken();
+                        const response = await fetch(SMARTSPESA_AI_WORKER_URL, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+                            body: JSON.stringify({ query: String(queryText || "").slice(0, 120), supermarket: String(market || "").slice(0, 100), candidates }),
+                            signal: controller.signal
+                        });
+                        if (!response.ok) throw new Error("AI worker HTTP " + response.status);
+                        const payload = await response.json();
+                        rankedIds = payload.rankedIds;
+                    } finally { clearTimeout(timeoutId); }
+                } else {
+                    const payload = await generateSmartSpesaAIJSON(
+                        "Ordina i prodotti per pertinenza rispetto alla query italiana. Considera errori di battitura, sinonimi, marca e formato; rispetta il supermercato selezionato. Usa esclusivamente gli ID forniti, senza inventare o aggiungere prodotti. Restituisci esclusivamente JSON nella forma {\"rankedIds\":[\"0\",\"1\"]}. Query: " +
+                        JSON.stringify({ query: String(queryText || "").slice(0, 120), supermarket: String(market || "").slice(0, 100), candidates })
+                    );
+                    rankedIds = payload.rankedIds;
+                }
+                if (!Array.isArray(rankedIds)) return null;
+                const allowed = new Set(candidates.map(item => item.id));
+                const unique = [...new Set(rankedIds.map(String).filter(id => allowed.has(id)))];
+                for (const item of candidates) if (!unique.includes(item.id)) unique.push(item.id);
+                return unique;
             } catch (error) {
                 console.warn("Ricerca assistita IA non disponibile; mantengo l'ordinamento locale.", error);
                 return null;
-            } finally {
-                clearTimeout(timeoutId);
             }
         }
 
@@ -2266,8 +2294,8 @@
             const button = document.getElementById("shoppingAiButton");
             const status = document.getElementById("shoppingAiStatus");
             const wrapper = document.getElementById("shoppingAiProductResults");
-            if (!SMARTSPESA_AI_WORKER_URL) {
-                status.textContent = "IA non attiva: manca l'URL del servizio sicuro.";
+            if (!SMARTSPESA_AI_WORKER_URL && !smartSpesaAIModel) {
+                status.textContent = "IA non attiva: configura App Check in Firebase per abilitare Gemini.";
                 return;
             }
             if (!currentUser) {
@@ -2501,7 +2529,7 @@
             lastShoppingSearchTerm = term;
             lastShoppingSearchMarket = selectedMarket;
             const aiButton = document.getElementById("shoppingAiButton");
-            if (aiButton) aiButton.classList.toggle("hidden", !SMARTSPESA_AI_WORKER_URL || results.length < 2);
+            if (aiButton) aiButton.classList.toggle("hidden", (!SMARTSPESA_AI_WORKER_URL && !smartSpesaAIModel) || results.length < 2);
             const aiStatus = document.getElementById("shoppingAiStatus");
             const catalogCoverageText = officialCatalogSourceStatuses.length
                 ? " Copertura importazione automatica: " + officialCatalogSourceStatuses.map(source =>
@@ -2510,7 +2538,7 @@
                         : String(source.name || source.id) + " non importato automaticamente"
                   ).join("; ") + "."
                 : " Stato dei cataloghi ufficiali non disponibile in questo momento.";
-            if (aiStatus) aiStatus.textContent = (flyerLookupFailed ? "Catalogo offerte temporaneamente non raggiungibile: mostro i prodotti registrati in SmartSpesa." : "Ricerca nei prodotti registrati, nei cataloghi ufficiali sincronizzati e nelle offerte correnti con fonte verificata.") + catalogCoverageText + (SMARTSPESA_AI_WORKER_URL && results.length >= 2 ? " Puoi anche chiedere all'IA di riordinare i risultati." : "");
+            if (aiStatus) aiStatus.textContent = (flyerLookupFailed ? "Catalogo offerte temporaneamente non raggiungibile: mostro i prodotti registrati in SmartSpesa." : "Ricerca nei prodotti registrati, nei cataloghi ufficiali sincronizzati e nelle offerte correnti con fonte verificata.") + catalogCoverageText + ((SMARTSPESA_AI_WORKER_URL || smartSpesaAIModel) && results.length >= 2 ? " Puoi anche chiedere all'IA di riordinare i risultati." : "");
             let html = '<div id="shoppingAiProductResults" class="space-y-3">';
             results.forEach((item, resultIndex) => {
                 const safeName = JSON.stringify(item.productName).replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
