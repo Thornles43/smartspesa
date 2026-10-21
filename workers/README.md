@@ -23,14 +23,15 @@ Il Worker limita le richieste al formato di query usato dalla ricerca vicina e a
 
 Il frontend può usare Gemini tramite Firebase AI Logic, senza una chiave API OpenAI e senza distribuire un Cloudflare Worker. Il codice usa il modello `gemini-3.5-flash-lite`, disponibile nel livello senza costi aggiuntivi della Gemini Developer API secondo la documentazione ufficiale; restano applicabili quote e limiti del piano gratuito.
 
-Per attivarlo:
+Per attivarlo, procedi con cautela e fermati prima di abilitare API o servizi che potrebbero comportare costi:
+
 1. Apri la [console Firebase del progetto SmartSpesa](https://console.firebase.google.com/project/smartspesa-f9718).
 2. Vai in **AI Services > AI Logic**, seleziona **Get started** e scegli **Gemini Developer API** (non Agent Platform/Vertex AI, che richiede il piano Blaze).
-3. Completa la configurazione guidata e abilita Firebase AI Logic.
-4. Registra `thornles43.github.io` nel pannello amministrativo reCAPTCHA v3 e crea una chiave per il sito. Conserva entrambe le chiavi: **site key** e **secret key**.
-5. In Firebase Console vai in **Security > App Check > Apps**, registra l'app Web con reCAPTCHA v3 e inserisci la **secret key** nel campo richiesto da Firebase. La secret key resta nella console: non inserirla mai nel repository.
-6. In `index.html`, sostituisci il valore vuoto di `window.SMARTSPESA_RECAPTCHA_SITE_KEY = "";` con la **site key pubblica**. La site key è destinata al frontend; non confonderla con la secret key.
-6. Pubblica la modifica su `main` e prova la lettura di uno scontrino e la ricerca assistita.
+3. Completa la configurazione guidata di Firebase AI Logic, senza effettuare upgrade del progetto.
+4. Per App Check sul Web, il codice usa `ReCaptchaEnterpriseProvider`. In Firebase Console apri **Security > App Check > Apps** e seleziona il provider **Fraud Defense (in precedenza reCAPTCHA Enterprise)** per l'app Web corretta.
+5. **Prima di abilitare l'API o creare una chiave**, controlla nella console Google Cloud la quota gratuita e le condizioni di fatturazione. Non passare a Blaze e non aggiungere un metodo di pagamento senza autorizzazione esplicita.
+6. Quando il costo potenziale è stato verificato, crea una chiave di sito reCAPTCHA Enterprise di tipo Web per il dominio `thornles43.github.io`. La **site key è pubblica**: inserisci la stessa chiave nel campo della console App Check e nel valore di `window.SMARTSPESA_RECAPTCHA_SITE_KEY = "";` in `index.html`. Non usare una secret key nel frontend e non inserirla nel repository.
+7. Pubblica la modifica su `main` e verifica la lettura di uno scontrino e la ricerca assistita.
 
 **Importante:** il codice non attiva l'AI finché non è impostata la site key App Check. L'OCR locale continua a funzionare nel frattempo. L'AI corregge il testo OCR ricevuto, non analizza la foto originale; le righe restano bozze da controllare prima di salvarle. Il testo OCR dello scontrino viene inviato al modello Gemini quando la funzione è attiva. Verifica le informative e le impostazioni del servizio prima di usare dati personali.
 
