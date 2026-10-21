@@ -467,7 +467,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-auth.js";
         import { getFirestore, collection, addDoc, getDocs, query, orderBy, where, doc, updateDoc, deleteDoc, limit, startAfter, getCountFromServer } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
-        import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app-check.js";
+        import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app-check.js";
         import { getAI, getGenerativeModel, GoogleAIBackend } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-ai.js";
 
         // LA TUA CONFIGURAZIONE FIREBASE
@@ -490,7 +490,7 @@
         let smartSpesaAIModel = null;
         if (SMARTSPESA_RECAPTCHA_SITE_KEY) {
             try {
-                initializeAppCheck(app, { provider: new ReCaptchaV3Provider(SMARTSPESA_RECAPTCHA_SITE_KEY), isTokenAutoRefreshEnabled: true });
+                initializeAppCheck(app, { provider: new ReCaptchaEnterpriseProvider(SMARTSPESA_RECAPTCHA_SITE_KEY), isTokenAutoRefreshEnabled: true });
                 const ai = getAI(app, { backend: new GoogleAIBackend() });
                 smartSpesaAIModel = getGenerativeModel(ai, {
                     model: "gemini-3.5-flash-lite",
