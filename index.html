@@ -1893,7 +1893,12 @@
                 }
                 if (hasPrice) current.priceCount += 1;
                 if (score > current.score) current.score = score;
-                if (hasPrice && (current.price === null || price < current.price)) {
+                // Non scegliere il prezzo minimo storico: conserva il dato con timestamp più recente.
+                const currentTime = current.timestamp ? Date.parse(current.timestamp) : Number.NaN;
+                const candidateTime = item.timestamp ? Date.parse(item.timestamp) : Number.NaN;
+                const candidateIsNewer = Number.isFinite(candidateTime) &&
+                    (!Number.isFinite(currentTime) || candidateTime > currentTime);
+                if (hasPrice && (current.price === null || candidateIsNewer)) {
                     current.price = price;
                     current.supermarket = item.supermarket || '';
                     current.priceSource = item.priceSource || 'community';
@@ -1915,10 +1920,18 @@
             results.forEach(item => {
                 const safeName = JSON.stringify(item.productName).replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
                 const safeBarcode = JSON.stringify(item.barcode).replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
+                const parsedPriceDate = item.timestamp ? new Date(item.timestamp) : null;
+                const priceDateText = parsedPriceDate && Number.isFinite(parsedPriceDate.getTime())
+                    ? ' · rilevato il ' + parsedPriceDate.toLocaleDateString('it-IT')
+                    : ' · data non disponibile';
+                const safeSourceLink = /^https:\/\//i.test(String(item.sourceUrl || '')) ? String(item.sourceUrl) : '';
+                const sourceLinkHtml = safeSourceLink
+                    ? ' · <a class="underline text-emerald-700" href="' + escapeHtml(safeSourceLink) + '" target="_blank" rel="noopener noreferrer">fonte</a>'
+                    : '';
                 const priceText = item.price !== null
-                    ? 'Da €' + item.price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) +
-                      (item.supermarket ? ' · ' + escapeHtml(item.supermarket) : '') +
-                      (item.priceCount > 1 ? ' · ' + item.priceCount + ' prezzi registrati' : '')
+                    ? 'Ultimo prezzo registrato: €' + item.price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) +
+                      (item.supermarket ? ' · ' + escapeHtml(item.supermarket) : '') + priceDateText + sourceLinkHtml +
+                      (item.priceCount > 1 ? ' · ' + item.priceCount + ' rilevazioni' : '')
                     : 'Prezzo non ancora registrato';
                 const safePrice = item.price === null ? 'null' : String(item.price);
                 const safeSupermarket = JSON.stringify(item.supermarket || '').replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
