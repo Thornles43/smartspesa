@@ -1896,7 +1896,30 @@
                 { name: 'Migross', query: 'site:migross.it' },
                 { name: 'Prix Quality', query: 'site:prixquality.com' },
                 { name: 'Todis', query: 'site:todis.it' },
-                { name: 'Italmark', query: 'site:italmark.it' }
+                { name: 'Italmark', query: 'site:italmark.it' },
+                { name: 'Alì Supermercati', query: 'site:alisupermercati.it' },
+                { name: 'A&O', query: 'site:ao.it OR site:despar.it' },
+                { name: 'Ard Discount', query: 'site:arddiscount.it' },
+                { name: 'Basko', query: 'site:basko.it' },
+                { name: 'Cadoro', query: 'site:cadoro.it' },
+                { name: 'Decò', query: 'site:supermercatideco.it OR site:decoitalia.it' },
+                { name: 'Dok', query: 'site:doksupermercati.it OR site:megaholding.it' },
+                { name: 'Eté', query: 'site:etesupermercati.it OR site:megaholding.it' },
+                { name: 'Futura', query: 'site:futurasupermercati.it' },
+                { name: 'Lando', query: 'site:iperlando.it' },
+                { name: 'Maxi Di', query: 'site:maxidi.it' },
+                { name: 'Megamark', query: 'site:megamark.it' },
+                { name: 'Orvea', query: 'site:orvea.it' },
+                { name: 'Poli', query: 'site:gruppopoli.it' },
+                { name: 'Pewex', query: 'site:pewex.it' },
+                { name: 'Sigma', query: 'site:sigma.coop OR site:sigmasuperstore.it' },
+                { name: 'Sisa', query: 'site:sisasupermercati.it' },
+                { name: 'Sogegross', query: 'site:sogegross.it' },
+                { name: 'SuperConveniente', query: 'site:superconveniente.it OR site:megamark.it' },
+                { name: 'Supermercati Piccolo', query: 'site:supermercatipiccolo.it' },
+                { name: 'Tigre', query: 'site:gruppoarena.it' },
+                { name: 'Tosano', query: 'site:tosano.it' },
+                { name: 'Visotto', query: 'site:visotto.it' } 
             ];
             const officialSearchHtml = retailerSearches.map(retailer => {
                 const searchUrl = 'https://www.google.com/search?q=' + encodeURIComponent(retailer.query + ' ' + String(rawTerm || '').trim());
