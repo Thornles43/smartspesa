@@ -2394,7 +2394,7 @@
             const aiButton = document.getElementById("shoppingAiButton");
             if (aiButton) aiButton.classList.toggle("hidden", !SMARTSPESA_AI_WORKER_URL || results.length < 2);
             const aiStatus = document.getElementById("shoppingAiStatus");
-            if (aiStatus) aiStatus.textContent = (flyerLookupFailed ? "Catalogo offerte temporaneamente non raggiungibile: mostro i prodotti registrati in SmartSpesa." : "Ricerca nei prodotti registrati e nelle offerte correnti dei volantini verificati.") + (SMARTSPESA_AI_WORKER_URL && results.length >= 2 ? " Puoi anche chiedere all'IA di riordinare i risultati." : "");
+            if (aiStatus) aiStatus.textContent = (flyerLookupFailed ? "Catalogo offerte temporaneamente non raggiungibile: mostro i prodotti registrati in SmartSpesa." : "Ricerca nei prodotti registrati, nei cataloghi ufficiali sincronizzati e nelle offerte correnti con fonte verificata.") + (SMARTSPESA_AI_WORKER_URL && results.length >= 2 ? " Puoi anche chiedere all'IA di riordinare i risultati." : "");
             let html = '<div id="shoppingAiProductResults" class="space-y-3">';
             results.forEach((item, resultIndex) => {
                 const safeName = JSON.stringify(item.productName).replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
