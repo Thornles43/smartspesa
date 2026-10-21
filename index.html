@@ -707,7 +707,7 @@
                         await window.stopBarcodeScanner();
                         panel.classList.remove("hidden");
                         status.textContent = "Codice letto. Ricerca del prodotto…";
-                        await lookupOpenFoodFacts(code);
+                        await lookupSmartSpesaBarcode(code);
                     };
                 try {
                     await barcodeScanner.start({ facingMode: "environment" }, scanConfig, onSuccess, () => {});
@@ -733,7 +733,7 @@
             }
         };
 
-        async function lookupOpenFoodFacts(barcode, manualLookup = false) {
+        async function lookupSmartSpesaBarcode(barcode, manualLookup = false) {
             const panel = document.getElementById("scannerPanel");
             const status = document.getElementById(manualLookup ? "barcodeLookupStatus" : "scannerStatus");
             if (manualLookup) status.classList.remove("hidden");
@@ -834,7 +834,7 @@
                 if (isValidEan13(code)) {
                     status.classList.remove("hidden");
                     status.textContent = "Codice valido. Riconoscimento automatico del prodotto…";
-                    barcodeLookupTimer = setTimeout(() => lookupOpenFoodFacts(code, true), 450);
+                    barcodeLookupTimer = setTimeout(() => lookupSmartSpesaBarcode(code, true), 450);
                 } else {
                     status.classList.add("hidden");
                     status.textContent = "";
@@ -853,7 +853,7 @@
             "iperal.it", "crai.it", "despar.it", "naturasi.it", "migross.it",
             "supertosano.com", "tosano.com", "alisupermercati.it", "famila.it",
             "superemme.it", "sogegross.it", "italmark.it", "cadoro.it", "unes.it",
-            "todis.it", "penny.it", "despar.com", "orvea.it"
+            "todis.it", "penny.it", "despar.com", "orvea.it", "pam.it", "megamark.it"
         ];
 
         function isVerifiedSupermarketUrl(value) {
@@ -2166,7 +2166,7 @@
             document.getElementById('barcodeLookupStatus').classList.add('hidden');
             window.showScreen('screen-scan');
             if (document.getElementById('barcode').value) {
-                await lookupOpenFoodFacts(document.getElementById('barcode').value, true);
+                await lookupSmartSpesaBarcode(document.getElementById('barcode').value, true);
             } else {
                 document.getElementById('productName').focus();
             }
