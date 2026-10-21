@@ -306,6 +306,7 @@
         <div class="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 mb-5">
             <label for="shoppingSearch" class="block text-sm font-semibold text-gray-700 mb-2">Cerca un prodotto</label>
             <div class="relative"><i class="fa-solid fa-magnifying-glass absolute left-4 top-4 text-gray-400"></i><input id="shoppingSearch" type="search" autocomplete="off" placeholder="Es. latte, pasta, mele..." class="w-full pl-11 pr-4 py-3 outline-none" oninput="searchShoppingProducts(this.value)"></div>
+            <div class="flex flex-wrap items-center gap-2 mt-2"><button id="shoppingAiButton" type="button" class="hidden shopping-secondary" onclick="refineShoppingSearchWithAI()"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Affina ricerca con IA</button><p id="shoppingAiStatus" class="text-xs text-gray-500" role="status" aria-live="polite"></p></div>
             <label for="shoppingMarketFilter" class="block text-sm font-medium text-gray-700 mt-3 mb-1">Filtra per supermercato</label>
             <select id="shoppingMarketFilter" class="w-full px-3 py-3 border border-gray-200 rounded-xl bg-white text-sm" onchange="searchShoppingProducts(document.getElementById('shoppingSearch').value)">
                 <option value="">Tutti i supermercati registrati</option>
@@ -461,6 +462,7 @@
     </nav>
 
     <!-- FIREBASE SDK -->
+    <script>window.SMARTSPESA_AI_WORKER_URL = "";</script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
@@ -476,6 +478,9 @@
             appId: "1:894849912142:web:501990402734d3130ca21f",
             measurementId: "G-TYFYY4HL8P"
         };
+
+        // URL pubblico del Cloudflare Worker AI; resta vuoto finché il Worker non è distribuito.
+        const SMARTSPESA_AI_WORKER_URL = String(window.SMARTSPESA_AI_WORKER_URL || "").trim();
 
         // Inizializza Firebase
         const app = initializeApp(firebaseConfig);
@@ -496,6 +501,9 @@
         let shoppingItems = [];
         let shoppingListLoading = false;
         let shoppingSearchRequestId = 0;
+        let lastShoppingSearchResults = [];
+        let lastShoppingSearchTerm = "";
+        let lastShoppingSearchMarket = "";
         let priceSaving = false;
         const shoppingThemes = {
             green: { primary: '#087f5b', soft: '#e5f5ed', ink: '#07543e', line: '#c8e8d7' },
@@ -1747,6 +1755,81 @@
             return matched / queryTokens.length;
         }
 
+        async function callSmartSpesaAI(queryText, market, products) {
+            if (!SMARTSPESA_AI_WORKER_URL || !currentUser || !Array.isArray(products) || products.length < 2) {
+                return null;
+            }
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 9000);
+            try {
+                const token = await currentUser.getIdToken();
+                const response = await fetch(SMARTSPESA_AI_WORKER_URL, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + token
+                    },
+                    body: JSON.stringify({
+                        query: String(queryText || "").slice(0, 120),
+                        supermarket: String(market || "").slice(0, 100),
+                        candidates: products.slice(0, 20).map((item, index) => ({
+                            id: String(index),
+                            name: String(item.productName || "").slice(0, 160),
+                            brand: String(item.brand || "").slice(0, 80),
+                            quantity: String(item.quantity || "").slice(0, 50),
+                            supermarket: String(item.supermarket || "").slice(0, 100)
+                        }))
+                    }),
+                    signal: controller.signal
+                });
+                if (!response.ok) throw new Error("AI worker HTTP " + response.status);
+                const payload = await response.json();
+                if (!Array.isArray(payload.rankedIds)) return null;
+                return payload.rankedIds.filter(id => products.some((item, index) => String(index) === String(id)));
+            } catch (error) {
+                console.warn("Ricerca assistita IA non disponibile; mantengo l'ordinamento locale.", error);
+                return null;
+            } finally {
+                clearTimeout(timeoutId);
+            }
+        }
+
+        window.refineShoppingSearchWithAI = async () => {
+            const button = document.getElementById("shoppingAiButton");
+            const status = document.getElementById("shoppingAiStatus");
+            const wrapper = document.getElementById("shoppingAiProductResults");
+            if (!SMARTSPESA_AI_WORKER_URL) {
+                status.textContent = "IA non attiva: manca l'URL del servizio sicuro.";
+                return;
+            }
+            if (!currentUser) {
+                status.textContent = "Accedi per usare la ricerca assistita.";
+                return;
+            }
+            if (!wrapper || lastShoppingSearchResults.length < 2) {
+                status.textContent = "Servono almeno due prodotti registrati per affinare la ricerca.";
+                return;
+            }
+            button.disabled = true;
+            button.classList.add("opacity-60");
+            status.textContent = "L'IA sta confrontando la ricerca con i prodotti registrati…";
+            try {
+                const rankedIds = await callSmartSpesaAI(lastShoppingSearchTerm, lastShoppingSearchMarket, lastShoppingSearchResults);
+                if (!rankedIds || !rankedIds.length) {
+                    status.textContent = "IA non disponibile: mantengo i risultati della ricerca normale.";
+                    return;
+                }
+                const cards = new Map(Array.from(wrapper.querySelectorAll("[data-ai-product-id]"))
+                    .map(node => [node.getAttribute("data-ai-product-id"), node]));
+                const orderedIds = [...rankedIds, ...Array.from(cards.keys()).filter(id => !rankedIds.includes(id))];
+                orderedIds.forEach(id => { const node = cards.get(String(id)); if (node) wrapper.appendChild(node); });
+                status.textContent = "Ordine affinato dall'IA usando soltanto prodotti già associati a supermercati nei dati SmartSpesa.";
+            } finally {
+                button.disabled = false;
+                button.classList.remove("opacity-60");
+            }
+        };
+
         function marketMatchesSelected(supermarketName, selectedMarket) {
             if (!selectedMarket) return true;
             const store = normalizeProductName(supermarketName).replace(/\s+/g, '');
@@ -1852,8 +1935,15 @@
                 .filter(item => item.score >= 0.5)
                 .sort((a, b) => (b.score - a.score) || ((a.price ?? Number.POSITIVE_INFINITY) - (b.price ?? Number.POSITIVE_INFINITY)))
                 .slice(0, 8);
-            let html = '';
-            results.forEach(item => {
+            lastShoppingSearchResults = results;
+            lastShoppingSearchTerm = term;
+            lastShoppingSearchMarket = selectedMarket;
+            const aiButton = document.getElementById("shoppingAiButton");
+            if (aiButton) aiButton.classList.toggle("hidden", !SMARTSPESA_AI_WORKER_URL || results.length < 2);
+            const aiStatus = document.getElementById("shoppingAiStatus");
+            if (aiStatus) aiStatus.textContent = SMARTSPESA_AI_WORKER_URL ? "Ricerca normale attiva; puoi chiedere all'IA di riordinare i risultati." : "";
+            let html = '<div id="shoppingAiProductResults" class="space-y-3">';
+            results.forEach((item, resultIndex) => {
                 const safeName = JSON.stringify(item.productName).replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
                 const safeBarcode = JSON.stringify(item.barcode).replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
                 const parsedPriceDate = item.timestamp ? new Date(item.timestamp) : null;
@@ -1879,8 +1969,9 @@
                     ? '<button type="button" class="shopping-secondary mt-2" onclick=\'openPriceEntryForProduct(' + safeName + ', ' + safeBarcode + ')\'><i class="fa-solid fa-tag mr-1"></i>Registra un prezzo</button>'
                     : '';
                 const productDetails = [item.brand, item.quantity, item.catalogSource].filter(Boolean).join(' · ');
-                html += '<div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center gap-3"><div class="w-10 h-10 shrink-0 rounded-xl bg-emerald-50 flex items-center justify-center"><i class="fa-solid fa-box text-emerald-700"></i></div><div class="min-w-0 flex-1"><p class="font-semibold text-gray-900 break-words">' + escapeHtml(item.productName) + '</p>' + (productDetails ? '<p class="text-xs text-gray-500 mt-1">' + escapeHtml(productDetails) + '</p>' : '') + '<p class="text-xs text-gray-500">' + priceText + '</p>' + registerButton + '</div><button type="button" class="shopping-action shrink-0" onclick=\'addShoppingItem(' + safeName + ', ' + safeBarcode + ', ' + safePrice + ', ' + safeSupermarket + ', ' + safePriceSource + ', ' + safeSourceUrl + ', ' + safeTimestamp + ')\'><i class="fa-solid fa-plus mr-1"></i>Aggiungi</button></div>';
+                html += '<div data-ai-product-id="' + resultIndex + '" class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center gap-3"><div class="w-10 h-10 shrink-0 rounded-xl bg-emerald-50 flex items-center justify-center"><i class="fa-solid fa-box text-emerald-700"></i></div><div class="min-w-0 flex-1"><p class="font-semibold text-gray-900 break-words">' + escapeHtml(item.productName) + '</p>' + (productDetails ? '<p class="text-xs text-gray-500 mt-1">' + escapeHtml(productDetails) + '</p>' : '') + '<p class="text-xs text-gray-500">' + priceText + '</p>' + registerButton + '</div><button type="button" class="shopping-action shrink-0" onclick=\'addShoppingItem(' + safeName + ', ' + safeBarcode + ', ' + safePrice + ', ' + safeSupermarket + ', ' + safePriceSource + ', ' + safeSourceUrl + ', ' + safeTimestamp + ')\'><i class="fa-solid fa-plus mr-1"></i>Aggiungi</button></div>';
             });
+            html += '</div>';
             const exactMatch = results.some(item => normalizeProductName(item.productName) === term);
             if (!exactMatch) {
                 const safeTerm = JSON.stringify(String(rawTerm || '').trim()).replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
