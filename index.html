@@ -1739,6 +1739,9 @@
                 }
                 textarea.value = combinedText;
                 suggestReceiptMetadata(combinedText);
+                // Carica anche i prodotti acquisiti da cataloghi ufficiali, così lo scontrino
+                // può essere confrontato con cataloghi e storico senza attribuire prezzi generici.
+                await loadOfficialCatalogProducts();
                 parseReceiptText();
                 status.textContent = warnings.length
                     ? "Ho letto parte dello scontrino, ma " + warnings.join(" ") + " Verifica il testo e carica una foto più nitida se mancano prodotti."
@@ -1829,9 +1832,28 @@
         // I prezzi storici servono come riferimento, non come prova di prezzo corrente o disponibilità.
         function getReceiptProductMatches(row) {
             const queryText = normalizeProductName(row && row.productName || "");
-            if (queryText.length < 3 || !Array.isArray(allKnownPrices) || !allKnownPrices.length) return [];
+            if (queryText.length < 3) return [];
             const candidates = new Map();
-            for (const item of allKnownPrices) {
+            const today = getLocalDateISO();
+            const history = Array.isArray(allKnownPrices) ? allKnownPrices : [];
+            const official = Array.isArray(officialCatalogProductsCache) ? officialCatalogProductsCache : [];
+            const records = [
+                ...history.map(item => ({ ...item, matchKind: "history", matchSource: item.priceSource || item.catalogSource || "storico SmartSpesa" })),
+                ...official.map(item => ({
+                    productName: item.productName,
+                    supermarket: item.supermarket,
+                    brand: item.brand,
+                    quantity: item.quantity,
+                    timestamp: item.retrievedAt,
+                    price: item.priceStatus === "official_promotion_with_expiry" && item.validUntil && item.validUntil >= today ? item.price : null,
+                    matchKind: "official_catalog",
+                    matchSource: item.catalogSource || "Catalogo ufficiale supermercato",
+                    validUntil: item.validUntil || "",
+                    priceStatus: item.priceStatus || "unknown",
+                    sourceUrl: item.sourceUrl || ""
+                }))
+            ];
+            for (const item of records) {
                 const name = String(item.productName || "").trim();
                 const supermarket = String(item.supermarket || "").trim();
                 if (!name || !supermarket) continue;
@@ -1839,13 +1861,20 @@
                 const quantity = String(item.quantity || item.format || item.productQuantity || "").trim();
                 const score = productSearchScore(queryText, [name, brand, quantity].filter(Boolean).join(" "));
                 if (score < 0.6) continue;
-                const identity = (String(item.barcode || "").trim() || normalizeProductName(name)) + "::" + normalizeProductName(supermarket);
+                const identity = (String(item.barcode || "").trim() || normalizeProductName(name)) + "::" + normalizeProductName(supermarket) + "::" + String(item.matchKind || "history");
                 const timestamp = String(item.receiptDate || item.timestamp || item.createdAt || "");
                 const current = candidates.get(identity);
                 const time = Date.parse(timestamp);
                 const currentTime = current ? Date.parse(current.timestamp || "") : Number.NaN;
                 if (!current || score > current.score || (score === current.score && Number.isFinite(time) && (!Number.isFinite(currentTime) || time > currentTime))) {
-                    candidates.set(identity, { name, supermarket, price: item.price, timestamp, score, source: item.priceSource || item.catalogSource || "storico SmartSpesa" });
+                    candidates.set(identity, {
+                        name, supermarket, price: item.price, timestamp, score,
+                        source: item.matchSource || "storico SmartSpesa",
+                        kind: item.matchKind || "history",
+                        priceStatus: item.priceStatus || "",
+                        validUntil: item.validUntil || "",
+                        sourceUrl: item.sourceUrl || ""
+                    });
                 }
             }
             return Array.from(candidates.values())
@@ -1864,14 +1893,23 @@
                     const date = match.timestamp ? new Date(match.timestamp) : null;
                     const dateText = date && Number.isFinite(date.getTime()) ? date.toLocaleDateString("it-IT") : "data non disponibile";
                     let comparison = "Prezzo storico non disponibile";
-                    if (historicPrice !== null) {
+                    if (match.kind === "official_catalog" && match.priceStatus === "official_catalog_validity_unconfirmed") {
+                        comparison = "Prodotto trovato nel catalogo ufficiale; validità del prezzo non confermata, quindi non confronto gli importi.";
+                    } else if (match.kind === "official_catalog" && historicPrice !== null && match.validUntil) {
+                        comparison = "Prezzo ufficiale pubblicato: " + historicPrice.toLocaleString("it-IT", { style: "currency", currency: "EUR" }) + " · valido fino al " + match.validUntil.split("-").reverse().join("/");
+                        if (Number.isFinite(receiptPrice) && receiptPrice >= 0) {
+                            const delta = receiptPrice - historicPrice;
+                            comparison += " · differenza rispetto allo scontrino " + (delta > 0 ? "+" : "") + delta.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
+                        }
+                    } else if (historicPrice !== null) {
                         comparison = "ultimo prezzo registrato " + historicPrice.toLocaleString("it-IT", { style: "currency", currency: "EUR" }) + " (" + dateText + ")";
                         if (Number.isFinite(receiptPrice) && receiptPrice >= 0) {
                             const delta = receiptPrice - historicPrice;
                             comparison += " · differenza scontrino " + (delta > 0 ? "+" : "") + delta.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
                         }
                     }
-                    return '<p class="text-xs text-blue-900 mt-1"><strong>' + escapeHtml(match.name) + '</strong> · ' + escapeHtml(match.supermarket) + '<br>' + escapeHtml(comparison) + '</p>';
+                    const sourceLabel = match.kind === "official_catalog" ? "Fonte ufficiale" : "Storico SmartSpesa";
+                    return '<p class="text-xs text-blue-900 mt-1"><strong>' + escapeHtml(match.name) + '</strong> · ' + escapeHtml(match.supermarket) + ' · ' + sourceLabel + '<br>' + escapeHtml(comparison) + (match.sourceUrl ? ' · <a href="' + escapeHtml(match.sourceUrl) + '" target="_blank" rel="noopener noreferrer" class="underline">Fonte</a>' : '') + '</p>';
                 }).join("") +
                 '<p class="text-[11px] text-blue-800 mt-2">Confronto indicativo: nomi abbreviati o simili possono riferirsi a formati diversi. Il prezzo dello scontrino è una rilevazione di acquisto; lo storico non è un prezzo corrente.</p></div>';
         }
