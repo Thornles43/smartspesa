@@ -27,8 +27,9 @@ Per attivarlo:
 1. Apri la [console Firebase del progetto SmartSpesa](https://console.firebase.google.com/project/smartspesa-f9718).
 2. Vai in **AI Services > AI Logic**, seleziona **Get started** e scegli **Gemini Developer API** (non Agent Platform/Vertex AI, che richiede il piano Blaze).
 3. Completa la configurazione guidata e abilita Firebase AI Logic.
-4. Configura **App Check** per l'app Web con il provider **reCAPTCHA v3** e il dominio `thornles43.github.io`. Copia la site key pubblica generata/configurata.
-5. In `index.html`, sostituisci il valore vuoto di `window.SMARTSPESA_RECAPTCHA_SITE_KEY = "";` con quella site key pubblica. La site key reCAPTCHA non è una password; non inserire segreti o chiavi private nel repository.
+4. Registra `thornles43.github.io` nel pannello amministrativo reCAPTCHA v3 e crea una chiave per il sito. Conserva entrambe le chiavi: **site key** e **secret key**.
+5. In Firebase Console vai in **Security > App Check > Apps**, registra l'app Web con reCAPTCHA v3 e inserisci la **secret key** nel campo richiesto da Firebase. La secret key resta nella console: non inserirla mai nel repository.
+6. In `index.html`, sostituisci il valore vuoto di `window.SMARTSPESA_RECAPTCHA_SITE_KEY = "";` con la **site key pubblica**. La site key è destinata al frontend; non confonderla con la secret key.
 6. Pubblica la modifica su `main` e prova la lettura di uno scontrino e la ricerca assistita.
 
 **Importante:** il codice non attiva l'AI finché non è impostata la site key App Check. L'OCR locale continua a funzionare nel frattempo. L'AI corregge il testo OCR ricevuto, non analizza la foto originale; le righe restano bozze da controllare prima di salvarle. Il testo OCR dello scontrino viene inviato al modello Gemini quando la funzione è attiva. Verifica le informative e le impostazioni del servizio prima di usare dati personali.
