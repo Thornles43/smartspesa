@@ -1548,7 +1548,7 @@
                     let bitmap;
                     try { bitmap = await createImageBitmap(file); } catch { return file; }
                     try {
-                        if (Math.max(bitmap.width, bitmap.height) <= maxSide) return bitmap;
+                        if (Math.max(bitmap.width, bitmap.height) <= maxSide) return file;
                         const scale = maxSide / Math.max(bitmap.width, bitmap.height);
                         const canvas = document.createElement("canvas");
                         canvas.width = Math.max(1, Math.round(bitmap.width * scale));
