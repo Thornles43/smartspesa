@@ -182,6 +182,9 @@
                 <p id="productIngredients" class="hidden mt-1"><span class="font-medium">Ingredienti:</span> <span></span></p>
                 <p id="productCountry" class="hidden mt-1"><span class="font-medium">Origine dichiarata:</span> <span></span></p>
                 <p id="productNutriScore" class="hidden mt-1"><span class="font-medium">Nutri-Score:</span> <span></span></p>
+                <p id="productGradeExplanation" class="hidden text-sm rounded-lg bg-white/80 border border-blue-100 p-3 mt-2"></p>
+                <p id="productNovaGroup" class="hidden mt-1"><span class="font-medium">Livello di trasformazione NOVA:</span> <span></span></p>
+                <p id="productEcoScore" class="hidden mt-1"><span class="font-medium">Eco-Score:</span> <span></span></p>
                 <div id="productNutritionDetails" class="hidden grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3"></div>
                 <p id="productAllergens" class="hidden mt-2"><span class="font-medium">Allergeni dichiarati:</span> <span></span></p>
                 <p id="productAdditives" class="hidden mt-1"><span class="font-medium">Additivi dichiarati:</span> <span></span></p>
@@ -479,6 +482,18 @@
             const grade = String(metadata.nutriScore || "").toLowerCase();
             const gradeLine = document.getElementById("productNutriScore");
             setMetadataLine("productNutriScore", grade ? grade.toUpperCase() + (metadata.nutriScoreSource === "official" ? " · indicatore Open Food Facts" : "") : "");
+            const gradeExplanation = document.getElementById("productGradeExplanation");
+            const gradeDescriptions = {
+                a: "Nutri-Score A: profilo nutrizionale relativamente più favorevole rispetto agli altri prodotti valutati con lo stesso sistema.",
+                b: "Nutri-Score B: profilo nutrizionale generalmente favorevole secondo il sistema Nutri-Score.",
+                c: "Nutri-Score C: profilo intermedio; confronta i valori per 100 g con prodotti simili.",
+                d: "Nutri-Score D: profilo meno favorevole secondo il sistema Nutri-Score; valuta porzioni e alternative.",
+                e: "Nutri-Score E: profilo meno favorevole secondo il sistema Nutri-Score; confronta prodotti simili."
+            };
+            gradeExplanation.textContent = gradeDescriptions[grade] || "Il Nutri-Score non è disponibile per questo prodotto.";
+            gradeExplanation.classList.toggle("hidden", !gradeDescriptions[grade]);
+            setMetadataLine("productNovaGroup", metadata.novaGroup ? String(metadata.novaGroup) + " su 4" : "");
+            setMetadataLine("productEcoScore", metadata.ecoScore ? String(metadata.ecoScore).toUpperCase() : "");
             const nutritionLabels = [
                 ["Energia", metadata.energyKcal, "kcal/100 g"],
                 ["Zuccheri", metadata.sugars, "g/100 g"],
@@ -655,7 +670,7 @@
             }
             status.textContent = "Ricerca del prodotto su Open Food Facts…";
             try {
-                const fields = "code,product_name,product_name_it,brands,categories,categories_tags,ingredients_text,ingredients_text_it,origins,origins_tags,countries,countries_tags,manufacturing_places,nutriscore_grade,nutriscore_data,allergens,allergens_tags,additives_n,additives_tags,nutriments";
+                const fields = "code,product_name,product_name_it,brands,categories,categories_tags,ingredients_text,ingredients_text_it,origins,origins_tags,countries,countries_tags,manufacturing_places,nutriscore_grade,nutriscore_data,nova_group,ecoscore_grade,allergens,allergens_tags,additives_n,additives_tags,nutriments";
                 // Prova più endpoint/versioni: alcuni browser o reti possono fallire
                 // su un singolo host o percorso API.
                 const endpoints = [
@@ -768,6 +783,8 @@
                     countryOfOrigin: countryOfOrigin,
                     nutriScore: p.nutriscore_grade || (p.nutriscore_data && p.nutriscore_data.grade) || "",
                     nutriScoreSource: (p.nutriscore_grade || (p.nutriscore_data && p.nutriscore_data.grade)) ? "official" : "",
+                    novaGroup: Number(p.nova_group) >= 1 && Number(p.nova_group) <= 4 ? Number(p.nova_group) : "",
+                    ecoScore: p.ecoscore_grade || "",
                     energyKcal: numericNutrition("energy-kcal_100g"),
                     sugars: numericNutrition("sugars_100g"),
                     saturatedFat: numericNutrition("saturated-fat_100g"),
@@ -1884,6 +1901,8 @@
                 ingredients: scannedProductMetadata?.ingredients || "",
                 countryOfOrigin: scannedProductMetadata?.countryOfOrigin || "",
                 nutriScore: scannedProductMetadata?.nutriScore || "",
+                novaGroup: scannedProductMetadata?.novaGroup ?? "",
+                ecoScore: scannedProductMetadata?.ecoScore || "",
                 energyKcal: scannedProductMetadata?.energyKcal ?? "",
                 sugars: scannedProductMetadata?.sugars ?? "",
                 saturatedFat: scannedProductMetadata?.saturatedFat ?? "",
