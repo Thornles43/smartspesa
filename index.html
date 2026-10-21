@@ -877,6 +877,16 @@
             return Number.isFinite(parsed.getTime()) ? parsed.toISOString().slice(0, 10) : "";
         }
 
+        function isPrezzinvistaOfferUrl(value) {
+            try {
+                const parsed = new URL(String(value || ""));
+                return parsed.protocol === "https:" &&
+                    (parsed.hostname === "prezzinvista.it" || parsed.hostname === "www.prezzinvista.it");
+            } catch (_) {
+                return false;
+            }
+        }
+
         function isVerifiedCurrentFlyerOffer(offer) {
             const price = Number(offer && offer.price_eur);
             const expiry = normalizeOfferDate(offer && offer.valid_until);
@@ -885,15 +895,23 @@
                 String(offer.store || "").trim() &&
                 Number.isFinite(price) && price >= 0 && price <= 100000 &&
                 isVerifiedSupermarketUrl(offer.official_flyer_url) &&
+                isPrezzinvistaOfferUrl(offer.url) &&
                 expiry && expiry >= getLocalDateISO()
             );
         }
 
         async function autoImportVerifiedFlyerOffers(offers) {
             const allOffers = Array.isArray(offers) ? offers : [];
-            if (!currentUser) return { saved: 0, existing: 0, skipped: allOffers.length, failed: 0 };
-            const verified = allOffers.filter(isVerifiedCurrentFlyerOffer);
-            const result = { saved: 0, existing: 0, skipped: allOffers.length - verified.length, failed: 0 };
+            if (!currentUser) return { saved: 0, existing: 0, skipped: allOffers.length, limited: 0, failed: 0 };
+            const eligible = allOffers.filter(isVerifiedCurrentFlyerOffer);
+            // Importazione limitata per ricerca: cita la fonte e non copiare in blocco l'archivio del fornitore.
+            const verified = eligible.slice(0, 3);
+            const result = {
+                saved: 0, existing: 0,
+                skipped: allOffers.length - eligible.length,
+                limited: Math.max(0, eligible.length - verified.length),
+                failed: 0
+            };
             const existingByUrl = new Map();
             for (const offer of verified) {
                 const officialUrl = String(offer.official_flyer_url).trim();
@@ -930,6 +948,8 @@
                         origin: "unknown",
                         priceSource: "flyer",
                         sourceUrl: officialUrl,
+                        officialSourceUrl: officialUrl,
+                        dataProviderUrl: String(offer.url || ""),
                         sourceVerified: true,
                         brand: String(offer.brand || ""),
                         category: String(offer.category || ""),
@@ -1151,6 +1171,7 @@
                 if (importResult.saved > 0) await loadPrices();
                 status.textContent += " Importazione automatica: " + importResult.saved + " nuove offerte verificate, " +
                     importResult.existing + " già presenti, " + importResult.skipped + " escluse perché senza fonte ufficiale/scadenza valida" +
+                    (importResult.limited ? ", " + importResult.limited + " idonee lasciate fuori dal limite di 3 importazioni per ricerca" : "") +
                     (importResult.failed ? ", " + importResult.failed + " non salvate per errore di rete o permessi" : "") + ".";
             } catch (error) {
                 console.error("Ricerca offerte volantino:", error);
@@ -1180,6 +1201,8 @@
                     origin: "unknown",
                     priceSource: "flyer",
                     sourceUrl: String(offer.official_flyer_url || ""),
+                    officialSourceUrl: String(offer.official_flyer_url || ""),
+                    dataProviderUrl: String(offer.url || ""),
                     sourceVerified: true,
                     brand: String(offer.brand || ""),
                     category: String(offer.category || ""),
@@ -2126,8 +2149,8 @@
                     matches.set(key, {
                         productName: name, barcode: item.barcode || '', price: hasPrice ? price : null,
                         supermarket: item.supermarket || '', priceSource: item.priceSource || 'community',
-                        sourceUrl: item.sourceUrl || '', timestamp: item.timestamp || '',
-                        brand, quantity, catalogSource: item.catalogSource || item.priceSource || '',
+                        sourceUrl: item.sourceUrl || '', dataProviderUrl: item.dataProviderUrl || '', officialSourceUrl: item.officialSourceUrl || '',
+                        timestamp: item.timestamp || '', brand, quantity, catalogSource: item.catalogSource || item.priceSource || '',
                         priceCount: hasPrice ? 1 : 0, score
                     });
                     return;
@@ -2174,11 +2197,15 @@
                     : ' · data non disponibile';
                 const safeSourceLink = /^https:\/\//i.test(String(item.sourceUrl || '')) ? String(item.sourceUrl) : '';
                 const sourceLinkHtml = safeSourceLink
-                    ? ' · <a class="underline text-emerald-700" href="' + escapeHtml(safeSourceLink) + '" target="_blank" rel="noopener noreferrer">fonte</a>'
+                    ? ' · <a class="underline text-emerald-700" href="' + escapeHtml(safeSourceLink) + '" target="_blank" rel="noopener noreferrer">fonte ufficiale</a>'
+                    : '';
+                const safeProviderLink = /^https:\/\//i.test(String(item.dataProviderUrl || '')) ? String(item.dataProviderUrl) : '';
+                const providerLinkHtml = safeProviderLink
+                    ? ' · <a class="underline text-emerald-700" href="' + escapeHtml(safeProviderLink) + '" target="_blank" rel="noopener noreferrer">Prezzi in Vista</a>'
                     : '';
                 const priceText = item.price !== null
                     ? 'Ultimo prezzo registrato: €' + item.price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) +
-                      (item.supermarket ? ' · ' + escapeHtml(item.supermarket) : '') + priceDateText + sourceLinkHtml +
+                      (item.supermarket ? ' · ' + escapeHtml(item.supermarket) : '') + priceDateText + sourceLinkHtml + providerLinkHtml +
                       (item.priceCount > 1 ? ' · ' + item.priceCount + ' rilevazioni' : '')
                     : 'Prezzo non ancora registrato';
                 const safePrice = item.price === null ? 'null' : String(item.price);
