@@ -39,7 +39,8 @@ jobs:
           const allowed = {
             "Sole 365": ["sole365.it"],
             "Iper Rossetto / Rossetto": ["rossettogroup.it"],
-            "Conad": ["spesaonline.conad.it"]
+            "Conad": ["spesaonline.conad.it"],
+            "Eurospin": ["eurospin.it"]
           };
           const seen = new Set();
           const today = new Date().toISOString().slice(0, 10);
