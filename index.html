@@ -1088,7 +1088,7 @@
                     flyerName: String(offer.store || "Volantino"),
                     offerValidUntil: String(offer.valid_until || ""),
                     flyerSource: String(offer.source || "Prezzi in Vista"),
-                    userId: currentUser.email,
+                    userId: currentUser.uid,
                     timestamp: new Date().toISOString()
                 });
                 alert("Offerta salvata nello storico prezzi. Fonte collegata: " + (offer.url || "non disponibile"));
@@ -1299,7 +1299,7 @@
                     productSource: "Volantino: " + (flyerCurrentFileName || "inserimento manuale"),
                     flyerName: flyerCurrentFileName || "Inserimento manuale",
                     offerValidUntil: validUntil || "",
-                    userId: currentUser.email,
+                    userId: currentUser.uid,
                     timestamp: new Date().toISOString()
                 };
                 try {
@@ -1597,7 +1597,7 @@
             button.disabled = true; button.textContent = "Salvataggio…"; status.textContent = "Salvo i prezzi confermati…";
             let saved = 0, failed = 0;
             for (const row of rows) {
-                const record = { barcode: row.barcode, productName: row.productName, price: row.price, supermarket, origin: "unknown", priceSource: "receipt", sourceUrl: "", brand: "", category: "", ingredients: "", countryOfOrigin: "", productSource: "Scontrino: " + (receiptCurrentFileName || "inserimento manuale"), receiptName: receiptCurrentFileName || "Inserimento manuale", receiptDate: purchaseDate, receiptTotal: total, userId: currentUser.email, timestamp: new Date().toISOString() };
+                const record = { barcode: row.barcode, productName: row.productName, price: row.price, supermarket, origin: "unknown", priceSource: "receipt", sourceUrl: "", brand: "", category: "", ingredients: "", countryOfOrigin: "", productSource: "Scontrino: " + (receiptCurrentFileName || "inserimento manuale"), receiptName: receiptCurrentFileName || "Inserimento manuale", receiptDate: purchaseDate, receiptTotal: total, userId: currentUser.uid, timestamp: new Date().toISOString() };
                 try { await addDoc(collection(db, "prices"), record); saved++; } catch (error) { failed++; console.error("Salvataggio prezzo da scontrino:", error); }
             }
             status.textContent = saved + " prezzi salvati nello storico." + (failed ? " " + failed + " righe non salvate: verifica connessione o regole Firebase." : "");
@@ -2115,11 +2115,6 @@
                 document.getElementById("price").focus();
                 return;
             }
-            if (!currentUser.email) {
-                alert("L'account non contiene un indirizzo email verificabile per registrare il prezzo.");
-                return;
-            }
-
             const priceData = {
                 barcode, productName, price: enteredPrice, supermarket,
                 origin: document.getElementById("origin").value,
@@ -2142,7 +2137,7 @@
                 additivesCount: scannedProductMetadata?.additivesCount ?? "",
                 additives: scannedProductMetadata?.additives || "",
                 productSource: scannedProductMetadata?.productSource || "",
-                userId: currentUser.email,
+                userId: currentUser.uid,
                 timestamp: new Date().toISOString()
             };
 

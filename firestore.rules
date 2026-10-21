@@ -16,13 +16,12 @@ service cloud.firestore {
     }
 
     // Prices are shared community data; only signed-in users may read them.
-    // Keep submissions compatible with the currently deployed Firebase rules.
+    // Use Firebase UIDs instead of email addresses in new community records.
     match /prices/{priceId} {
       allow read: if request.auth != null;
 
       allow create: if request.auth != null
-        && request.auth.token.email != null
-        && request.resource.data.userId == request.auth.token.email;
+        && request.resource.data.userId == request.auth.uid;
 
       // Price edits and deletions are not supported by the current app.
       allow update, delete: if false;
