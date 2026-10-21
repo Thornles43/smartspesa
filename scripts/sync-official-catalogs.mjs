@@ -65,7 +65,7 @@ function parseExpiry(text) {
 }
 function parseJsonLdProducts(source, html) {
   const roots = [];
-  const blocks = /<script\\b[^>]*type=["']application\\/ld\\+json["'][^>]*>([\\s\\S]*?)<\\/script>/gi;
+  const blocks = /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
   for (const match of html.matchAll(blocks)) {
     try { roots.push(JSON.parse(match[1].trim())); } catch { /* JSON-LD non valido: ignora il blocco */ }
   }
@@ -96,7 +96,7 @@ function parseJsonLdProducts(source, html) {
 
     let validUntil = null;
     const rawExpiry = String(offer.priceValidUntil || "").slice(0, 10);
-    if (/^\\d{4}-\\d{2}-\\d{2}$/.test(rawExpiry)) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(rawExpiry)) {
       const parsed = new Date(rawExpiry + "T00:00:00Z");
       if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== rawExpiry || rawExpiry < TODAY) continue;
       validUntil = rawExpiry;
@@ -115,7 +115,7 @@ function parseJsonLdProducts(source, html) {
     const brandValue = item.brand;
     const brand = String(typeof brandValue === "string" ? brandValue : brandValue?.name || "").trim();
     const rawQuantity = String(item.size || item.weight || "").trim();
-    const quantityMatch = (name + " " + rawQuantity).match(/\\b\\d+(?:[,.]\\d+)?\\s?(?:kg|g|mg|ml|lt|l|cl)\\b/i);
+    const quantityMatch = (name + " " + rawQuantity).match(/\b\d+(?:[,.]\d+)?\s?(?:kg|g|mg|ml|lt|l|cl)\b/i);
     const quantity = rawQuantity || (quantityMatch ? quantityMatch[0] : "");
     const key = normalize(name) + "|" + normalize(quantity);
     if (seen.has(key)) continue;
