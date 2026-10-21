@@ -9,8 +9,7 @@ const MONTHS = { gennaio:1, febbraio:2, marzo:3, aprile:4, maggio:5, giugno:6, l
 const SOURCES = [
   { id: "sole365", name: "Sole 365", url: "https://catalogo.sole365.it/", domain: "sole365.it", mode: "catalog" },
   { id: "rossetto", name: "Iper Rossetto / Rossetto", url: "https://rossettogroup.it/prezzi-rossetto-in-corso/", domain: "rossettogroup.it", mode: "promotions" },
-  // Conad: acquisisce solo Product JSON-LD effettivamente pubblicati dalla pagina ufficiale.
-  // Se il sito non espone dati strutturati leggibili, il sync segnala errore e conserva i dati precedenti.
+  // Conad: parser prudente delle schede HTML; il JSON-LD viene usato quando presente, ma non è obbligatorio.
   { id: "conad", name: "Conad", url: "https://spesaonline.conad.it/tutti-i-prodotti", domain: "spesaonline.conad.it", mode: "conad" },
   { id: "eurospin", name: "Eurospin", url: "https://www.eurospin.it/ribassati/", domain: "eurospin.it", mode: "eurospin" }
 ];
