@@ -177,13 +177,13 @@ function parseConadProducts(source, html) {
 
     // Escludi prezzi unitari (€/kg, €/L): non sono il prezzo della confezione.
     const prices = [];
-    const pricePattern = /(?:€\\s*)?(\\d{1,4}(?:\\.\\d{3})*,\\d{2})(?:\\s*€)?/g;
+    const pricePattern = /(?:€\s*)?(\d{1,4}(?:\.\d{3})*,\d{2})(?:\s*€)?/g;
     for (const match of text.matchAll(pricePattern)) {
       const end = (match.index || 0) + match[0].length;
       const tail = text.slice(end, end + 16);
       const prefix = text.slice(Math.max(0, (match.index || 0) - 8), match.index || 0);
-      if (/^\\s*\\/\\s*(?:kg|l|lt|litro|litri)\\b/i.test(tail) ||
-          /\\/\\s*(?:kg|l|lt)\\s*$/i.test(prefix)) continue;
+      if (/^\s*\/\s*(?:kg|l|lt|litro|litri)\b/i.test(tail) ||
+          /\/\s*(?:kg|l|lt)\s*$/i.test(prefix)) continue;
       const value = parseMoney(match[1]);
       if (value !== null) prices.push(value);
     }
@@ -192,8 +192,8 @@ function parseConadProducts(source, html) {
     if (uniquePrices.length !== 1) continue;
     const price = uniquePrices[0];
 
-    const qty = text.match(/\\b\\d+(?:[,.]\\d+)?\\s?(?:kg|g|mg|ml|lt|l|cl)\\b/i);
-    const quantity = qty ? qty[0].replace(/\\s+/g, " ").trim() : "";
+    const qty = text.match(/\b\d+(?:[,.]\d+)?\s?(?:kg|g|mg|ml|lt|l|cl)\b/i);
+    const quantity = qty ? qty[0].replace(/\s+/g, " ").trim() : "";
     const key = normalize(name) + "|" + normalize(quantity);
     if (seen.has(key)) continue;
     seen.add(key);
