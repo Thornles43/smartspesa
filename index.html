@@ -408,7 +408,7 @@
         <button onclick="showScreen('screen-shopping')" class="nav-item flex flex-col items-center gap-1" id="nav-shopping"><i class="fa-solid fa-basket-shopping text-xl"></i><span class="text-xs font-medium">Spesa</span></button>
         <button onclick="showScreen('screen-scan')" class="nav-item flex flex-col items-center gap-1" id="nav-scan"><i class="fa-solid fa-plus-circle text-2xl text-green-600"></i><span class="text-xs font-medium">Inserisci</span></button>
         <button onclick="showScreen('screen-list')" class="nav-item flex flex-col items-center gap-1" id="nav-list"><i class="fa-solid fa-list-ul text-xl"></i><span class="text-xs font-medium">Prezzi</span></button>
-        <button onclick="openNearbyScreen()" class="nav-item flex flex-col items-center gap-1" id="nav-nearby"><i class="fa-solid fa-map-location-dot text-xl"></i><span class="text-xs font-medium">Vicini</span></button>
+        <button onclick="openNearbyScreen()" class="nav-item flex flex-col items-center gap-1" id="nav-nearby"><i class="fa-solid fa-store text-xl"></i><span class="text-xs font-medium">Vicini</span></button>
         <button onclick="openOffersScreen()" class="nav-item flex flex-col items-center gap-1" id="nav-offers"><i class="fa-solid fa-tags text-xl"></i><span class="text-xs font-medium">Offerte</span></button>
     </nav>
 
@@ -1840,14 +1840,14 @@
                     const url = 'https://world.openfoodfacts.org/cgi/search.pl?search_terms=' + encodeURIComponent(String(rawTerm || '').trim()) + '&search_simple=1&action=process&json=1&page_size=10&fields=code,product_name,product_name_it,brands';
                     const catalogController = new AbortController();
                     const catalogTimeout = setTimeout(() => catalogController.abort(), 4500);
-                    let response;
+                    let data = null;
                     try {
-                        response = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: catalogController.signal });
+                        const response = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: catalogController.signal });
+                        if (response.ok) data = await response.json();
                     } finally {
                         clearTimeout(catalogTimeout);
                     }
-                    if (response.ok) {
-                        const data = await response.json();
+                    if (data) {
                         (data.products || []).forEach(product => {
                             const name = String(product.product_name_it || product.product_name || '').trim();
                             if (!name) return;
