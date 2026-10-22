@@ -1728,12 +1728,70 @@
                     let bitmap;
                     try { bitmap = await createImageBitmap(file); } catch { return [file]; }
                     try {
-                        // Anche gli scontrini lunghi fotografati con lo sfondo (spesso rapporto circa 2:1)
-                        // vanno divisi per mantenere leggibili i caratteri senza ridurre la foto intera.
-                        const tallReceipt = bitmap.height > maxSide && bitmap.height / bitmap.width >= 1.5;
+                        // Le foto fatte con il telefono spesso includono molto tavolo
+                        // attorno allo scontrino. Ritagliare la striscia di carta prima
+                        // di dividerla aumenta la risoluzione effettiva dei caratteri.
+                        // Se la carta non si distingue con sufficiente sicurezza,
+                        // manteniamo l'immagine intera.
+                        let cropLeft = 0;
+                        let cropWidth = bitmap.width;
+                        if (bitmap.width >= 900 && bitmap.height >= 1400) {
+                            const probe = document.createElement("canvas");
+                            const probeWidth = Math.min(240, bitmap.width);
+                            const probeScale = probeWidth / bitmap.width;
+                            probe.width = probeWidth;
+                            probe.height = Math.max(1, Math.round(bitmap.height * probeScale));
+                            const probeContext = probe.getContext("2d", { willReadFrequently: true });
+                            if (probeContext) {
+                                probeContext.drawImage(bitmap, 0, 0, probe.width, probe.height);
+                                const pixels = probeContext.getImageData(0, 0, probe.width, probe.height).data;
+                                const columnScores = new Float32Array(probe.width);
+                                const yStart = Math.floor(probe.height * 0.06);
+                                const yEnd = Math.ceil(probe.height * 0.94);
+                                const yStep = Math.max(1, Math.floor((yEnd - yStart) / 500));
+                                for (let y = yStart; y < yEnd; y += yStep) {
+                                    for (let x = 0; x < probe.width; x++) {
+                                        const offset = (y * probe.width + x) * 4;
+                                        const red = pixels[offset], green = pixels[offset + 1], blue = pixels[offset + 2];
+                                        const lightness = red * 0.299 + green * 0.587 + blue * 0.114;
+                                        const colorSpread = Math.max(red, green, blue) - Math.min(red, green, blue);
+                                        if (lightness >= 155 && colorSpread <= 90) columnScores[x]++;
+                                    }
+                                }
+                                const smooth = new Float32Array(probe.width);
+                                for (let x = 0; x < probe.width; x++) {
+                                    let total = 0, count = 0;
+                                    for (let j = Math.max(0, x - 4); j <= Math.min(probe.width - 1, x + 4); j++) {
+                                        total += columnScores[j]; count++;
+                                    }
+                                    smooth[x] = total / count;
+                                }
+                                let peak = Math.floor(probe.width / 2);
+                                for (let x = Math.floor(probe.width * 0.12); x < Math.ceil(probe.width * 0.88); x++) {
+                                    if (smooth[x] > smooth[peak]) peak = x;
+                                }
+                                const threshold = smooth[peak] * 0.55;
+                                let left = peak, right = peak;
+                                while (left > 0 && smooth[left - 1] >= threshold) left--;
+                                while (right < probe.width - 1 && smooth[right + 1] >= threshold) right++;
+                                const detectedWidth = right - left + 1;
+                                if (smooth[peak] >= (yEnd - yStart) / yStep * 0.28 &&
+                                    detectedWidth >= probe.width * 0.08 && detectedWidth <= probe.width * 0.62) {
+                                    const pad = Math.max(3, Math.round(detectedWidth * 0.08));
+                                    const scaleToSource = bitmap.width / probe.width;
+                                    cropLeft = Math.max(0, Math.floor((left - pad) * scaleToSource));
+                                    const cropRight = Math.min(bitmap.width, Math.ceil((right + pad + 1) * scaleToSource));
+                                    cropWidth = cropRight - cropLeft;
+                                }
+                            }
+                        }
+                        // Anche gli scontrini lunghi fotografati insieme allo sfondo
+                        // (spesso rapporto 2:1 circa) vanno divisi: ridurre tutta la foto
+                        // rende troppo piccoli i caratteri dello scontrino.
+                        const tallReceipt = bitmap.height > maxSide && bitmap.height / cropWidth >= 1.5;
                         const scale = tallReceipt
-                            ? Math.min(1, maxSide / bitmap.width)
-                            : Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+                            ? Math.min(1, maxSide / cropWidth)
+                            : Math.min(1, maxSide / Math.max(cropWidth, bitmap.height));
                         const sourceTileHeight = tallReceipt ? Math.max(1, Math.floor(maxSide / scale)) : bitmap.height;
                         const overlap = tallReceipt ? Math.max(1, Math.floor(100 / scale)) : 0;
                         const step = Math.max(1, sourceTileHeight - overlap);
@@ -1741,11 +1799,11 @@
                         for (let y = 0; y < bitmap.height; y += step) {
                             const sourceHeight = Math.min(sourceTileHeight, bitmap.height - y);
                             const canvas = document.createElement("canvas");
-                            canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+                            canvas.width = Math.max(1, Math.round(cropWidth * scale));
                             canvas.height = Math.max(1, Math.round(sourceHeight * scale));
                             const ctx = canvas.getContext("2d", { alpha: false });
                             if (!ctx) throw new Error("Il browser non riesce a preparare la foto per l’OCR.");
-                            ctx.drawImage(bitmap, 0, y, bitmap.width, sourceHeight, 0, 0, canvas.width, canvas.height);
+                            ctx.drawImage(bitmap, cropLeft, y, cropWidth, sourceHeight, 0, 0, canvas.width, canvas.height);
                             tiles.push(canvas);
                             if (!tallReceipt) break;
                         }
