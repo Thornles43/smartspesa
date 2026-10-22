@@ -306,7 +306,7 @@
         <div class="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 mb-5">
             <label for="shoppingSearch" class="block text-sm font-semibold text-gray-700 mb-2">Cerca un prodotto</label>
             <div class="relative"><i class="fa-solid fa-magnifying-glass absolute left-4 top-4 text-gray-400"></i><input id="shoppingSearch" type="search" autocomplete="off" placeholder="Es. latte, pasta, mele..." class="w-full pl-11 pr-4 py-3 outline-none" oninput="searchShoppingProducts(this.value)"></div>
-            <div class="flex flex-wrap items-center gap-2 mt-2"><button id="shoppingAiButton" type="button" class="hidden shopping-secondary" onclick="refineShoppingSearchWithAI()"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Affina ricerca con IA</button><p id="shoppingAiStatus" class="text-xs text-gray-500" role="status" aria-live="polite"></p></div>
+            <p id="shoppingSearchStatus" class="text-xs text-gray-500 mt-2" role="status" aria-live="polite"></p>
             <label for="shoppingMarketFilter" class="block text-sm font-medium text-gray-700 mt-3 mb-1">Filtra per supermercato</label>
             <select id="shoppingMarketFilter" class="w-full px-3 py-3 border border-gray-200 rounded-xl bg-white text-sm" onchange="searchShoppingProducts(document.getElementById('shoppingSearch').value)">
                 <option value="">Tutti i supermercati registrati</option>
@@ -398,8 +398,8 @@
 
     <!-- SCHERMATA: IMPORTA SCONTRINO -->
     <div id="screen-receipts" class="screen p-4 max-w-3xl mx-auto">
-        <div class="flex items-center gap-3 mb-5"><button onclick="showScreen('screen-dashboard')" class="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100" aria-label="Torna alla home"><i class="fa-solid fa-arrow-left"></i></button><div><h2 class="text-xl font-bold">Carica uno scontrino</h2><p class="text-sm text-gray-500">Foto o PDF, riconoscimento testo e controllo dei prezzi.</p></div></div>
-        <div class="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 mb-4"><p class="font-semibold text-emerald-950 mb-1"><i class="fa-solid fa-shield-halved mr-2"></i>Privacy e verifica</p><p class="text-sm text-emerald-900">Il file viene elaborato nel browser. Non archiviamo la foto né il testo OCR completo: vengono salvati soltanto i prodotti e i prezzi che confermi. Controlla i dati prima di salvarli nel catalogo condiviso.</p></div>
+        <div class="flex items-center gap-3 mb-5"><button onclick="showScreen('screen-dashboard')" class="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100" aria-label="Torna alla home"><i class="fa-solid fa-arrow-left"></i></button><div><h2 class="text-xl font-bold">Carica uno scontrino</h2><p class="text-sm text-gray-500">Riconoscimento locale, verifica dei prodotti e controllo dei prezzi.</p></div></div>
+        <div class="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 mb-4"><p class="font-semibold text-emerald-950 mb-1"><i class="fa-solid fa-shield-halved mr-2"></i>Privacy e verifica</p><p class="text-sm text-emerald-900">Foto, PDF e testo vengono elaborati nel browser. Non inviamo lo scontrino a servizi di intelligenza artificiale. Vengono salvati soltanto i prodotti e i prezzi che confermi; controlla i dati prima di salvarli nel catalogo condiviso.</p></div>
         <section class="bg-white border border-gray-200 rounded-2xl p-4 mb-4">
             <label class="block text-sm font-semibold mb-1" for="receiptFile">Foto o PDF dello scontrino</label><input id="receiptFile" type="file" accept=".pdf,application/pdf,image/*" multiple class="w-full text-sm border border-gray-300 rounded-xl p-3" onchange="processReceiptFiles(this.files)">
             <p class="text-xs text-gray-500 mt-2">Carica 1 foto per uno scontrino corto oppure 2 foto per uno lungo: inquadra le parti una dopo l’altra, con buona luce e testo a fuoco. Puoi anche caricare un PDF multipagina. Dopo la lettura, ogni riga viene confrontata con lo storico dei prodotti associati ai supermercati; le corrispondenze sono suggerimenti e vanno verificate prima del salvataggio.</p>
@@ -410,7 +410,7 @@
                 <div><label for="receiptTotal" class="block text-sm font-medium mb-1">Totale scontrino (€), facoltativo</label><input id="receiptTotal" type="text" inputmode="decimal" class="w-full border border-gray-300 rounded-xl p-3" placeholder="Es. 34,75"></div>
             </div>
         </section>
-        <section class="bg-white border border-gray-200 rounded-2xl p-4 mb-4"><h3 class="font-bold mb-2">Testo riconosciuto</h3><p class="text-xs text-gray-500 mb-3">I prodotti vengono estratti automaticamente dopo la lettura. Controlla e correggi nomi e prezzi prima di salvare; puoi anche incollare il testo manualmente.</p><textarea id="receiptExtractedText" rows="8" class="w-full border border-gray-300 rounded-xl p-3 text-sm" placeholder="Il testo dello scontrino comparirà qui."></textarea><p class="text-xs text-gray-500 mt-2">L’AI può correggere il testo OCR e proporre righe mancanti, ma non garantisce una lettura completa. Se attivata, invia il testo estratto al servizio AI; controlla sempre nomi e importi prima di salvare.</p><div class="flex flex-wrap gap-2 mt-3"><button type="button" onclick="parseReceiptText()" class="px-4 py-3 rounded-xl border border-gray-300 font-semibold">Estrai prodotti</button><button type="button" onclick="addReceiptRow()" class="px-4 py-3 rounded-xl border border-gray-300 font-semibold">+ Aggiungi riga</button></div></section>
+        <section class="bg-white border border-gray-200 rounded-2xl p-4 mb-4"><h3 class="font-bold mb-2">Testo riconosciuto</h3><p class="text-xs text-gray-500 mb-3">I prodotti vengono estratti automaticamente dopo la lettura. Controlla e correggi nomi e prezzi prima di salvare; puoi anche incollare il testo manualmente.</p><textarea id="receiptExtractedText" rows="8" class="w-full border border-gray-300 rounded-xl p-3 text-sm" placeholder="Il testo dello scontrino comparirà qui."></textarea><p class="text-xs text-gray-500 mt-2">La lettura avviene solo nel browser e può non riconoscere tutte le righe. Controlla nomi e importi, correggi il testo o aggiungi manualmente le voci mancanti.</p><div class="flex flex-wrap gap-2 mt-3"><button type="button" onclick="parseReceiptText()" class="px-4 py-3 rounded-xl border border-gray-300 font-semibold">Estrai prodotti</button><button type="button" onclick="addReceiptRow()" class="px-4 py-3 rounded-xl border border-gray-300 font-semibold">+ Aggiungi riga</button></div></section>
         <section class="bg-white border border-gray-200 rounded-2xl p-4"><div class="flex items-center justify-between gap-2 mb-3"><h3 class="font-bold">Prodotti da confermare</h3><span id="receiptRowCount" class="text-xs text-gray-500">0 prodotti</span></div><div id="receiptRows" class="space-y-3"><p class="text-sm text-gray-400">Carica lo scontrino e verifica le righe riconosciute.</p></div><button type="button" id="saveReceiptButton" onclick="saveReceiptItems()" class="w-full mt-4 px-4 py-3 rounded-xl bg-green-700 text-white font-bold"><i class="fa-solid fa-cloud-arrow-up mr-2"></i>Conferma e salva prezzi</button><p id="receiptSaveStatus" class="text-sm mt-3" role="status" aria-live="polite"></p></section>
     </div>
 
@@ -462,13 +462,10 @@
     </nav>
 
     <!-- FIREBASE SDK -->
-    <script>window.SMARTSPESA_AI_WORKER_URL = ""; window.SMARTSPESA_RECAPTCHA_SITE_KEY = "";</script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-auth.js";
         import { getFirestore, collection, addDoc, getDocs, query, orderBy, where, doc, updateDoc, deleteDoc, limit, startAfter, getCountFromServer } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
-        import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app-check.js";
-        import { getAI, getGenerativeModel, GoogleAIBackend } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-ai.js";
 
         // LA TUA CONFIGURAZIONE FIREBASE
         const firebaseConfig = {
@@ -481,34 +478,10 @@
             measurementId: "G-TYFYY4HL8P"
         };
 
-        // Worker AI opzionale; alternativa gratuita tramite Firebase AI Logic + Gemini.
-        const SMARTSPESA_AI_WORKER_URL = String(window.SMARTSPESA_AI_WORKER_URL || "").trim();
-        const SMARTSPESA_RECAPTCHA_SITE_KEY = String(window.SMARTSPESA_RECAPTCHA_SITE_KEY || "").trim();
-
         // Inizializza Firebase
         const app = initializeApp(firebaseConfig);
-        let smartSpesaAIModel = null;
-        if (SMARTSPESA_RECAPTCHA_SITE_KEY) {
-            try {
-                initializeAppCheck(app, { provider: new ReCaptchaEnterpriseProvider(SMARTSPESA_RECAPTCHA_SITE_KEY), isTokenAutoRefreshEnabled: true });
-                const ai = getAI(app, { backend: new GoogleAIBackend() });
-                smartSpesaAIModel = getGenerativeModel(ai, {
-                    model: "gemini-3.5-flash-lite",
-                    generationConfig: { responseMimeType: "application/json", temperature: 0.1 }
-                });
-            } catch (error) {
-                console.warn("Firebase AI Logic non inizializzata; l’AI resta disattivata.", error);
-            }
-        }
         const auth = getAuth(app);
         const db = getFirestore(app);
-
-        async function generateSmartSpesaAIJSON(prompt) {
-            if (!smartSpesaAIModel) throw new Error("Firebase AI Logic non configurata: manca la chiave pubblica reCAPTCHA v3 di App Check.");
-            const result = await smartSpesaAIModel.generateContent(prompt);
-            const raw = result.response.text().trim().replace(/^\x60\x60\x60(?:json)?\s*/i, "").replace(/\s*\x60\x60\x60$/, "");
-            return JSON.parse(raw);
-        }
 
 
         let currentUser = null;
@@ -524,9 +497,6 @@
         let shoppingItems = [];
         let shoppingListLoading = false;
         let shoppingSearchRequestId = 0;
-        let lastShoppingSearchResults = [];
-        let lastShoppingSearchTerm = "";
-        let lastShoppingSearchMarket = "";
         let priceSaving = false;
         const shoppingThemes = {
             green: { primary: '#087f5b', soft: '#e5f5ed', ink: '#07543e', line: '#c8e8d7' },
@@ -1606,9 +1576,61 @@
         }
 
         function receiptTextHasPriceRows(text) {
-            return String(text || "").split(/\r?\n/).some(line =>
-                /[a-zA-ZÀ-ÿ]{3}/.test(line) && /(?:\d{1,3}(?:\.\d{3})+|\d{1,6})[,.]\d{2}/.test(line)
-            );
+            return countReceiptPriceRows(text) > 0;
+        }
+
+        function countReceiptPriceRows(text) {
+            const ignored = /\b(totale|subtotale|importo pagato|tot\.?\s*doc|documento commerciale|iva|aliquota|imponibile|contanti|bancomat|mastercard|visa|pagamento|resto|sconto totale|risparmio|punti|carta fedelta|transazione|autorizzazione|partita iva|codice fiscale|www\.|http)\b/i;
+            let count = 0;
+            let pendingProduct = false;
+            for (const rawLine of String(text || "").split(/\r?\n/)) {
+                const line = rawLine.replace(/(\d)[,.]\s+(\d{2})(?!\d)/g, "$1,$2").trim();
+                if (!line) continue;
+                if (ignored.test(line)) { pendingProduct = false; continue; }
+                const hasPrice = /(?:\d{1,3}(?:\.\d{3})+|\d{1,6})[,.]\d{2}/.test(line);
+                if (hasPrice && /[a-zA-ZÀ-ÿ]{3}/.test(line)) { count++; pendingProduct = false; continue; }
+                if (hasPrice && pendingProduct && !/[a-zA-ZÀ-ÿ]{3}/.test(line)) { count++; pendingProduct = false; continue; }
+                if (!hasPrice && /[a-zA-ZÀ-ÿ]{3}/.test(line) && !/\b(carta|credito|debito)\b/i.test(line)) pendingProduct = true;
+            }
+            return count;
+        }
+
+        function enhanceReceiptContrast(sourceCanvas) {
+            if (!sourceCanvas || typeof sourceCanvas.getContext !== "function" || !sourceCanvas.width || !sourceCanvas.height) return null;
+            const sourceContext = sourceCanvas.getContext("2d", { willReadFrequently: true });
+            if (!sourceContext) return null;
+            const image = sourceContext.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
+            const histogram = new Uint32Array(256);
+            const pixels = image.data;
+            const pixelCount = pixels.length / 4;
+            for (let i = 0; i < pixels.length; i += 4) {
+                const gray = Math.round(pixels[i] * 0.299 + pixels[i + 1] * 0.587 + pixels[i + 2] * 0.114);
+                histogram[gray]++;
+            }
+            const percentile = target => {
+                let count = 0;
+                for (let value = 0; value < histogram.length; value++) {
+                    count += histogram[value];
+                    if (count >= target) return value;
+                }
+                return 255;
+            };
+            const low = percentile(pixelCount * 0.02);
+            const high = percentile(pixelCount * 0.98);
+            if (high - low < 24) return null;
+            const range = high - low;
+            for (let i = 0; i < pixels.length; i += 4) {
+                const gray = Math.round(pixels[i] * 0.299 + pixels[i + 1] * 0.587 + pixels[i + 2] * 0.114);
+                const enhanced = Math.max(0, Math.min(255, Math.round((gray - low) * 255 / range)));
+                pixels[i] = pixels[i + 1] = pixels[i + 2] = enhanced;
+            }
+            const canvas = document.createElement("canvas");
+            canvas.width = sourceCanvas.width;
+            canvas.height = sourceCanvas.height;
+            const context = canvas.getContext("2d", { alpha: false });
+            if (!context) return null;
+            context.putImageData(image, 0, 0);
+            return canvas;
         }
 
         window.openReceiptImport = () => {
@@ -1648,7 +1670,6 @@
             try {
                 let combinedText = "";
                 const warnings = [];
-                let readableImageCount = 0;
                 const isPdfFile = file => file.type === "application/pdf" || /\.pdf$/i.test(file.name);
 
                 // Il motore OCR viene caricato solo se il PDF non contiene testo selezionabile
@@ -1669,21 +1690,54 @@
                     return ocrWorker;
                 };
 
-                // Riduce foto enormi per evitare di far elaborare milioni di pixel al telefono.
-                const prepareReceiptImage = async file => {
+                const readReceiptCanvas = async canvas => {
+                    const worker = await getOcrWorker();
+                    const first = await worker.recognize(canvas);
+                    const firstText = String(first.data.text || "");
+                    const firstRows = countReceiptPriceRows(firstText);
+                    const firstConfidence = Number(first.data.confidence) || 0;
+                    if (firstRows >= 5 && firstConfidence >= 68) return first.data;
+                    const enhancedCanvas = enhanceReceiptContrast(canvas);
+                    if (!enhancedCanvas) return first.data;
+                    status.textContent = "Testo poco nitido: provo a migliorare il contrasto nel browser…";
+                    const second = await worker.recognize(enhancedCanvas);
+                    const secondText = String(second.data.text || "");
+                    const secondRows = countReceiptPriceRows(secondText);
+                    const secondConfidence = Number(second.data.confidence) || 0;
+                    const firstScore = firstRows * 20 + firstConfidence * 0.2 + Math.min(firstText.length, 3000) / 300;
+                    const secondScore = secondRows * 20 + secondConfidence * 0.2 + Math.min(secondText.length, 3000) / 300;
+                    return secondScore > firstScore ? second.data : first.data;
+                };
+
+                // Mantiene leggibile la stampa termica: ridimensionare uno scontrino molto
+                // lungo in un'unica immagine rimpicciolisce troppo le lettere. Le foto
+                // verticali vengono quindi lette a sezioni sovrapposte, solo nel browser.
+                const prepareReceiptImageTiles = async file => {
                     const maxSide = 1800;
-                    if (typeof createImageBitmap !== "function") return file;
+                    if (typeof createImageBitmap !== "function") return [file];
                     let bitmap;
-                    try { bitmap = await createImageBitmap(file); } catch { return file; }
+                    try { bitmap = await createImageBitmap(file); } catch { return [file]; }
                     try {
-                        if (Math.max(bitmap.width, bitmap.height) <= maxSide) return file;
-                        const scale = maxSide / Math.max(bitmap.width, bitmap.height);
-                        const canvas = document.createElement("canvas");
-                        canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-                        canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-                        const ctx = canvas.getContext("2d", { alpha: false });
-                        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-                        return canvas;
+                        const tallReceipt = bitmap.height > maxSide && bitmap.height / bitmap.width >= 2.5;
+                        const scale = tallReceipt
+                            ? Math.min(1, maxSide / bitmap.width)
+                            : Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+                        const sourceTileHeight = tallReceipt ? Math.max(1, Math.floor(maxSide / scale)) : bitmap.height;
+                        const overlap = tallReceipt ? Math.max(1, Math.floor(100 / scale)) : 0;
+                        const step = Math.max(1, sourceTileHeight - overlap);
+                        const tiles = [];
+                        for (let y = 0; y < bitmap.height; y += step) {
+                            const sourceHeight = Math.min(sourceTileHeight, bitmap.height - y);
+                            const canvas = document.createElement("canvas");
+                            canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+                            canvas.height = Math.max(1, Math.round(sourceHeight * scale));
+                            const ctx = canvas.getContext("2d", { alpha: false });
+                            if (!ctx) throw new Error("Il browser non riesce a preparare la foto per l’OCR.");
+                            ctx.drawImage(bitmap, 0, y, bitmap.width, sourceHeight, 0, 0, canvas.width, canvas.height);
+                            tiles.push(canvas);
+                            if (!tallReceipt) break;
+                        }
+                        return tiles;
                     } finally {
                         if (bitmap && typeof bitmap.close === "function") bitmap.close();
                     }
@@ -1719,7 +1773,6 @@
                         }
                         extracted = pages.join("\n");
                         if (!receiptTextHasPriceRows(extracted)) {
-                            const worker = await getOcrWorker();
                             const ocrPages = [];
                             for (let n = 1; n <= Math.min(pdf.numPages, 4); n++) {
                                 status.textContent = "Il PDF è una scansione: OCR pagina " + n + "…";
@@ -1728,38 +1781,37 @@
                                 const canvas = document.createElement("canvas");
                                 canvas.width = viewport.width; canvas.height = viewport.height;
                                 await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
-                                const result = await worker.recognize(canvas);
-                                ocrPages.push(result.data.text || "");
-                                if (typeof result.data.confidence === "number") confidence = confidence === null ? result.data.confidence : Math.min(confidence, result.data.confidence);
+                                const result = await readReceiptCanvas(canvas);
+                                ocrPages.push(result.text || "");
+                                if (typeof result.confidence === "number") confidence = confidence === null ? result.confidence : Math.min(confidence, result.confidence);
                             }
                             const ocrText = ocrPages.join("\n");
                             if (ocrText.trim()) extracted = ocrText;
                         }
                     } else {
                         status.textContent = "Preparo la foto " + (fileIndex + 1) + " di " + files.length + "…";
-                        const worker = await getOcrWorker();
-                        const imageForOcr = await prepareReceiptImage(file);
-                        status.textContent = "Leggo la foto " + (fileIndex + 1) + " di " + files.length + "…";
-                        const result = await worker.recognize(imageForOcr);
-                        extracted = result.data.text || "";
-                        confidence = typeof result.data.confidence === "number" ? result.data.confidence : null;
-                        if (imageForOcr !== file && typeof imageForOcr.close === "function") imageForOcr.close();
-                        const hasRows = receiptTextHasPriceRows(extracted);
+                        await getOcrWorker();
+                        const imageTiles = await prepareReceiptImageTiles(file);
+                        const tileTexts = [];
+                        for (let tileIndex = 0; tileIndex < imageTiles.length; tileIndex++) {
+                            status.textContent = imageTiles.length > 1
+                                ? "Leggo la foto " + (fileIndex + 1) + " di " + files.length + ", sezione " + (tileIndex + 1) + " di " + imageTiles.length + "…"
+                                : "Leggo la foto " + (fileIndex + 1) + " di " + files.length + "…";
+                            const result = await readReceiptCanvas(imageTiles[tileIndex]);
+                            if (result.text) tileTexts.push(result.text);
+                            if (typeof result.confidence === "number") confidence = confidence === null ? result.confidence : Math.min(confidence, result.confidence);
+                        }
+                        extracted = tileTexts.join("\n");
+                        const hasRows = countReceiptPriceRows(extracted) > 0;
                         const isReadable = extracted.replace(/\s/g, "").length >= 20 && hasRows && (confidence === null || confidence >= 35);
-                        if (isReadable) readableImageCount++;
-                        else warnings.push("Foto " + (fileIndex + 1) + ": testo poco leggibile" + (confidence === null ? "" : " (confidenza OCR " + Math.round(confidence) + "%)") + ".");
+                        if (!isReadable) warnings.push("Foto " + (fileIndex + 1) + ": testo poco leggibile" + (confidence === null ? "" : " (confidenza OCR " + Math.round(confidence) + "%)") + ".");
                     }
                     if (extracted.trim()) combinedText += (combinedText ? "\n\n" : "") + "=== " + file.name + " ===\n" + extracted;
                 }
 
-                if (files.some(file => file.type.startsWith("image/")) && readableImageCount === 0) {
+                if (!combinedText.trim()) {
                     textarea.value = combinedText;
-                    status.textContent = "ERRORE: non riesco a leggere lo scontrino. La foto potrebbe essere sfocata, scura o troppo lontana. Rifalla con buona luce, a fuoco e con tutto il testo visibile; per uno scontrino lungo carica 2 foto sovrapposte.";
-                    return;
-                }
-                if (!combinedText.trim() || !receiptTextHasPriceRows(combinedText)) {
-                    textarea.value = combinedText;
-                    status.textContent = "ERRORE: non ho trovato righe prodotto con prezzo. Carica una foto più nitida o un PDF leggibile; controlla che siano visibili descrizioni e prezzi.";
+                    status.textContent = "Non sono riuscito a leggere lo scontrino. Rifai la foto con buona luce e a fuoco, oppure incolla qui il testo.";
                     return;
                 }
                 textarea.value = combinedText;
@@ -1768,9 +1820,11 @@
                 // può essere confrontato con cataloghi e storico senza attribuire prezzi generici.
                 await loadOfficialCatalogProducts();
                 parseReceiptText();
-                status.textContent = warnings.length
-                    ? "Ho letto parte dello scontrino, ma " + warnings.join(" ") + " Verifica il testo e carica una foto più nitida se mancano prodotti."
-                    : "Testo letto da " + files.length + (files.length === 1 ? " file." : " immagini.") + " Ho estratto automaticamente le righe: controlla ogni prezzo prima di salvare.";
+                if (!receiptTextHasPriceRows(combinedText) || warnings.length) {
+                    status.textContent = "Lettura parziale: controlla il testo e completa manualmente le righe mancanti. " + warnings.join(" ");
+                } else {
+                    status.textContent = "Testo letto da " + files.length + (files.length === 1 ? " file." : " immagini.") + " Ho estratto automaticamente le righe: controlla ogni prezzo prima di salvare.";
+                }
             } catch (error) {
                 console.error("Lettura scontrino:", error);
                 status.textContent = "ERRORE di lettura: " + (error.message || "problema nel file o nell'OCR") + ". Prova con una foto più nitida o un PDF leggibile.";
@@ -1939,97 +1993,44 @@
                 '<p class="text-[11px] text-blue-800 mt-2">Confronto indicativo: nomi abbreviati o simili possono riferirsi a formati diversi. Il prezzo dello scontrino è una rilevazione di acquisto; lo storico non è un prezzo corrente.</p></div>';
         }
 
-        window.parseReceiptText = () => {
-            const lines = (document.getElementById("receiptExtractedText").value || "").split(/\r?\n/).map(line => line.replace(/\s+/g, " ").trim()).filter(Boolean);
+        function extractReceiptRowsFromText(text) {
+            const lines = String(text || "").split(/\r?\n/).map(line => line.replace(/\s+/g, " ").trim()).filter(Boolean);
             const ignored = /\b(totale|subtotale|importo pagato|tot\.?\s*doc|documento commerciale|iva|aliquota|imponibile|contanti|bancomat|mastercard|visa|pagamento|resto|sconto totale|risparmio|punti|carta fedelta|transazione|autorizzazione|partita iva|codice fiscale|www\.|http)\b/i;
             const rows = [];
+            let pendingProduct = "";
             for (const line of lines) {
-                if (ignored.test(line) || /\b(carta|credito|debito)\b/i.test(line)) continue;
-                const matches = [...line.matchAll(/(?:€\s*)?((?:\d{1,3}(?:\.\d{3})+|\d{1,6})[,.]\d{2})\s*€?/g)];
-                if (!matches.length) continue;
+                if (ignored.test(line) || /\b(carta|credito|debito)\b/i.test(line)) { pendingProduct = ""; continue; }
+                const normalizedLine = line.replace(/(\d)[,.]\s+(\d{2})(?!\d)/g, "$1,$2");
+                const matches = [...normalizedLine.matchAll(/(?:€\s*)?((?:\d{1,3}(?:\.\d{3})+|\d{1,6})[,.]\d{2})\s*€?/g)];
+                if (!matches.length) {
+                    const name = line.replace(/^[\s.,;:|•·∙●*-]+/, "").replace(/^[\d]{1,2}[xX*]\s*/, "").trim();
+                    if (name.length >= 3 && /[a-zA-ZÀ-ÿ]{3}/.test(name)) pendingProduct = name;
+                    continue;
+                }
                 const match = matches[matches.length - 1], price = parseItalianMoney(match[1]);
                 if (!Number.isFinite(price) || price < 0 || price > 10000) continue;
-                let name = line.slice(0, match.index).replace(/[|•·—–-]+$/g, "").trim();
+                let name = normalizedLine.slice(0, match.index).replace(/^[\s.,;:|•·∙●*-]+/, "").replace(/[|•·—–-]+$/g, "").trim();
                 name = name.replace(/^\d{1,2}[xX*]\s*/, "").trim();
+                if (!/[a-zA-ZÀ-ÿ]{3}/.test(name) && pendingProduct) name = pendingProduct;
                 if (name.length < 3 || !/[a-zA-ZÀ-ÿ]/.test(name) || /^\d+[,.]?\d*\s*(kg|g|ml|l)?$/i.test(name)) continue;
                 rows.push({ productName: name.slice(0, 180), price: price.toFixed(2), barcode: "" });
+                pendingProduct = "";
             }
+            return rows;
+        }
+
+        window.parseReceiptText = () => {
+            const saveButton = document.getElementById("saveReceiptButton");
+            if (saveButton) saveButton.disabled = false;
+            const text = document.getElementById("receiptExtractedText").value || "";
+            const rows = extractReceiptRowsFromText(text);
             const seen = new Set();
             receiptParsedRows = rows.filter(row => { const key = normalizeProductName(row.productName) + "|" + row.price; if (seen.has(key)) return false; seen.add(key); return true; }).slice(0, 150);
             renderReceiptRows();
             document.getElementById("receiptSaveStatus").textContent = receiptParsedRows.length
                 ? "Trovate " + receiptParsedRows.length + " righe candidate. Verifica attentamente gli importi prima di salvare."
                 : "Nessuna riga riconosciuta. Correggi il testo o aggiungi i prodotti manualmente.";
-            if (String(document.getElementById("receiptExtractedText").value || "").trim()) {
-                void refineReceiptExtractionWithAI();
-            }
         };
-
-        async function refineReceiptExtractionWithAI() {
-            const status = document.getElementById("receiptSaveStatus");
-            const extractedText = String(document.getElementById("receiptExtractedText").value || "").trim().slice(0, 12000);
-            if ((!SMARTSPESA_AI_WORKER_URL && !smartSpesaAIModel) || !currentUser || !extractedText) {
-                if (!SMARTSPESA_AI_WORKER_URL && !smartSpesaAIModel && status) {
-                    status.textContent += " AI non attiva: resta disponibile la lettura locale. Per attivare Gemini serve configurare App Check in Firebase.";
-                }
-                return;
-            }
-            const button = document.getElementById("saveReceiptButton");
-            if (button) button.disabled = true;
-            if (status) status.textContent = "Lettura locale completata. L’AI sta verificando le righe e gli importi; controlla comunque ogni campo…";
-            try {
-                let payload;
-                const localRows = receiptParsedRows.slice(0, 150).map(row => ({
-                    productName: String(row.productName || "").slice(0, 180),
-                    price: String(row.price || "").slice(0, 20)
-                }));
-                if (SMARTSPESA_AI_WORKER_URL) {
-                    const token = await currentUser.getIdToken();
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 18000);
-                    let response;
-                    try {
-                        response = await fetch(SMARTSPESA_AI_WORKER_URL, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
-                            body: JSON.stringify({ task: "receipt_parse", extractedText, localRows }),
-                            signal: controller.signal
-                        });
-                    } finally { clearTimeout(timeoutId); }
-                    if (!response.ok) throw new Error("AI HTTP " + response.status);
-                    payload = await response.json();
-                } else {
-                    payload = await generateSmartSpesaAIJSON(
-                        "Sei un assistente per leggere scontrini italiani. Estrai solo righe di prodotti presenti nel testo OCR e il prezzo della singola riga. Usa localRows come suggerimento, non come verità assoluta. Escludi totale, subtotale, IVA, pagamenti, resto, sconti complessivi, punti, date e dati fiscali. Non inventare nomi o prezzi, non calcolare importi mancanti e non confondere quantità o codici con prezzi. Mantieni il prezzo quando non è correggibile con certezza. Restituisci esclusivamente JSON con forma {\"rows\":[{\"productName\":\"nome\",\"price\":\"1,29\"}]}. Testo OCR: " +
-                        JSON.stringify({ extractedText, localRows })
-                    );
-                }
-                if (!Array.isArray(payload.rows) || !payload.rows.length) throw new Error("Nessuna riga AI valida");
-                const combined = new Map();
-                for (const row of receiptParsedRows) {
-                    const key = normalizeProductName(row.productName);
-                    if (key) combined.set(key, { ...row });
-                }
-                for (const row of payload.rows.slice(0, 150)) {
-                    const productName = String(row.productName || "").trim().slice(0, 180);
-                    const price = parseItalianMoney(row.price);
-                    if (productName.length < 3 || !Number.isFinite(price) || price < 0 || price > 10000) continue;
-                    const key = normalizeProductName(productName);
-                    if (!key) continue;
-                    const prior = combined.get(key) || {};
-                    combined.set(key, { ...prior, productName, price: price.toFixed(2), barcode: prior.barcode || "" });
-                }
-                if (!combined.size) throw new Error("Nessuna riga utilizzabile");
-                receiptParsedRows = Array.from(combined.values()).slice(0, 150);
-                renderReceiptRows();
-                if (status) status.textContent = "AI: " + receiptParsedRows.length + " righe candidate dopo il controllo del testo. Verifica manualmente ogni nome e importo: l’AI può sbagliare.";
-            } catch (error) {
-                console.warn("Assistenza AI per scontrini non disponibile; mantengo le righe locali.", error);
-                if (status) status.textContent = "Lettura locale mantenuta. AI non disponibile o non configurata: controlla e correggi le righe manualmente.";
-            } finally {
-                if (button) button.disabled = false;
-            }
-        }
 
         window.addReceiptRow = () => { receiptParsedRows.push({ productName: "", price: "", barcode: "" }); renderReceiptRows(); };
 
@@ -2246,86 +2247,6 @@
             return matched / queryTokens.length;
         }
 
-        async function callSmartSpesaAI(queryText, market, products) {
-            if ((!SMARTSPESA_AI_WORKER_URL && !smartSpesaAIModel) || !currentUser || !Array.isArray(products) || products.length < 2) return null;
-            const candidates = products.slice(0, 20).map((item, index) => ({
-                id: String(index),
-                name: String(item.productName || "").slice(0, 160),
-                brand: String(item.brand || "").slice(0, 80),
-                quantity: String(item.quantity || "").slice(0, 50),
-                supermarket: String(item.supermarket || "").slice(0, 100)
-            }));
-            try {
-                let rankedIds;
-                if (SMARTSPESA_AI_WORKER_URL) {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 9000);
-                    try {
-                        const token = await currentUser.getIdToken();
-                        const response = await fetch(SMARTSPESA_AI_WORKER_URL, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
-                            body: JSON.stringify({ query: String(queryText || "").slice(0, 120), supermarket: String(market || "").slice(0, 100), candidates }),
-                            signal: controller.signal
-                        });
-                        if (!response.ok) throw new Error("AI worker HTTP " + response.status);
-                        const payload = await response.json();
-                        rankedIds = payload.rankedIds;
-                    } finally { clearTimeout(timeoutId); }
-                } else {
-                    const payload = await generateSmartSpesaAIJSON(
-                        "Ordina i prodotti per pertinenza rispetto alla query italiana. Considera errori di battitura, sinonimi, marca e formato; rispetta il supermercato selezionato. Usa esclusivamente gli ID forniti, senza inventare o aggiungere prodotti. Restituisci esclusivamente JSON nella forma {\"rankedIds\":[\"0\",\"1\"]}. Query: " +
-                        JSON.stringify({ query: String(queryText || "").slice(0, 120), supermarket: String(market || "").slice(0, 100), candidates })
-                    );
-                    rankedIds = payload.rankedIds;
-                }
-                if (!Array.isArray(rankedIds)) return null;
-                const allowed = new Set(candidates.map(item => item.id));
-                const unique = [...new Set(rankedIds.map(String).filter(id => allowed.has(id)))];
-                for (const item of candidates) if (!unique.includes(item.id)) unique.push(item.id);
-                return unique;
-            } catch (error) {
-                console.warn("Ricerca assistita IA non disponibile; mantengo l'ordinamento locale.", error);
-                return null;
-            }
-        }
-
-        window.refineShoppingSearchWithAI = async () => {
-            const button = document.getElementById("shoppingAiButton");
-            const status = document.getElementById("shoppingAiStatus");
-            const wrapper = document.getElementById("shoppingAiProductResults");
-            if (!SMARTSPESA_AI_WORKER_URL && !smartSpesaAIModel) {
-                status.textContent = "IA non attiva: configura App Check in Firebase per abilitare Gemini.";
-                return;
-            }
-            if (!currentUser) {
-                status.textContent = "Accedi per usare la ricerca assistita.";
-                return;
-            }
-            if (!wrapper || lastShoppingSearchResults.length < 2) {
-                status.textContent = "Servono almeno due prodotti registrati per affinare la ricerca.";
-                return;
-            }
-            button.disabled = true;
-            button.classList.add("opacity-60");
-            status.textContent = "L'IA sta confrontando la ricerca con i prodotti registrati…";
-            try {
-                const rankedIds = await callSmartSpesaAI(lastShoppingSearchTerm, lastShoppingSearchMarket, lastShoppingSearchResults);
-                if (!rankedIds || !rankedIds.length) {
-                    status.textContent = "IA non disponibile: mantengo i risultati della ricerca normale.";
-                    return;
-                }
-                const cards = new Map(Array.from(wrapper.querySelectorAll("[data-ai-product-id]"))
-                    .map(node => [node.getAttribute("data-ai-product-id"), node]));
-                const orderedIds = [...rankedIds, ...Array.from(cards.keys()).filter(id => !rankedIds.includes(id))];
-                orderedIds.forEach(id => { const node = cards.get(String(id)); if (node) wrapper.appendChild(node); });
-                status.textContent = "Ordine affinato dall'IA usando soltanto prodotti già associati a supermercati nei dati SmartSpesa.";
-            } finally {
-                button.disabled = false;
-                button.classList.remove("opacity-60");
-            }
-        };
-
         function marketMatchesSelected(supermarketName, selectedMarket) {
             if (!selectedMarket) return true;
             const store = normalizeProductName(supermarketName).replace(/\s+/g, '');
@@ -2525,12 +2446,7 @@
                 .filter(item => item.score >= 0.5)
                 .sort((a, b) => (b.score - a.score) || ((a.price ?? Number.POSITIVE_INFINITY) - (b.price ?? Number.POSITIVE_INFINITY)))
                 .slice(0, 15);
-            lastShoppingSearchResults = results;
-            lastShoppingSearchTerm = term;
-            lastShoppingSearchMarket = selectedMarket;
-            const aiButton = document.getElementById("shoppingAiButton");
-            if (aiButton) aiButton.classList.toggle("hidden", (!SMARTSPESA_AI_WORKER_URL && !smartSpesaAIModel) || results.length < 2);
-            const aiStatus = document.getElementById("shoppingAiStatus");
+            const searchStatus = document.getElementById("shoppingSearchStatus");
             const catalogCoverageText = officialCatalogSourceStatuses.length
                 ? " Copertura importazione automatica: " + officialCatalogSourceStatuses.map(source =>
                     source.status === "ok"
@@ -2538,9 +2454,9 @@
                         : String(source.name || source.id) + " non importato automaticamente"
                   ).join("; ") + "."
                 : " Stato dei cataloghi ufficiali non disponibile in questo momento.";
-            if (aiStatus) aiStatus.textContent = (flyerLookupFailed ? "Catalogo offerte temporaneamente non raggiungibile: mostro i prodotti registrati in SmartSpesa." : "Ricerca nei prodotti registrati, nei cataloghi ufficiali sincronizzati e nelle offerte correnti con fonte verificata.") + catalogCoverageText + ((SMARTSPESA_AI_WORKER_URL || smartSpesaAIModel) && results.length >= 2 ? " Puoi anche chiedere all'IA di riordinare i risultati." : "");
-            let html = '<div id="shoppingAiProductResults" class="space-y-3">';
-            results.forEach((item, resultIndex) => {
+            if (searchStatus) searchStatus.textContent = (flyerLookupFailed ? "Catalogo offerte temporaneamente non raggiungibile: mostro i prodotti registrati in SmartSpesa." : "Ricerca nei prodotti registrati, nei cataloghi ufficiali sincronizzati e nelle offerte correnti con fonte verificata.") + catalogCoverageText;
+            let html = '<div class="space-y-3">';
+            results.forEach(item => {
                 const safeName = JSON.stringify(item.productName).replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
                 const safeBarcode = JSON.stringify(item.barcode).replace(/</g, '\\u003c').replace(/'/g, '\\u0027');
                 const parsedPriceDate = item.timestamp ? new Date(item.timestamp) : null;
@@ -2583,7 +2499,7 @@
                     ? '<button type="button" class="shopping-secondary mt-2" onclick=\'openPriceEntryForProduct(' + safeName + ', ' + safeBarcode + ')\'><i class="fa-solid fa-tag mr-1"></i>Registra un prezzo</button>'
                     : '';
                 const productDetails = [item.brand, item.quantity, item.catalogSource].filter(Boolean).join(' · ');
-                html += '<div data-ai-product-id="' + resultIndex + '" class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center gap-3"><div class="w-10 h-10 shrink-0 rounded-xl bg-emerald-50 flex items-center justify-center"><i class="fa-solid fa-box text-emerald-700"></i></div><div class="min-w-0 flex-1">' + (item.isFlyerOffer ? '<span class="inline-block text-[10px] font-semibold uppercase tracking-wide text-emerald-800 bg-emerald-50 rounded px-2 py-1 mb-1">Offerta da volantino</span>' : item.isOfficialCatalogPrice ? '<span class="inline-block text-[10px] font-semibold uppercase tracking-wide text-blue-800 bg-blue-50 rounded px-2 py-1 mb-1">Catalogo ufficiale</span>' : '') + '<p class="font-semibold text-gray-900 break-words">' + escapeHtml(item.productName) + '</p>' + (productDetails ? '<p class="text-xs text-gray-500 mt-1">' + escapeHtml(productDetails) + '</p>' : '') + '<p class="text-xs text-gray-500">' + priceText + '</p>' + registerButton + '</div><button type="button" class="shopping-action shrink-0" onclick=\'addShoppingItem(' + safeName + ', ' + safeBarcode + ', ' + safePrice + ', ' + safeSupermarket + ', ' + safePriceSource + ', ' + safeSourceUrl + ', ' + safeTimestamp + ')\'><i class="fa-solid fa-plus mr-1"></i>Aggiungi</button></div>';
+                html += '<div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center gap-3"><div class="w-10 h-10 shrink-0 rounded-xl bg-emerald-50 flex items-center justify-center"><i class="fa-solid fa-box text-emerald-700"></i></div><div class="min-w-0 flex-1">' + (item.isFlyerOffer ? '<span class="inline-block text-[10px] font-semibold uppercase tracking-wide text-emerald-800 bg-emerald-50 rounded px-2 py-1 mb-1">Offerta da volantino</span>' : item.isOfficialCatalogPrice ? '<span class="inline-block text-[10px] font-semibold uppercase tracking-wide text-blue-800 bg-blue-50 rounded px-2 py-1 mb-1">Catalogo ufficiale</span>' : '') + '<p class="font-semibold text-gray-900 break-words">' + escapeHtml(item.productName) + '</p>' + (productDetails ? '<p class="text-xs text-gray-500 mt-1">' + escapeHtml(productDetails) + '</p>' : '') + '<p class="text-xs text-gray-500">' + priceText + '</p>' + registerButton + '</div><button type="button" class="shopping-action shrink-0" onclick=\'addShoppingItem(' + safeName + ', ' + safeBarcode + ', ' + safePrice + ', ' + safeSupermarket + ', ' + safePriceSource + ', ' + safeSourceUrl + ', ' + safeTimestamp + ')\'><i class="fa-solid fa-plus mr-1"></i>Aggiungi</button></div>';
             });
             html += '</div>';
             // La ricerca del catalogo non deve spacciare una voce libera per un prodotto venduto da un supermercato.
