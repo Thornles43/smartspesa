@@ -1718,7 +1718,9 @@
                     let bitmap;
                     try { bitmap = await createImageBitmap(file); } catch { return [file]; }
                     try {
-                        const tallReceipt = bitmap.height > maxSide && bitmap.height / bitmap.width >= 2.5;
+                        // Anche gli scontrini lunghi fotografati con lo sfondo (spesso rapporto circa 2:1)
+                        // vanno divisi per mantenere leggibili i caratteri senza ridurre la foto intera.
+                        const tallReceipt = bitmap.height > maxSide && bitmap.height / bitmap.width >= 1.5;
                         const scale = tallReceipt
                             ? Math.min(1, maxSide / bitmap.width)
                             : Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
