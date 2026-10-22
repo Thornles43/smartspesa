@@ -403,14 +403,22 @@
         <section class="bg-white border border-gray-200 rounded-2xl p-4 mb-4">
             <label class="block text-sm font-semibold mb-1" for="receiptFile">Foto o PDF dello scontrino</label><input id="receiptFile" type="file" accept=".pdf,application/pdf,image/*" multiple class="w-full text-sm border border-gray-300 rounded-xl p-3" onchange="processReceiptFiles(this.files)">
             <p class="text-xs text-gray-500 mt-2">Carica 1 foto per uno scontrino corto oppure 2 foto per uno lungo: inquadra le parti una dopo l’altra, con buona luce e testo a fuoco. Puoi anche caricare un PDF multipagina. Dopo la lettura, ogni riga viene confrontata con lo storico dei prodotti associati ai supermercati; le corrispondenze sono suggerimenti e vanno verificate prima del salvataggio.</p>
-            <p id="receiptProcessingStatus" class="text-sm text-gray-600 mt-2" role="status" aria-live="polite">Se la foto è sfocata o il testo non è leggibile, ti chiederò di rifarla.</p>
+            <p id="receiptProcessingStatus" class="text-sm text-gray-600 mt-2" role="status" aria-live="polite">Se qualche voce non è chiara, puoi rifare la foto o aggiungerla a mano.</p>
+            <div id="receiptRecoveryPanel" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-3 mt-3" role="region" aria-labelledby="receiptRecoveryTitle">
+                <p id="receiptRecoveryTitle" class="font-semibold text-amber-950">Controlla le voci dello scontrino</p>
+                <p class="text-sm text-amber-900 mt-1">Qualche riga potrebbe essere stata letta male o saltata. Se puoi, rifai la foto dritta, ravvicinata e con buona luce. Altrimenti aggiungi a mano solo le voci mancanti o poco chiare.</p>
+                <div class="flex flex-wrap gap-2 mt-3">
+                    <button type="button" onclick="document.getElementById('receiptFile').click()" class="px-3 py-2 rounded-lg border border-amber-300 bg-white text-sm font-semibold text-amber-950">Rifai o scegli un’altra foto</button>
+                    <button type="button" onclick="addMissingReceiptRow()" class="px-3 py-2 rounded-lg bg-amber-800 text-sm font-semibold text-white">Aggiungi una voce a mano</button>
+                </div>
+            </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
                 <div><label for="receiptSupermarket" class="block text-sm font-medium mb-1">Supermercato / negozio</label><input id="receiptSupermarket" type="text" maxlength="80" class="w-full border border-gray-300 rounded-xl p-3" placeholder="Es. Coop, Lidl, Conad"></div>
                 <div><label for="receiptDate" class="block text-sm font-medium mb-1">Data acquisto</label><input id="receiptDate" type="date" class="w-full border border-gray-300 rounded-xl p-3"></div>
                 <div><label for="receiptTotal" class="block text-sm font-medium mb-1">Totale scontrino (€), facoltativo</label><input id="receiptTotal" type="text" inputmode="decimal" class="w-full border border-gray-300 rounded-xl p-3" placeholder="Es. 34,75"></div>
             </div>
         </section>
-        <section class="bg-white border border-gray-200 rounded-2xl p-4 mb-4"><h3 class="font-bold mb-2">Testo riconosciuto</h3><p class="text-xs text-gray-500 mb-3">I prodotti vengono estratti automaticamente dopo la lettura. Controlla e correggi nomi e prezzi prima di salvare; puoi anche incollare il testo manualmente.</p><textarea id="receiptExtractedText" rows="8" class="w-full border border-gray-300 rounded-xl p-3 text-sm" placeholder="Il testo dello scontrino comparirà qui."></textarea><p class="text-xs text-gray-500 mt-2">La lettura avviene solo nel browser e può non riconoscere tutte le righe. Controlla nomi e importi, correggi il testo o aggiungi manualmente le voci mancanti.</p><div class="flex flex-wrap gap-2 mt-3"><button type="button" onclick="parseReceiptText()" class="px-4 py-3 rounded-xl border border-gray-300 font-semibold">Estrai prodotti</button><button type="button" onclick="addReceiptRow()" class="px-4 py-3 rounded-xl border border-gray-300 font-semibold">+ Aggiungi riga</button></div></section>
+        <section class="bg-white border border-gray-200 rounded-2xl p-4 mb-4"><h3 class="font-bold mb-2">Testo riconosciuto</h3><p class="text-xs text-gray-500 mb-3">Controlla il testo letto. Se noti una voce mancante o poco chiara, puoi aggiungerla con il pulsante qui sopra.</p><textarea id="receiptExtractedText" rows="8" class="w-full border border-gray-300 rounded-xl p-3 text-sm" placeholder="Il testo dello scontrino comparirà qui."></textarea><p class="text-xs text-gray-500 mt-2">Puoi correggere qui il testo e selezionare “Estrai prodotti”, oppure verificare e modificare le singole voci nell’elenco.</p><div class="flex flex-wrap gap-2 mt-3"><button type="button" onclick="parseReceiptText()" class="px-4 py-3 rounded-xl border border-gray-300 font-semibold">Estrai prodotti</button><button type="button" onclick="addReceiptRow()" class="px-4 py-3 rounded-xl border border-gray-300 font-semibold">+ Aggiungi riga</button></div></section>
         <section class="bg-white border border-gray-200 rounded-2xl p-4"><div class="flex items-center justify-between gap-2 mb-3"><h3 class="font-bold">Prodotti da confermare</h3><span id="receiptRowCount" class="text-xs text-gray-500">0 prodotti</span></div><div id="receiptRows" class="space-y-3"><p class="text-sm text-gray-400">Carica lo scontrino e verifica le righe riconosciute.</p></div><button type="button" id="saveReceiptButton" onclick="saveReceiptItems()" class="w-full mt-4 px-4 py-3 rounded-xl bg-green-700 text-white font-bold"><i class="fa-solid fa-cloud-arrow-up mr-2"></i>Conferma e salva prezzi</button><p id="receiptSaveStatus" class="text-sm mt-3" role="status" aria-live="polite"></p></section>
     </div>
 
@@ -1645,6 +1653,8 @@
             if (!files.length) return;
             const status = document.getElementById("receiptProcessingStatus");
             const textarea = document.getElementById("receiptExtractedText");
+            const recoveryPanel = document.getElementById("receiptRecoveryPanel");
+            recoveryPanel.classList.add("hidden");
             receiptCurrentFileName = "";
             textarea.value = ""; receiptParsedRows = []; renderReceiptRows();
             if (files.length > 2 && !files.some(file => file.type === "application/pdf" || /\.pdf$/i.test(file.name))) {
@@ -1814,6 +1824,7 @@
                 if (!combinedText.trim()) {
                     textarea.value = combinedText;
                     status.textContent = "Non sono riuscito a leggere lo scontrino. Rifai la foto con buona luce e a fuoco, oppure incolla qui il testo.";
+                    recoveryPanel.classList.remove("hidden");
                     return;
                 }
                 textarea.value = combinedText;
@@ -1827,9 +1838,11 @@
                 } else {
                     status.textContent = "Lettura completata da " + files.length + (files.length === 1 ? " file." : " immagini.") + " Controlla che tutte le voci siano presenti e verifica nomi e prezzi prima di salvare.";
                 }
+                recoveryPanel.classList.remove("hidden");
             } catch (error) {
                 console.error("Lettura scontrino:", error);
                 status.textContent = "ERRORE di lettura: " + (error.message || "problema nel file o nell'OCR") + ". Prova con una foto più nitida o un PDF leggibile.";
+                recoveryPanel.classList.remove("hidden");
             } finally {
                 if (ocrWorker) {
                     try { await ocrWorker.terminate(); } catch (error) { console.warn("Chiusura OCR:", error); }
@@ -2040,12 +2053,22 @@
 
         window.addReceiptRow = () => { receiptParsedRows.push({ productName: "", price: "", barcode: "" }); renderReceiptRows(); };
 
+        window.addMissingReceiptRow = () => {
+            receiptParsedRows.unshift({ productName: "", price: "", barcode: "" });
+            renderReceiptRows();
+            const productInput = document.querySelector('#receiptRows [data-receipt-field="productName"][data-index="0"]');
+            if (productInput) {
+                productInput.scrollIntoView({ behavior: "smooth", block: "center" });
+                productInput.focus({ preventScroll: true });
+            }
+        };
+
         function renderReceiptRows() {
             const container = document.getElementById("receiptRows"), count = document.getElementById("receiptRowCount");
             if (!container || !count) return;
             count.textContent = receiptParsedRows.length + (receiptParsedRows.length === 1 ? " prodotto" : " prodotti");
             if (!receiptParsedRows.length) { container.innerHTML = '<p class="text-sm text-gray-400">Nessuna riga pronta. Estrai il testo o aggiungi una riga manualmente.</p>'; return; }
-            container.innerHTML = receiptParsedRows.map((row, index) => '<div class="border border-gray-200 rounded-xl p-3 grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label class="block text-xs text-gray-500 mb-1">Prodotto</label><input data-receipt-field="productName" data-index="' + index + '" value="' + escapeHtml(row.productName) + '" maxlength="180" class="w-full border border-gray-300 rounded-lg p-2 text-sm"></div><div><label class="block text-xs text-gray-500 mb-1">Prezzo (€)</label><input data-receipt-field="price" data-index="' + index + '" value="' + escapeHtml(row.price) + '" inputmode="decimal" class="w-full border border-gray-300 rounded-lg p-2 text-sm"></div><div class="sm:col-span-2" data-receipt-match="' + index + '">' + receiptMatchHtml(row) + '</div><button type="button" class="text-xs text-red-600 font-semibold justify-self-start" onclick="removeReceiptRow(' + index + ')">Rimuovi riga</button></div>').join("");
+            container.innerHTML = receiptParsedRows.map((row, index) => '<div class="border border-gray-200 rounded-xl p-3 grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label class="block text-xs text-gray-500 mb-1">Prodotto</label><input data-receipt-field="productName" data-index="' + index + '" value="' + escapeHtml(row.productName) + '" maxlength="180" placeholder="Es. Latte intero" class="w-full border border-gray-300 rounded-lg p-2 text-sm"></div><div><label class="block text-xs text-gray-500 mb-1">Prezzo (€)</label><input data-receipt-field="price" data-index="' + index + '" value="' + escapeHtml(row.price) + '" inputmode="decimal" placeholder="Es. 1,29" class="w-full border border-gray-300 rounded-lg p-2 text-sm"></div><div class="sm:col-span-2" data-receipt-match="' + index + '">' + receiptMatchHtml(row) + '</div><button type="button" class="text-xs text-red-600 font-semibold justify-self-start" onclick="removeReceiptRow(' + index + ')">Rimuovi riga</button></div>').join("");
             container.querySelectorAll("[data-receipt-field]").forEach(input => input.addEventListener("input", () => {
                 const i = Number(input.dataset.index);
                 if (receiptParsedRows[i]) {
