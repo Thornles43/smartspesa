@@ -1825,7 +1825,7 @@
                 if (!receiptTextHasPriceRows(combinedText) || warnings.length) {
                     status.textContent = "Lettura parziale: controlla il testo e completa manualmente le righe mancanti. " + warnings.join(" ");
                 } else {
-                    status.textContent = "Lettura completata da " + files.length + (files.length === 1 ? " file." : " immagini.") + " Controlla che tutte le voci siano presenti e verifica nomi e prezzi prima di salvare."
+                    status.textContent = "Lettura completata da " + files.length + (files.length === 1 ? " file." : " immagini.") + " Controlla che tutte le voci siano presenti e verifica nomi e prezzi prima di salvare.";
                 }
             } catch (error) {
                 console.error("Lettura scontrino:", error);
