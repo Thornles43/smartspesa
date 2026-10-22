@@ -304,6 +304,12 @@ if (eurospinFixtureProducts.length !== 1 || eurospinFixtureProducts[0].price !==
   throw new Error("Test parser catalogo Eurospin non superato: " + JSON.stringify(eurospinFixtureProducts));
 }
 
+// Esegue i controlli locali senza interrogare i siti dei retailer né aggiornare il catalogo.
+if (process.env.SMARTSPESA_CATALOG_TEST_ONLY === "1") {
+  console.log("Controlli locali parser cataloghi superati (prezzi, JSON-LD, Conad, Eurospin).");
+  process.exit(0);
+}
+
 function parseProducts(source, html) {
   if (source.mode === "jsonld") return parseJsonLdProducts(source, html);
   if (source.mode === "conad") return parseConadProducts(source, html);
