@@ -2333,7 +2333,7 @@
                 .replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' ');
         }
 
-        unction productSearchScore(query, productName) {
+        function productSearchScore(query, productName) {
             const q = normalizeProductName(query);
             const name = normalizeProductName(productName);
             if (!q || !name) return 0;
