@@ -1696,21 +1696,30 @@
                                 status.textContent = "Preparo la lingua italiana…";
                             }
                         }
+                    }, {
+                        // Gli scontrini usano nomi abbreviati e marchi, non frasi normali.
+                        // Disattivare i dizionari evita che il motore li "corregga" in parole comuni.
+                        load_system_dawg: "0",
+                        load_freq_dawg: "0"
                     });
                     return ocrWorker;
                 };
 
                 const readReceiptCanvas = async canvas => {
                     const worker = await getOcrWorker();
+                    // PSM 4 tratta il corpo come una colonna di righe, tipica dello scontrino.
+                    await worker.setParameters({ tessedit_pageseg_mode: "4", preserve_interword_spaces: "1" });
                     const first = await worker.recognize(canvas);
                     const firstText = String(first.data.text || "");
                     const firstRows = countReceiptPriceRows(firstText);
                     const firstConfidence = Number(first.data.confidence) || 0;
                     if (firstRows >= 5 && firstConfidence >= 68) return first.data;
                     const enhancedCanvas = enhanceReceiptContrast(canvas);
-                    if (!enhancedCanvas) return first.data;
-                    status.textContent = "Testo poco nitido: provo a migliorare il contrasto nel browser…";
-                    const second = await worker.recognize(enhancedCanvas);
+                    status.textContent = "Testo poco nitido: provo una seconda lettura con impostazioni diverse…";
+                    // PSM 6 è una seconda ipotesi utile quando lo scontrino contiene
+                    // colonne o spaziature irregolari; usa anche il contrasto corretto se disponibile.
+                    await worker.setParameters({ tessedit_pageseg_mode: "6", preserve_interword_spaces: "1" });
+                    const second = await worker.recognize(enhancedCanvas || canvas);
                     const secondText = String(second.data.text || "");
                     const secondRows = countReceiptPriceRows(secondText);
                     const secondConfidence = Number(second.data.confidence) || 0;
@@ -1719,9 +1728,6 @@
                     return secondScore > firstScore ? second.data : first.data;
                 };
 
-                // Mantiene leggibile la stampa termica: ridimensionare uno scontrino molto
-                // lungo in un'unica immagine rimpicciolisce troppo le lettere. Le foto
-                // verticali vengono quindi lette a sezioni sovrapposte, solo nel browser.
                 const prepareReceiptImageTiles = async file => {
                     const maxSide = 1800;
                     if (typeof createImageBitmap !== "function") return [file];
