@@ -277,6 +277,12 @@
             </div>
             <p class="text-xs text-emerald-800 mt-3">I collegamenti aprono i siti dei supermercati: non indicano ancora un prezzo importato automaticamente.</p>
         </section>
+        <section class="mb-5 rounded-2xl border border-red-100 bg-red-50 p-4">
+            <h3 class="font-bold text-red-950 mb-1"><i class="fa-solid fa-trash-can mr-2"></i>I miei prezzi da scontrino</h3>
+            <p class="text-sm text-red-900 mb-3">Se alcuni prezzi letti da uno scontrino sono errati puoi eliminarli. Vengono cancellati solo i prezzi che hai inserito tu; ogni prezzo tuo ha anche il pulsante “Elimina il mio prezzo”.</p>
+            <button id="deleteReceiptPricesButton" type="button" onclick="deleteMyReceiptPrices()" class="px-4 py-2 rounded-xl bg-red-700 text-white text-sm font-semibold">Elimina i miei prezzi da scontrino</button>
+            <p id="deleteReceiptPricesStatus" class="text-sm text-red-900 mt-2" role="status" aria-live="polite"></p>
+        </section>
         <div id="priceListContainer" class="space-y-4">
             <div class="text-center py-10 text-gray-400">
                 <i class="fa-solid fa-basket-shopping text-4xl mb-3"></i>
@@ -415,11 +421,11 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
                 <div><label for="receiptSupermarket" class="block text-sm font-medium mb-1">Supermercato / negozio</label><input id="receiptSupermarket" type="text" maxlength="80" class="w-full border border-gray-300 rounded-xl p-3" placeholder="Es. Coop, Lidl, Conad"></div>
                 <div><label for="receiptDate" class="block text-sm font-medium mb-1">Data acquisto</label><input id="receiptDate" type="date" class="w-full border border-gray-300 rounded-xl p-3"></div>
-                <div><label for="receiptTotal" class="block text-sm font-medium mb-1">Totale scontrino (€), facoltativo</label><input id="receiptTotal" type="text" inputmode="decimal" class="w-full border border-gray-300 rounded-xl p-3" placeholder="Es. 34,75"></div>
+                <div><label for="receiptTotal" class="block text-sm font-medium mb-1">Totale scontrino (€): serve a controllare la lettura</label><input id="receiptTotal" type="text" inputmode="decimal" class="w-full border border-gray-300 rounded-xl p-3" placeholder="Es. 34,75"></div>
             </div>
         </section>
         <section class="bg-white border border-gray-200 rounded-2xl p-4 mb-4"><h3 class="font-bold mb-2">Testo riconosciuto</h3><p class="text-xs text-gray-500 mb-3">Controlla il testo letto. Se noti una voce mancante o poco chiara, puoi aggiungerla con il pulsante qui sopra.</p><textarea id="receiptExtractedText" rows="8" class="w-full border border-gray-300 rounded-xl p-3 text-sm" placeholder="Il testo dello scontrino comparirà qui."></textarea><p class="text-xs text-gray-500 mt-2">Puoi correggere qui il testo e selezionare “Estrai prodotti”, oppure verificare e modificare le singole voci nell’elenco.</p><div class="flex flex-wrap gap-2 mt-3"><button type="button" onclick="parseReceiptText()" class="px-4 py-3 rounded-xl border border-gray-300 font-semibold">Estrai prodotti</button><button type="button" onclick="addReceiptRow()" class="px-4 py-3 rounded-xl border border-gray-300 font-semibold">+ Aggiungi riga</button></div></section>
-        <section class="bg-white border border-gray-200 rounded-2xl p-4"><div class="flex items-center justify-between gap-2 mb-3"><h3 class="font-bold">Prodotti da confermare</h3><span id="receiptRowCount" class="text-xs text-gray-500">0 prodotti</span></div><div id="receiptRows" class="space-y-3"><p class="text-sm text-gray-400">Carica lo scontrino e verifica le righe riconosciute.</p></div><button type="button" id="saveReceiptButton" onclick="saveReceiptItems()" class="w-full mt-4 px-4 py-3 rounded-xl bg-green-700 text-white font-bold"><i class="fa-solid fa-cloud-arrow-up mr-2"></i>Conferma e salva prezzi</button><p id="receiptSaveStatus" class="text-sm mt-3" role="status" aria-live="polite"></p></section>
+        <section class="bg-white border border-gray-200 rounded-2xl p-4"><div class="flex items-center justify-between gap-2 mb-3"><h3 class="font-bold">Prodotti da confermare</h3><span id="receiptRowCount" class="text-xs text-gray-500">0 prodotti</span></div><div id="receiptCheckPanel" class="hidden" role="status" aria-live="polite"></div><div id="receiptRows" class="space-y-3"><p class="text-sm text-gray-400">Carica lo scontrino e verifica le righe riconosciute.</p></div><button type="button" id="saveReceiptButton" onclick="saveReceiptItems()" class="w-full mt-4 px-4 py-3 rounded-xl bg-green-700 text-white font-bold"><i class="fa-solid fa-cloud-arrow-up mr-2"></i>Conferma e salva prezzi</button><p id="receiptSaveStatus" class="text-sm mt-3" role="status" aria-live="polite"></p></section>
     </div>
 
     <!-- SCHERMATA: CATALOGO DA VOLANTINI -->
@@ -1346,6 +1352,7 @@
         let flyerParsedRows = [];
         let flyerCurrentFileName = "";
         let receiptParsedRows = [];
+        let receiptExpectedUnits = null;
         let receiptCurrentFileName = "";
 
         window.openFlyerCatalog = () => {
@@ -1656,7 +1663,7 @@
             const recoveryPanel = document.getElementById("receiptRecoveryPanel");
             recoveryPanel.classList.add("hidden");
             receiptCurrentFileName = "";
-            textarea.value = ""; receiptParsedRows = []; renderReceiptRows();
+            textarea.value = ""; receiptParsedRows = []; receiptExpectedUnits = null; { const totalField = document.getElementById("receiptTotal"); if (totalField) totalField.value = ""; } renderReceiptRows();
             if (files.length > 2 && !files.some(file => file.type === "application/pdf" || /\.pdf$/i.test(file.name))) {
                 status.textContent = "Puoi caricare al massimo 2 foto per scontrino. Per più pagine, seleziona un PDF.";
                 document.getElementById("receiptFile").value = ""; return;
@@ -2085,48 +2092,144 @@
                 '<a href="' + escapeHtml(foodUrl) + '" target="_blank" rel="noopener noreferrer" class="inline-flex items-center rounded-lg border border-green-300 bg-white px-3 py-2 text-xs font-semibold text-green-800">Catalogo alimentare</a></div>' +
                 '<p class="text-[11px] text-gray-500 mt-2">La ricerca parte solo quando tocchi un link e invia il nome di questa riga, non la foto o lo scontrino. I risultati aiutano a correggere il nome, ma non confermano prezzo o disponibilità nel negozio.</p></div>';
         }
+        // Aliquote IVA italiane: una vera riga prodotto di uno scontrino ne riporta una.
+        const RECEIPT_VAT_RATES = [4, 5, 10, 22];
+        // Testo dei loghi/filigrane stampati sulla carta (es. "BPA FREE", "FSC"): non è mai un prodotto.
+        const RECEIPT_NOISE_NAME = /\b(bpa|fsc|pefc)\b/i;
+        const RECEIPT_PRICE_PATTERN = /(?:€\s*)?((?:\d{1,3}(?:\.\d{3})+|\d{1,6})[,.]\d{2})\s*€?/g;
+
+        // Legge il numero di articoli stampato sullo scontrino ("ARTICOLI 107"), se presente.
+        function parseReceiptExpectedUnits(text) {
+            const match = String(text || "").match(/\barticol[oi]\b[^\d\n]{0,15}(\d{1,3})\b/i);
+            return match ? Number(match[1]) : null;
+        }
+
         function extractReceiptRowsFromText(text) {
             const lines = String(text || "").split(/\r?\n/).map(line => line.replace(/\s+/g, " ").trim()).filter(Boolean);
             const ignored = /\b(totale|subtotale|importo pagato|tot\.?\s*doc|documento commerciale|iva|aliquota|imponibile|contanti|bancomat|mastercard|visa|pagamento|resto|sconto totale|risparmio|punti|carta fedelta|transazione|autorizzazione|partita iva|codice fiscale|www\.|http)\b/i;
             const rows = [];
             let pendingProduct = "";
+            // Riga "12 x 0,35": il prezzo unitario vale per la riga prodotto successiva (es. 12 x 0,35 = 4,20).
+            let pendingMultiplier = null;
             for (const line of lines) {
-                if (ignored.test(line) || /\b(carta|credito|debito)\b/i.test(line)) { pendingProduct = ""; continue; }
+                if (ignored.test(line) || /\b(carta|credito|debito)\b/i.test(line)) { pendingProduct = ""; pendingMultiplier = null; continue; }
+                const multiplier = line.match(/^(\d{1,3})\s*[xX*]\s*(?:€\s*)?((?:\d{1,3}(?:\.\d{3})+|\d{1,6})[,.]\d{2})\s*€?$/);
+                if (multiplier) {
+                    const count = Number(multiplier[1]), unit = parseItalianMoney(multiplier[2]);
+                    pendingMultiplier = count >= 2 && Number.isFinite(unit) ? { count, unit } : null;
+                    continue;
+                }
                 const withoutVatRate = line.replace(/\s+\d{1,2}\s*%\s*$/i, "");
                 if (/^\d{1,3}\s*[xX*]\s*$/.test(withoutVatRate)) continue;
                 const normalizedLine = withoutVatRate.replace(/(\d)[,.]\s+(\d{2})(?!\d)/g, "$1,$2");
-                const matches = [...normalizedLine.matchAll(/(?:€\s*)?((?:\d{1,3}(?:\.\d{3})+|\d{1,6})[,.]\d{2})\s*€?/g)];
+                const matches = [...normalizedLine.matchAll(RECEIPT_PRICE_PATTERN)];
                 if (!matches.length) {
                     const name = line.replace(/^[\s.,;:|•·∙●*-]+/, "").replace(/^[\d]{1,2}[xX*]\s*/, "").trim();
-                    if (name.length >= 3 && /[a-zA-ZÀ-ÿ]{3}/.test(name)) pendingProduct = name;
+                    if (name.length >= 3 && /[a-zA-ZÀ-ÿ]{3}/.test(name) && !RECEIPT_NOISE_NAME.test(name)) pendingProduct = name;
                     continue;
                 }
                 const match = matches[matches.length - 1], price = parseItalianMoney(match[1]);
                 if (!Number.isFinite(price) || price < 0 || price > 10000) continue;
-                let name = normalizedLine.slice(0, match.index).replace(/^[\s.,;:|•·∙●*-]+/, "").replace(/[|•·—–-]+$/g, "").trim();
+                const beforePrice = normalizedLine.slice(0, match.index);
+                let vat = null;
+                const vatBefore = beforePrice.match(/(\d{1,2})\s*%\s*$/), vatAfter = line.match(/(\d{1,2})\s*%\s*$/);
+                if (vatBefore) vat = Number(vatBefore[1]); else if (vatAfter) vat = Number(vatAfter[1]);
+                let name = beforePrice.replace(/^[\s.,;:|•·∙●*-]+/, "").replace(/[|•·—–-]+$/g, "").trim();
                 name = name.replace(/\s+\d{1,2}\s*%\s*$/i, "").trim();
                 name = name.replace(/^\d{1,2}[xX*]\s*/, "").trim();
                 if (/^\d{1,3}\s*[xX*]$/.test(name)) continue;
                 if (!/[a-zA-ZÀ-ÿ]{3}/.test(name) && pendingProduct) name = pendingProduct;
-                if (name.length < 3 || !/[a-zA-ZÀ-ÿ]/.test(name) || /^\d+[,.]?\d*\s*(kg|g|ml|l)?$/i.test(name)) continue;
-                rows.push({ productName: name.slice(0, 180), price: price.toFixed(2), barcode: "" });
+                if (name.length < 3 || !/[a-zA-ZÀ-ÿ]/.test(name) || /^\d+[,.]?\d*\s*(kg|g|ml|l)?$/i.test(name) || RECEIPT_NOISE_NAME.test(name)) continue;
+                let qty = 1, unitPrice = price;
+                if (pendingMultiplier && Math.abs(pendingMultiplier.count * pendingMultiplier.unit - price) <= 0.011) {
+                    qty = pendingMultiplier.count; unitPrice = pendingMultiplier.unit;
+                }
+                pendingMultiplier = null;
+                rows.push({ productName: name.slice(0, 180), price: unitPrice.toFixed(2), qty, vat, barcode: "" });
                 pendingProduct = "";
             }
+            // Se quasi tutte le righe hanno l'IVA, quelle senza IVA sono sospette: vanno controllate a mano.
+            const withVat = rows.filter(row => RECEIPT_VAT_RATES.includes(row.vat)).length;
+            const strictVat = withVat >= 5 && withVat >= rows.length * 0.6;
+            rows.forEach(row => { row.uncertain = strictVat && !RECEIPT_VAT_RATES.includes(row.vat); });
             return rows;
+        }
+
+        // Confronta le righe lette con il totale e con il numero di articoli stampati sullo scontrino.
+        function computeReceiptCheck() {
+            let sumCents = 0, units = 0;
+            for (const row of receiptParsedRows) {
+                const price = parseItalianMoney(row.price);
+                const qty = Math.max(1, Math.min(999, parseInt(row.qty, 10) || 1));
+                units += qty;
+                if (Number.isFinite(price) && price >= 0) sumCents += Math.round(price * 100) * qty;
+            }
+            const totalInput = document.getElementById("receiptTotal");
+            const totalText = totalInput ? totalInput.value.trim() : "";
+            const total = totalText ? parseItalianMoney(totalText) : NaN;
+            const hasTotal = Number.isFinite(total) && total >= 0;
+            const totalCents = hasTotal ? Math.round(total * 100) : null;
+            return {
+                sum: sumCents / 100, units, hasTotal,
+                total: hasTotal ? totalCents / 100 : null,
+                diff: hasTotal ? (sumCents - totalCents) / 100 : null,
+                matches: hasTotal && sumCents === totalCents,
+                expectedUnits: receiptExpectedUnits
+            };
+        }
+
+        function formatReceiptEuro(value) {
+            return Number(value).toLocaleString("it-IT", { style: "currency", currency: "EUR" });
+        }
+
+        function renderReceiptCheck() {
+            const panel = document.getElementById("receiptCheckPanel");
+            if (!panel) return;
+            if (!receiptParsedRows.length) { panel.className = "hidden"; panel.textContent = ""; return; }
+            const check = computeReceiptCheck();
+            let tone, message;
+            if (!check.hasTotal) {
+                tone = "border-gray-200 bg-gray-50 text-gray-800";
+                message = "Somma delle righe: " + formatReceiptEuro(check.sum) + ". Inserisci il totale dello scontrino per controllare che la lettura sia completa.";
+            } else if (check.matches) {
+                tone = "border-green-300 bg-green-50 text-green-900";
+                message = "Il conto torna: somma delle righe " + formatReceiptEuro(check.sum) + " = totale dello scontrino " + formatReceiptEuro(check.total) + ".";
+            } else {
+                tone = "border-amber-400 bg-amber-50 text-amber-950";
+                message = "Il conto non torna: somma delle righe " + formatReceiptEuro(check.sum) + ", totale dello scontrino " + formatReceiptEuro(check.total) + " (differenza " + formatReceiptEuro(check.diff) + "). " +
+                    (check.diff < 0 ? "Probabilmente manca una riga o un prezzo è stato letto troppo basso." : "Probabilmente c'è una riga in più o un prezzo è stato letto troppo alto (oppure lo scontrino ha uno sconto).") +
+                    " Controlla le righe prima di salvare.";
+            }
+            if (check.expectedUnits !== null) {
+                message += " Articoli: " + check.units + " letti su " + check.expectedUnits + " indicati sullo scontrino" + (check.units === check.expectedUnits ? " ✓." : ".");
+            }
+            panel.className = "rounded-xl border p-3 mb-3 text-sm font-medium " + tone;
+            panel.textContent = message;
         }
 
         window.parseReceiptText = () => {
             const saveButton = document.getElementById("saveReceiptButton");
             if (saveButton) saveButton.disabled = false;
             const text = document.getElementById("receiptExtractedText").value || "";
+            receiptExpectedUnits = parseReceiptExpectedUnits(text);
             const rows = extractReceiptRowsFromText(text);
-            const seen = new Set();
-            receiptParsedRows = rows.filter(row => { const key = normalizeProductName(row.productName) + "|" + row.price; if (seen.has(key)) return false; seen.add(key); return true; }).slice(0, 150);
+            // Righe con lo stesso prodotto e lo stesso prezzo unitario vengono unite sommando la quantità:
+            // così il controllo sul totale conta ogni articolo acquistato.
+            const merged = new Map();
+            for (const row of rows) {
+                const key = normalizeProductName(row.productName) + "|" + row.price;
+                const existing = merged.get(key);
+                if (existing) { existing.qty += row.qty; existing.uncertain = existing.uncertain && row.uncertain; }
+                else merged.set(key, { ...row });
+            }
+            receiptParsedRows = [...merged.values()].slice(0, 150);
             renderReceiptRows();
             document.getElementById("receiptSaveStatus").textContent = receiptParsedRows.length
-                ? "Trovate " + receiptParsedRows.length + " righe candidate. Verifica attentamente gli importi prima di salvare."
+                ? "Trovate " + receiptParsedRows.length + " righe candidate. Verifica il controllo sul totale e gli importi prima di salvare."
                 : "Nessuna riga riconosciuta. Correggi il testo o aggiungi i prodotti manualmente.";
         };
+
+        document.getElementById("receiptTotal")?.addEventListener("input", renderReceiptCheck);
 
         window.addReceiptRow = () => { receiptParsedRows.push({ productName: "", price: "", barcode: "" }); renderReceiptRows(); };
 
@@ -2140,12 +2243,29 @@
             }
         };
 
+        function receiptLineTotalLabel(row) {
+            const price = parseItalianMoney(row.price), qty = Math.max(1, parseInt(row.qty, 10) || 1);
+            return Number.isFinite(price) ? formatReceiptEuro(price * qty) : "—";
+        }
+
+        function updateReceiptRowCount() {
+            const count = document.getElementById("receiptRowCount");
+            if (!count) return;
+            const units = receiptParsedRows.reduce((sum, row) => sum + Math.max(1, parseInt(row.qty, 10) || 1), 0);
+            count.textContent = receiptParsedRows.length + (receiptParsedRows.length === 1 ? " prodotto" : " prodotti") + (units !== receiptParsedRows.length ? " · " + units + " articoli" : "");
+        }
+
         function renderReceiptRows() {
             const container = document.getElementById("receiptRows"), count = document.getElementById("receiptRowCount");
             if (!container || !count) return;
-            count.textContent = receiptParsedRows.length + (receiptParsedRows.length === 1 ? " prodotto" : " prodotti");
-            if (!receiptParsedRows.length) { container.innerHTML = '<p class="text-sm text-gray-400">Nessuna riga pronta. Estrai il testo o aggiungi una riga manualmente.</p>'; return; }
-            container.innerHTML = receiptParsedRows.map((row, index) => '<div class="border border-gray-200 rounded-xl p-3 grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label class="block text-xs text-gray-500 mb-1">Prodotto</label><input data-receipt-field="productName" data-index="' + index + '" value="' + escapeHtml(row.productName) + '" maxlength="180" placeholder="Es. Latte intero" class="w-full border border-gray-300 rounded-lg p-2 text-sm"></div><div><label class="block text-xs text-gray-500 mb-1">Prezzo (€)</label><input data-receipt-field="price" data-index="' + index + '" value="' + escapeHtml(row.price) + '" inputmode="decimal" placeholder="Es. 1,29" class="w-full border border-gray-300 rounded-lg p-2 text-sm"></div><div class="sm:col-span-2" data-receipt-match="' + index + '">' + receiptMatchHtml(row) + '</div><button type="button" class="text-xs text-red-600 font-semibold justify-self-start" onclick="removeReceiptRow(' + index + ')">Rimuovi riga</button></div>').join("");
+            updateReceiptRowCount();
+            if (!receiptParsedRows.length) { container.innerHTML = '<p class="text-sm text-gray-400">Nessuna riga pronta. Estrai il testo o aggiungi una riga manualmente.</p>'; renderReceiptCheck(); return; }
+            container.innerHTML = receiptParsedRows.map((row, index) => '<div class="border rounded-xl p-3 grid grid-cols-1 sm:grid-cols-2 gap-3' + (row.uncertain ? ' border-amber-400 bg-amber-50' : ' border-gray-200') + '">' +
+                (row.uncertain ? '<p class="sm:col-span-2 text-xs font-semibold text-amber-900">Riga senza aliquota IVA: controlla che sia davvero un prodotto e che il prezzo sia giusto.</p>' : '') +
+                '<div><label class="block text-xs text-gray-500 mb-1">Prodotto</label><input data-receipt-field="productName" data-index="' + index + '" value="' + escapeHtml(row.productName) + '" maxlength="180" placeholder="Es. Latte intero" class="w-full border border-gray-300 rounded-lg p-2 text-sm"></div>' +
+                '<div><label class="block text-xs text-gray-500 mb-1">Prezzo unitario (€)</label><input data-receipt-field="price" data-index="' + index + '" value="' + escapeHtml(row.price) + '" inputmode="decimal" placeholder="Es. 1,29" class="w-full border border-gray-300 rounded-lg p-2 text-sm"></div>' +
+                '<div><label class="block text-xs text-gray-500 mb-1">Quantità</label><input data-receipt-field="qty" data-index="' + index + '" value="' + escapeHtml(row.qty || 1) + '" inputmode="numeric" maxlength="3" class="w-24 border border-gray-300 rounded-lg p-2 text-sm"><p class="text-xs text-gray-500 mt-1">Totale riga: <span data-receipt-linetotal="' + index + '">' + escapeHtml(receiptLineTotalLabel(row)) + '</span></p></div>' +
+                '<div class="sm:col-span-2" data-receipt-match="' + index + '">' + receiptMatchHtml(row) + '</div><button type="button" class="text-xs text-red-600 font-semibold justify-self-start" onclick="removeReceiptRow(' + index + ')">Rimuovi riga</button></div>').join("");
             container.querySelectorAll("[data-receipt-field]").forEach(input => input.addEventListener("input", () => {
                 const i = Number(input.dataset.index);
                 if (receiptParsedRows[i]) {
@@ -2153,9 +2273,15 @@
                     if (input.dataset.receiptField === "productName") {
                         const matchPanel = container.querySelector('[data-receipt-match="' + i + '"]');
                         if (matchPanel) matchPanel.innerHTML = receiptMatchHtml(receiptParsedRows[i]);
+                    } else {
+                        const lineTotal = container.querySelector('[data-receipt-linetotal="' + i + '"]');
+                        if (lineTotal) lineTotal.textContent = receiptLineTotalLabel(receiptParsedRows[i]);
+                        updateReceiptRowCount();
+                        renderReceiptCheck();
                     }
                 }
             }));
+            renderReceiptCheck();
         }
 
         window.removeReceiptRow = index => { receiptParsedRows.splice(index, 1); renderReceiptRows(); };
@@ -2173,6 +2299,8 @@
             const rows = receiptParsedRows.map(row => ({ productName: String(row.productName || "").trim(), price: parseItalianMoney(row.price), barcode: String(row.barcode || "").replace(/\D/g, "").slice(0, 14) })).filter(row => row.productName && Number.isFinite(row.price) && row.price >= 0 && row.price < 100000);
             if (!rows.length) { status.textContent = "Nessuna riga valida. Controlla nomi e prezzi."; return; }
             if (rows.length !== receiptParsedRows.length && !confirm("Alcune righe non sono valide. Salvare solo le " + rows.length + " righe corrette?")) return;
+            const receiptCheck = computeReceiptCheck();
+            if (receiptCheck.hasTotal && !receiptCheck.matches && !confirm("Attenzione: la somma delle righe (" + formatReceiptEuro(receiptCheck.sum) + ") non coincide con il totale dello scontrino (" + formatReceiptEuro(receiptCheck.total) + "). Probabilmente una riga manca o è letta male. Salvare comunque questi prezzi?")) return;
             if (!confirm("Salvare " + rows.length + " prezzi nel catalogo condiviso? La foto e il testo OCR completo non verranno archiviati.")) return;
             button.disabled = true; button.textContent = "Salvataggio…"; status.textContent = "Salvo i prezzi confermati…";
             let saved = 0, failed = 0;
@@ -2950,7 +3078,7 @@
                 const q = query(collection(db, "prices"), orderBy("timestamp", "desc"), limit(PRICE_PAGE_SIZE));
                 const snapshot = await getDocs(q);
                 if (generation !== priceLoadGeneration) return;
-                allKnownPrices = snapshot.docs.map(item => item.data());
+                allKnownPrices = snapshot.docs.map(item => ({ ...item.data(), docId: item.id }));
                 pricePageCursor = snapshot.docs.length ? snapshot.docs[snapshot.docs.length - 1] : null;
                 priceHasMore = snapshot.docs.length === PRICE_PAGE_SIZE;
                 renderPriceList(allKnownPrices);
@@ -2991,7 +3119,7 @@
                 const q = query(collection(db, "prices"), orderBy("timestamp", "desc"), startAfter(pricePageCursor), limit(PRICE_PAGE_SIZE));
                 const snapshot = await getDocs(q);
                 if (generation !== priceLoadGeneration) return;
-                const page = snapshot.docs.map(item => item.data());
+                const page = snapshot.docs.map(item => ({ ...item.data(), docId: item.id }));
                 allKnownPrices = allKnownPrices.concat(page);
                 if (snapshot.docs.length) pricePageCursor = snapshot.docs[snapshot.docs.length - 1];
                 priceHasMore = snapshot.docs.length === PRICE_PAGE_SIZE;
@@ -3063,6 +3191,47 @@
             return 'Rilevato il ' + formatted;
         }
 
+        // Elimina un solo prezzo: consentito soltanto all'autore (vedi firestore.rules).
+        window.deletePrice = async docId => {
+            if (!currentUser || !docId) return;
+            if (!confirm("Eliminare definitivamente questo prezzo?")) return;
+            try {
+                await deleteDoc(doc(db, "prices", docId));
+                await loadPrices();
+            } catch (error) {
+                console.error("Eliminazione prezzo:", error);
+                alert("Non riesco a eliminare il prezzo. " + (error.code === "permission-denied"
+                    ? "Puoi eliminare solo i prezzi inseriti da te; se è un tuo prezzo, le regole Firebase aggiornate potrebbero non essere ancora pubblicate."
+                    : "Controlla la connessione e riprova."));
+            }
+        };
+
+        // Elimina in blocco i prezzi salvati dall'utente corrente a partire da scontrini.
+        window.deleteMyReceiptPrices = async () => {
+            const status = document.getElementById("deleteReceiptPricesStatus");
+            const button = document.getElementById("deleteReceiptPricesButton");
+            if (!currentUser) { alert("Accedi con Google per eliminare i tuoi prezzi."); return; }
+            button.disabled = true; status.textContent = "Cerco i tuoi prezzi da scontrino…";
+            try {
+                const snapshot = await getDocs(query(collection(db, "prices"), where("userId", "==", currentUser.uid)));
+                const mine = snapshot.docs.filter(item => item.data().priceSource === "receipt");
+                if (!mine.length) { status.textContent = "Non hai prezzi salvati da scontrino."; return; }
+                if (!confirm("Eliminare definitivamente " + (mine.length === 1 ? "il prezzo che hai salvato" : "i " + mine.length + " prezzi che hai salvato") + " da scontrini? L'operazione non si può annullare.")) { status.textContent = ""; return; }
+                let deleted = 0, failed = 0;
+                for (const item of mine) {
+                    try { await deleteDoc(item.ref); deleted++; } catch (error) { failed++; console.error("Eliminazione prezzo da scontrino:", error); }
+                    status.textContent = "Eliminati " + deleted + " di " + mine.length + "…";
+                }
+                status.textContent = (deleted === 1 ? "1 prezzo eliminato." : deleted + " prezzi eliminati.") + (failed ? " " + failed + " non eliminati: se l'errore è 'permission-denied' le regole Firebase aggiornate non sono ancora pubblicate." : "");
+                await loadPrices();
+            } catch (error) {
+                console.error("Eliminazione prezzi da scontrino:", error);
+                status.textContent = "Operazione non riuscita. Controlla la connessione e riprova.";
+            } finally {
+                button.disabled = false;
+            }
+        };
+
         function renderPriceList(prices) {
             const container = document.getElementById('priceListContainer');
             if (prices.length === 0) {
@@ -3117,6 +3286,7 @@
                         <div class="text-right shrink-0">
                             <p class="text-xl font-bold ${isBest ? 'text-green-600' : 'text-gray-700'}">€${price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                             ${isBest ? '<span class="text-xs font-bold text-green-600">PREZZO PIÙ BASSO REGISTRATO</span>' : ''}
+                            ${currentUser && item.docId && item.userId === currentUser.uid ? '<button type="button" class="block ml-auto mt-2 text-xs font-semibold text-red-600" onclick="deletePrice(\'' + escapeHtml(item.docId) + '\')">Elimina il mio prezzo</button>' : ''}
                         </div>
                     </div>`;
                 });

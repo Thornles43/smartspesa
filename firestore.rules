@@ -23,8 +23,11 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.resource.data.userId == request.auth.uid;
 
-      // Price edits and deletions are not supported by the current app.
-      allow update, delete: if false;
+      // Prices cannot be edited, but the author can delete their own records
+      // (for example prices saved from a receipt that was read incorrectly).
+      allow update: if false;
+      allow delete: if request.auth != null
+                    && resource.data.userId == request.auth.uid;
     }
   }
 }
