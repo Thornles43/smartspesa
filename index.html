@@ -3216,13 +3216,13 @@
                 const snapshot = await getDocs(query(collection(db, "prices"), where("userId", "==", currentUser.uid)));
                 const mine = snapshot.docs.filter(item => item.data().priceSource === "receipt");
                 if (!mine.length) { status.textContent = "Non hai prezzi salvati da scontrino."; return; }
-                if (!confirm("Eliminare definitivamente i " + mine.length + " prezzi che hai salvato da scontrini? L'operazione non si può annullare.")) { status.textContent = ""; return; }
+                if (!confirm("Eliminare definitivamente " + (mine.length === 1 ? "il prezzo che hai salvato" : "i " + mine.length + " prezzi che hai salvato") + " da scontrini? L'operazione non si può annullare.")) { status.textContent = ""; return; }
                 let deleted = 0, failed = 0;
                 for (const item of mine) {
                     try { await deleteDoc(item.ref); deleted++; } catch (error) { failed++; console.error("Eliminazione prezzo da scontrino:", error); }
                     status.textContent = "Eliminati " + deleted + " di " + mine.length + "…";
                 }
-                status.textContent = deleted + " prezzi eliminati." + (failed ? " " + failed + " non eliminati: se l'errore è 'permission-denied' le regole Firebase aggiornate non sono ancora pubblicate." : "");
+                status.textContent = (deleted === 1 ? "1 prezzo eliminato." : deleted + " prezzi eliminati.") + (failed ? " " + failed + " non eliminati: se l'errore è 'permission-denied' le regole Firebase aggiornate non sono ancora pubblicate." : "");
                 await loadPrices();
             } catch (error) {
                 console.error("Eliminazione prezzi da scontrino:", error);
